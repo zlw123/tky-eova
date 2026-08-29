@@ -23,7 +23,7 @@
         "memoryEnabled": true,
         "gitConfig": {
           "repo": "",
-          "branch": "main"
+          "branch": "dev"
         }
       },
       "_finishInEditor": [
@@ -54,7 +54,7 @@
         "memoryEnabled": true,
         "gitConfig": {
           "repo": "",
-          "branch": "main"
+          "branch": "dev"
         }
       },
       "_finishInEditor": [
@@ -91,7 +91,7 @@
         "memoryEnabled": true,
         "gitConfig": {
           "repo": "",
-          "branch": "main"
+          "branch": "dev"
         }
       },
       "_finishInEditor": [

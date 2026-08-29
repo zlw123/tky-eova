@@ -70,7 +70,7 @@ git submodule add https://gitee.com/eova/eova.git meta-eova/eova
 - [ ] `git remote -v` 指向 remis-eova.git
 - [ ] `git submodule status` 显示 meta-eova/eova
 - [ ] GitLab 上可见 `docs/automation/`、`docs/ai-task-board.md`
-- [ ] Cursor Automations 编辑器里 **gitConfig.repo** 选该仓库、`main` 分支
+- [ ] Cursor Automations 编辑器里 **gitConfig.repo** 选该仓库、**dev** 分支（日常开发；main 受保护）
 - [ ] 任务板 **AUTO-002** → Done，**AUTO-003** → Ready
 
 ---

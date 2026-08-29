@@ -14,8 +14,9 @@
 
 ### 下一步
 
-1. **AUTO-003**：Agents Window 导入 `prefill-workflows.json`
-2. **AUTO-004**：Orchestrator 认领 LC-011 → Worker port EovaExp
+1. 日常开发在 **dev** 分支（Automations gitConfig.branch = dev）
+2. **AUTO-003**：Agents Window 导入 `prefill-workflows.json`
+3. **AUTO-004**：Orchestrator 认领 LC-011 → Worker port EovaExp
 
 ---
 
