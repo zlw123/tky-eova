@@ -9,7 +9,8 @@
 - **附加**：`TableSource` 最小 compile-stub（禁止当已迁移）；`SqlParseGoldenTest` 5 钩子
 - **验收**：cwd `remis-eova/backend/yudao-cloud`；`mvn -pl yudao-module-eova/eova-core -am compile -DskipTests` BUILD SUCCESS；`test` 9 tests BUILD SUCCESS
 - **LC-011**：保持 In Progress，待 Verifier
-- **下一步**：Verifier 核验本 PR；通过前不派下一单元
+- **PR**：https://github.com/zlw123/tky-eova/pull/3 （base `dev`）
+- **下一步**：Verifier 核验 PR `#3`；通过前不派下一单元
 
 ---
 

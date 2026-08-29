@@ -70,6 +70,7 @@ Worker 完成状态：
 
 - 上一 Worker PR：https://github.com/zlw123/tky-eova/pull/1 （DRAFT，`EovaExp`）
 - Verifier docs PR：https://github.com/zlw123/tky-eova/pull/2 （DRAFT；仅确认 `EovaExp`）
+- **本轮 Worker PR**：https://github.com/zlw123/tky-eova/pull/3 （`port(LC-011): SqlParse` → `dev`）
 
 ---
 
