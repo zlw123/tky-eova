@@ -1,5 +1,21 @@
 # Session Handoff
 
+## 2026-08-29T15:56Z - Orchestrator 复核 LC-011 单元 SqlCondition（未新认领）
+
+- **时间**：2026-08-29T15:56:00Z（cron `*/7`）
+- **动作**：已有 In Progress=`LC-011`，**不新认领**；`SqlCondition` 清单已存在且源文件仍在，原样保留；Worker 已提交 PR `#7`，Verifier 未通过 `SqlCondition`，不派再下一单元
+- **单元路径**：`meta-eova/eova/core/src/main/java/cn/eova/engine/SqlCondition.java` → `remis-eova/backend/yudao-cloud/yudao-module-eova/eova-core/src/main/java/cn/eova/engine/SqlCondition.java`
+- **traceability**：`cn.eova.engine.SqlCondition`
+- **基线**：draft PR `#7`（`cursor/eova-porting-dc30`）已代码级新建 `SqlCondition`（A 直迁 POJO，非 stub）；`TableSource` 仍为 compile-stub
+- **未派**：`EovaExpBuilder`（依赖 `ExpUtil`/`Db`，单单元会堆 stub）
+- **Worker**：`bc-cc198c65` IDLE，draft PR `#7` `port(LC-011): SqlCondition`；上一 Worker `bc-ff58e26f` IDLE，draft PR `#5`；15:49Z 之后无新 Worker
+- **Verifier**：仍仅确认 `EovaExpParam`（PR `#6`）；15:49Z 之后无新 Verifier；`EovaExp`/`SqlParse`/`EovaExpParam` 禁止重 port；`SqlCondition` 通过前禁止重 port
+- **本 checkout / `dev`**：`remis-eova/` 仍空（仅 `.gitkeep`）；产物在 PR `#7` 分支
+- **未认领**：`FE-001` 仍 Ready；`AUTO-003` Ready 但不在试点白名单
+- **下一步**：Verifier 核验 `SqlCondition`（PR `#7`）；Orchestrator 禁止开 PR、禁止写业务代码
+
+---
+
 ## 2026-08-29T15:49Z - Orchestrator 复核 LC-011 单元 SqlCondition（未新认领）
 
 - **时间**：2026-08-29T15:49:00Z（cron `*/7`）

@@ -8,7 +8,7 @@
 
 ## 2. 当前任务快照
 
-- **Orchestrator 本轮**（2026-08-29T15:49Z，cron `*/7`，`bc-f02ba73e`）：已有 In Progress，**未新认领**。`SqlCondition` 清单已存在且源文件仍在，原样保留；Worker PR `#7` 已 port，Verifier 尚未核验 `SqlCondition`，不派再下一单元。
+- **Orchestrator 本轮**（2026-08-29T15:56Z，cron `*/7`，`bc-c55875eb`）：已有 In Progress，**未新认领**。`SqlCondition` 清单已存在且源文件仍在，原样保留；Worker PR `#7` 已 port，Verifier 尚未核验 `SqlCondition`，不派再下一单元。
 - **In Progress**: 1
   - `LC-011`：eova-core 内核（后端）— `EovaExp`、`SqlParse`、`EovaExpParam` 已验证；本轮单元 `SqlCondition`（Worker 已 port，待 Verifier）
 - **Ready**: 2
@@ -73,6 +73,8 @@ Worker 注意：
 - 15:37Z Verifier `bc-2082b094` IDLE，PR `#6` 通过 `EovaExpParam`。
 - 15:42Z Orchestrator `bc-511667c6` IDLE，补派 `SqlCondition`。
 - 15:45Z Worker `bc-cc198c65` IDLE，draft PR `#7` `port(LC-011): SqlCondition`。
+- 15:49Z Orchestrator `bc-f02ba73e` IDLE，保留 `SqlCondition` 清单。
+- 15:56Z 本轮无并行 Worker/Verifier。
 
 ---
 
@@ -84,7 +86,7 @@ Worker 注意：
    - **GitLab（内网备份）**：`http://10.20.110.206:45001/remis/modules/remis-eova.git`
    - submodule：`meta-eova/eova`
 3. **Kingbase SQL 备份**：`docs/sql/kingbase/`。
-4. **Automation**：本 run `bc-f02ba73e-04de-4e05-ae21-4ad8dcad06ce`；Worker `bc-cc198c65` IDLE 且 draft PR `#7`；Verifier `bc-2082b094` IDLE 且 draft PR `#6` 仅通过 `EovaExpParam`；上一 Orchestrator `bc-511667c6` IDLE（15:42Z 补派 `SqlCondition`）。
+4. **Automation**：本 run `bc-c55875eb-ae31-453c-8292-d203dc535b92`；Worker `bc-cc198c65` IDLE 且 draft PR `#7`；Verifier `bc-2082b094` IDLE 且 draft PR `#6` 仅通过 `EovaExpParam`；上一 Orchestrator `bc-f02ba73e` IDLE（15:49Z 保留 `SqlCondition`）。15:49Z 之后无新 Worker/Verifier。
 5. 试点顺序：**LC-011**（`EovaExp` + `SqlParse` + `EovaExpParam` 已验证 → 当前 `SqlCondition` 已 port 待验）→ 再内核单元或 **FE-001/FE-002**。
 6. 源文件已核对存在：`meta-eova/eova/core/src/main/java/cn/eova/engine/SqlCondition.java`。
 
