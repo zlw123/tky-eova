@@ -1,0 +1,104 @@
+{
+  "_comment": "Agents Window 中通过 open_automation 导入；需先将 eova 仓库 push 到 GitHub 并在编辑器补全 repo/branch",
+  "automations": [
+    {
+      "name": "eova-migration-orchestrator",
+      "description": "读任务板，认领 1 个 Ready 任务为 In Progress，产出单单元 Worker 清单，更新 rolling docs。不写业务代码。",
+      "workflow": {
+        "triggers": [
+          {
+            "cron": {
+              "cron": "0 9 * * 1-5"
+            }
+          }
+        ],
+        "actions": [],
+        "prompts": [
+          "你是 EOVA 迁移 Orchestrator。严格按 docs/automation/orchestrator-instructions.md 执行。\n\n本 run：只更新 docs/ai-task-board.md、docs/session-current.md、docs/session-handoff.md；不写 remis-eova 业务代码；最多认领 1 个 Ready 任务并产出 1 个 Worker 单元 JSON 清单。\n\n若已有 In Progress 任务，只补清单不新认领。试点白名单见 orchestrator-instructions。"
+        ],
+        "model": "",
+        "agentOptions": {
+          "skipInstall": false
+        },
+        "memoryEnabled": true,
+        "gitConfig": {
+          "repo": "",
+          "branch": "main"
+        }
+      },
+      "_finishInEditor": [
+        "gitConfig.repo：选择 eova GitHub 仓库",
+        "Cloud Agent 算力（建议开启）",
+        "确认 cron 时区是否符合预期"
+      ]
+    },
+    {
+      "name": "eova-migration-worker",
+      "description": "按 session-current 中的 Worker 清单，从 meta-eova 代码级 port 1 个单元到 remis-eova，并开 PR。",
+      "workflow": {
+        "triggers": [
+          {
+            "cron": {
+              "cron": "30 9 * * 1-5"
+            }
+          }
+        ],
+        "actions": [],
+        "prompts": [
+          "你是 EOVA 迁移 Worker。严格按 docs/automation/worker-instructions.md 与 DES-002-R1 / R1-F 执行。\n\n从 docs/session-current.md 读取 Worker 清单 JSON；只 port 1 个单元；禁止重写逻辑；禁止动 meta-eova。\n\n完成后：更新 rolling docs、commit、创建 PR（port(taskId): 单元名）。"
+        ],
+        "model": "",
+        "agentOptions": {
+          "skipInstall": false
+        },
+        "memoryEnabled": true,
+        "gitConfig": {
+          "repo": "",
+          "branch": "main"
+        }
+      },
+      "_finishInEditor": [
+        "gitConfig.repo：与 Orchestrator 相同",
+        "建议启用 Cloud Agent",
+        "可选：改为 Webhook 由 Orchestrator commit 后触发"
+      ]
+    },
+    {
+      "name": "eova-migration-verifier",
+      "description": "对 Worker PR 做编译/golden 验证，回写 Done 或 Blocked。",
+      "workflow": {
+        "triggers": [
+          {
+            "git": {
+              "pullRequest": {
+                "action": "GIT_PULL_REQUEST_ACTION_PUSHED"
+              }
+            }
+          }
+        ],
+        "actions": [
+          {
+            "prComment": {}
+          }
+        ],
+        "prompts": [
+          "你是 EOVA 迁移 Verifier。严格按 docs/automation/verifier-instructions.md 执行。\n\n验证当前 PR：Java 跑 mvn compile；前端跑 pnpm build（若存在）；检查 ported from 追溯；golden 缺失则跳过 API diff 并记录。\n\n结果写入 rolling docs；失败标 Blocked 并在 PR 评论摘要；不写新 port 代码。"
+        ],
+        "model": "",
+        "agentOptions": {
+          "skipInstall": false
+        },
+        "memoryEnabled": true,
+        "gitConfig": {
+          "repo": "",
+          "branch": "main"
+        }
+      },
+      "_finishInEditor": [
+        "git.pullRequest.repos：限定 eova 仓库",
+        "gitConfig.repo + branch",
+        "PR 评论权限"
+      ]
+    }
+  ]
+}

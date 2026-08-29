@@ -1,0 +1,3 @@
+[submodule "meta-eova/eova"]
+	path = meta-eova/eova
+	url = https://gitee.com/eova/eova.git

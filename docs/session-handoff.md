@@ -1,0 +1,215 @@
+# Session Handoff
+
+## 2026-08-29 - AUTO-001 Cursor Automations 三层流水线
+
+### 本轮目标
+
+按推荐模式落地 Orchestrator + Worker + Verifier，供 Agents Window 创建 Automation。
+
+### 本轮产出
+
+1. `docs/automation/README.md` — 架构与前置条件
+2. `orchestrator-instructions.md` / `worker-instructions.md` / `verifier-instructions.md` — 完整 prompt
+3. `prefill-workflows.json` — 三条 Automation 编辑器预填草稿
+4. 任务板新增 AUTO-001~004
+
+### 阻塞 / 待办
+
+1. **AUTO-002**：拿哥在 GitLab 建空库 `http://10.20.110.206:45001/remis/modules/remis-eova.git` 后，按 `docs/AUTO-002-git-bootstrap.md` init + submodule + push
+2. **Agents Window**：导入 prefill，补全 GitHub repo / PR 范围
+3. 首跑试点：Orchestrator 认领 LC-011 → Worker port EovaExp
+
+---
+
+## 2026-08-29 - DES-002-R1-F 前端代码级迁移方案
+
+### 本轮目标
+
+与后端 R1 同口径，输出前端逐文件 port 方案。
+
+### 本轮确认的事实
+
+1. 平台 view **113** + demo **25** 文件；自研业务 JS ~55 个、~3500 行。
+2. 已是 Vue3 setup，但契约依赖 `window.urls`、`{state,msg,data}`、`uzoo.page`。
+3. 已写 `docs/DES-002-R1-frontend-code-level-migration.md`；FE-001 Ready。
+
+### 下一步建议
+
+1. DES-002-R2 / R2-F 完整对照表。
+2. FE-001 与 LC-011 并行。
+
+---
+
+## 2026-08-29 - DES-002-R1 代码级迁移路线修订
+
+### 本轮目标
+
+回应拿哥「原方案做不到代码级迁移」的质疑，修订方法论。
+
+### 本轮确认的事实
+
+1. 原 DES-002 任务清单偏 **按功能重写**，缺文件级追溯与 golden 对照。
+2. meta-eova/core：**267** Java，**149** 个直接 import JFinal；WidgetManager 等必须用 **Db 适配层 + 逻辑移植**。
+3. 已写 `docs/DES-002-R1-code-level-migration.md`；LC-001 后移，LC-011/012 前置。
+
+### 下一步建议
+
+1. 拿哥确认 R1 修订路线。
+2. DES-002-R2：267 文件对照表 + golden API 清单。
+
+---
+
+## 2026-08-29 - DES-002 三项决策落定
+
+### 本轮目标
+
+确认落仓命名、身份策略、前端形态，更新迁移方案。
+
+### 本轮确认的事实
+
+1. **remis-eova 仓库** = 原方案所称新代码落点（不再称「eova 仓」）。
+2. **身份**：先迁移 `eova_user/eova_role`；并入 platform System → **DES-003 后续**。
+3. **前端**：先独立 `remis-eova/fornt/eova-ui`；嵌入 yudao-ui → **DES-004 后续**。
+4. **LC-001** 已进入 Ready，待放行执行脚手架。
+
+### 下一步建议
+
+1. 拿哥确认「开干脚手架」。
+2. LC-001 初始化 `remis-eova/backend/yudao-cloud/yudao-module-eova/`。
+
+---
+
+## 2026-08-29 - DES-002 落仓目录调整为 remis-eova
+
+### 本轮目标
+
+按拿哥要求，将迁移方案推荐目录改为前后端均放在 `remis-eova/` 下。
+
+### 本轮确认的事实
+
+1. 新工程根：`/Users/zhouliwei/eova/remis-eova/`（当前为空目录，待 LC-001 初始化）。
+2. 后端：`remis-eova/backend/yudao-cloud/yudao-module-eova/`
+3. 前端：`remis-eova/fornt/yudao-ui/`
+4. `DES-002-01` 标记 Done；Phase 0 进度 50%，整体 ≈3%。
+5. 仍待决：身份体系、前端独立站 vs 嵌入 yudao-ui。
+
+### 下一步建议
+
+1. 确认身份 + 前端形态。
+2. LC-001 在 `remis-eova/backend/` 初始化 Maven 模块。
+
+---
+
+## 2026-08-29 - DES-002 meta-eova 技术栈迁移方案
+
+### 本轮目标
+
+输出与 platform 完全一致技术栈的代码级迁移方案、任务规划、详细清单与进度表。
+
+### 本轮确认的事实
+
+1. meta-eova：JFinal 5.2.6 + JDK8 + ActiveRecord + Enjoy/Vue3/EovaUI；~288 Java、~27 Controller、32+25 表。
+2. platform：Spring Boot 3.4.5 + JDK17 + MyBatis-Plus + Vue3/TS/Element Plus + Gateway/Nacos/Kingbase/Redis。
+3. 已写 `docs/DES-002-meta-eova-tech-stack-migration.md`，任务板 59 项，整体进度约 2%。
+4. 阻塞：落仓位置、用户权限融合、前端形态三项决策。
+
+### 下一步建议
+
+1. 拿哥确认 DES-002 第 8 节 3 件事。
+2. LC-001 创建 `yudao-module-eova` 脚手架。
+
+---
+
+## 2026-08-25 - DES-001 执行完成（建库+导入+VAL）
+
+### 本轮目标
+
+按 DES-001 在 54321 创建并导入 `eova_meta` / `demo`。
+
+### 本轮确认的事实
+
+1. 两库已创建，均为 `database_mode=mysql`。
+2. `eova_meta` 公共表 32 张；抽样：`eova_user=21`（含补丁列 `status`）、`eova_menu=33`、`eova_button=211`、`eova_object=42`、`eova_role=9`。
+3. `demo` 公共表 25 张；抽样：`users=34`、`area=3410`、`orders=13`、`address=4`、`data_10=2`。
+4. 清洗产出：`meta-eova/eova/demo/sql/kingbase/`；执行记录：`docs/DES-001-exec-log.md`。
+
+### 当前剩余问题
+
+- 应用 JDBC / `dev.txt` 尚未切换到新库。
+- Tabularis 未新增指向 `eova_meta`/`demo` 的连接（可选）。
+
+### 下一步建议
+
+1. 配置 Demo 数据源指向 54321 两库并启动验证登录。
+2. 需要时在 Tabularis 增加两库连接便于日常查数。
+
+---
+
+## 2026-08-25 - 54321 system 新密码验证
+
+
+### 本轮目标
+
+用拿哥提供的 `system` 新密码验证 54321 连通。
+
+### 本轮确认的事实
+
+1. Node PG 直连 `base.platform:54321` / 库 `kingbase` / 用户 `system` **成功**。
+2. `database_mode=mysql`；版本 KingbaseES V008R006C008B0020。
+3. 已更新 `~/.cursor/mcp.json` 中 `kingbase-baseplatform` 连接串；当前 MCP 进程仍报旧密码失败，需重载。
+
+### 当前剩余问题
+
+- 等拿哥确认「按 DES-001 执行」后建 `eova_meta` / `demo`。
+
+### 下一步建议
+
+1. 重载 Cursor MCP 后复测 `kingbase-baseplatform`。
+2. 放行后用已验证密码执行 DES-001 建库导入。
+
+---
+
+## 2026-08-25 - DES-001 建库评估（eova_meta / demo）
+
+### 本轮目标
+
+摸清 MySQL 脚本与 54321 现状，给出建库导入设计，不直接动库。
+
+### 本轮确认的事实
+
+1. 脚本：`eova_meta.sql`（32 表）、`demo.sql`（25 表），均为 MySQL8 Navicat 导出。
+2. 54321 现有库无 `eova_meta`/`demo`；`system` 可建库；`database_mode=mysql`。
+3. 已写 `docs/DES-001-kingbase-eova-dbs.md`：推荐双 DATABASE + 轻量清洗导入。
+
+### 当前剩余问题
+
+- 等待拿哥确认库名、放行写入、导入通道（Tabularis 新连接 / 密码 CLI）。
+
+### 下一步建议
+
+1. 拿哥确认 DES-001 后执行建库与导入。
+2. 导入后做表数量与关键表抽样 VAL。
+
+---
+
+## 2026-08-25 - Kingbase 54321 连通性验证
+
+### 本轮目标
+
+确认能否链接 Kingbase 端口 `54321`。
+
+### 本轮确认的事实
+
+1. `base.platform` 解析到 `10.20.110.206`；`54321` / `34321` TCP 均通。
+2. Tabularis `baseplatform-db` 查询成功：`kingbase` / `system` / 端口 `54321` / `KingbaseES V008R006C008B0020`。
+3. MCP `user-kingbase-baseplatform` 查询失败：`password authentication failed for user "system"`。
+4. MCP `user-kingbase-34321` `test_connection` 成功（端口 `34321`，schema `gd-biz-lz`）。
+
+### 当前剩余问题
+
+- `kingbase-baseplatform` MCP 凭据与 Tabularis 已成功凭据不同步。
+
+### 下一步建议
+
+1. 用 Tabularis `baseplatform-db` 继续查 54321。
+2. 若需要 MCP 直连：更新 mcp.json 密码后重载，再跑一次 `SELECT version()`。
