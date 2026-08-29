@@ -8,7 +8,7 @@
 
 ## 2. 当前任务快照
 
-- **Orchestrator 本轮**（2026-08-29T14:50Z，cron `*/10`）：已有 In Progress，**未新认领**。`SqlParse` Worker 清单已在 14:40Z 补齐且源文件仍在，本轮原样保留，不派再下一单元。
+- **Orchestrator 本轮**（2026-08-29T15:00Z，cron `*/10`）：已有 In Progress，**未新认领**。`SqlParse` Worker 清单已在 14:40Z 补齐且源文件仍在，本轮原样保留，不派再下一单元。
 - **In Progress**: 1
   - `LC-011`：eova-core 内核（后端）— 首单元 `EovaExp` 已验证；本轮单元仍为 `SqlParse`
 - **Ready**: 2
@@ -40,7 +40,8 @@ Worker 注意：
 
 - 本 checkout / `dev` 上 `remis-eova/` 仍仅 `.gitkeep`；脚手架与 `EovaExp` 在 draft PR `#1`（`cursor/eova-porting-143b`）。本单元应基于该分支 **替换 stub**，不要另起空模块。
 - `SqlParse` 依赖 `cn.eova.sql.dql.TableSource`：若编译缺类，只允许最小 stub（字段/getter），**禁止**把 `TableSource` 当本单元已 port。
-- 14:40 Worker `bc-9acdc25d`（`cursor/eova-porting-d1ac`）已 IDLE：**无 PR、远程无该分支**，判定为本 tick 并行时读到旧 `EovaExp` 清单后空跑。`EovaExp` 已验证，**禁止重 port**；下一 Worker 以本 JSON 为准只做 `SqlParse`。
+- 14:40 Worker `bc-9acdc25d`（`cursor/eova-porting-d1ac`）已 IDLE：**无 PR、远程无该分支**，判定为当时并行读到旧 `EovaExp` 清单后空跑。`EovaExp` 已验证，**禁止重 port**。
+- 本 tick 并行 Worker `bc-8bc8dca0`（`cursor/eova-porting-abdb`）RUNNING，尚无 PR；以本 JSON 为准只做 `SqlParse`。
 - Orchestrator **不写业务代码、不开 PR、不 merge**。
 
 ---
@@ -68,15 +69,15 @@ Worker 注意：
    - **GitLab（内网备份）**：`http://10.20.110.206:45001/remis/modules/remis-eova.git`
    - submodule：`meta-eova/eova`
 3. **Kingbase SQL 备份**：`docs/sql/kingbase/`。
-4. **Automation**：本 run `bc-145461d0-5202-465a-ac85-114618f11c0d`；上一 Orchestrator `bc-3981182d` IDLE（已补 `SqlParse`）；Verifier `bc-5c23de0f` IDLE 且仅通过 `EovaExp`；Worker `bc-9acdc25d` IDLE 无 PR。本 tick 未见新 Worker。
+4. **Automation**：本 run `bc-58935e16-46e8-495b-a1e3-bb4daacd2b2b`；上一 Orchestrator `bc-145461d0` IDLE（已保留 `SqlParse`）；本 tick 并行 Worker `bc-8bc8dca0` RUNNING、Verifier `bc-4866cd2a` RUNNING。上一 Worker `bc-9acdc25d` IDLE 无 PR；上一 Verifier `bc-5c23de0f` IDLE 且仅通过 `EovaExp`。
 5. 试点顺序：**LC-011**（`EovaExp` 已验证 → 当前 `SqlParse`）→ 再内核单元或 **FE-001/FE-002**。
-6. 源文件已核对存在：`meta-eova/eova/core/src/main/java/cn/eova/engine/SqlParse.java`。
+6. 源文件已核对存在：`meta-eova/eova/core/src/main/java/cn/eova/engine/SqlParse.java`。PR `#1` 中 `SqlParse.java` 仍为 compile-stub。
 
 ---
 
 ## 6. 后续锚点
 
-Worker 按本 JSON 单文件 port `SqlParse`（替换 stub）→ Verifier 核验。Orchestrator **不**再认领 FE-001，**不**开 PR。Verifier 通过前不派再下一单元。
+本 tick Worker `bc-8bc8dca0` 按本 JSON 单文件 port `SqlParse`（替换 stub）→ Verifier 核验。Orchestrator **不**再认领 FE-001，**不**开 PR。Verifier 通过前不派再下一单元。
 
 ---
 

@@ -1,5 +1,19 @@
 # Session Handoff
 
+## 2026-08-29T15:00Z - Orchestrator 复核 LC-011 单元 SqlParse（未新认领）
+
+- **时间**：2026-08-29T15:00:00Z（cron `*/10`）
+- **动作**：已有 In Progress=`LC-011`，**不新认领**；`SqlParse` 清单已存在且源文件仍在，原样保留；Verifier 尚未通过 `SqlParse`，不派再下一单元
+- **单元路径**：`meta-eova/eova/core/src/main/java/cn/eova/engine/SqlParse.java` → `remis-eova/backend/yudao-cloud/yudao-module-eova/eova-core/src/main/java/cn/eova/engine/SqlParse.java`
+- **traceability**：`cn.eova.engine.SqlParse`
+- **Worker**：上一轮 `bc-9acdc25d` 仍 IDLE 无 PR；本 tick 并行 Worker `bc-8bc8dca0`（`cursor/eova-porting-abdb`）RUNNING，尚无 PR
+- **Verifier**：仍仅确认 `EovaExp`（PR `#2`）；本 tick 并行 Verifier `bc-4866cd2a` RUNNING；`SqlParse` 在 PR `#1` 仍为 compile-stub
+- **本 checkout / `dev`**：`remis-eova/` 仍空（仅 `.gitkeep`）；产物在 PR `#1` 分支
+- **未认领**：`FE-001` 仍 Ready；`AUTO-003` Ready 但不在试点白名单
+- **下一步**：本 tick Worker 按清单替换 `SqlParse` stub；Orchestrator 禁止开 PR、禁止写业务代码
+
+---
+
 ## 2026-08-29T14:50Z - Orchestrator 复核 LC-011 单元 SqlParse（未新认领）
 
 - **时间**：2026-08-29T14:50:00Z（cron `*/10`）
