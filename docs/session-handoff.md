@@ -1,5 +1,19 @@
 # Session Handoff
 
+## 2026-08-29T15:17Z - Worker port LC-011 单元 EovaExpParam
+
+- **时间**：2026-08-29T15:17:00Z（cron `*/15` Worker）
+- **动作**：按清单单文件 port `EovaExpParam`（A 直迁 enum），替换 PR `#3` compile-stub
+- **单元路径**：`meta-eova/eova/core/src/main/java/cn/eova/engine/EovaExpParam.java` → `remis-eova/backend/yudao-cloud/yudao-module-eova/eova-core/src/main/java/cn/eova/engine/EovaExpParam.java`
+- **traceability**：`cn.eova.engine.EovaExpParam`
+- **基线**：基于 draft PR `#3`（`cursor/eova-porting-abdb`）脚手架；**未重 port** `EovaExp` / `SqlParse`；`TableSource` 仍为 compile-stub
+- **验收**：`mvn -pl yudao-module-eova/eova-core -am compile -DskipTests` → BUILD SUCCESS；`test` → 12 tests BUILD SUCCESS（EovaExp 4 + SqlParse 5 + EovaExpParam 3）
+- **golden**：`EovaExpParamGoldenTest`；完整 API 等 LC-013（`golden: skipped`）
+- **meta-eova**：只读，未提交
+- **下一步**：Verifier 核验本单元；LC-011 保持 In Progress
+
+---
+
 ## 2026-08-29T15:07Z - Orchestrator 补派 LC-011 单元 EovaExpParam（未新认领）
 
 - **时间**：2026-08-29T15:07:00Z（cron `*/7`）
