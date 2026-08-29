@@ -1,5 +1,20 @@
 # Session Handoff
 
+## 2026-08-29T15:35Z - Orchestrator 复核 LC-011 单元 EovaExpParam（未新认领）
+
+- **时间**：2026-08-29T15:35:00Z（cron `*/7`）
+- **动作**：已有 In Progress=`LC-011`，**不新认领**；`EovaExpParam` 清单已存在且源文件仍在，原样保留；Verifier 未通过 `EovaExpParam`，不派再下一单元
+- **单元路径**：`meta-eova/eova/core/src/main/java/cn/eova/engine/EovaExpParam.java` → `remis-eova/backend/yudao-cloud/yudao-module-eova/eova-core/src/main/java/cn/eova/engine/EovaExpParam.java`
+- **traceability**：`cn.eova.engine.EovaExpParam`
+- **基线**：draft PR `#5`（`cursor/eova-porting-e293`）已代码级 port `EovaExpParam`（非 stub）；`TableSource` 仍为 compile-stub
+- **Worker**：15:30Z `bc-cb9f1833` IDLE，跳过重 port、无新 PR（分支 `cursor/eova-porting-282b`）；上一 Worker `bc-ff58e26f` IDLE，draft PR `#5` `port(LC-011): EovaExpParam`
+- **Verifier**：仍仅确认 `SqlParse`（PR `#4`）；本 tick 并行 Verifier `bc-2082b094` RUNNING，结果未回；`EovaExp`/`SqlParse`/`EovaExpParam` 禁止重 port
+- **本 checkout / `dev`**：`remis-eova/` 仍空（仅 `.gitkeep`）；产物在 PR `#5` 分支
+- **未认领**：`FE-001` 仍 Ready；`AUTO-003` Ready 但不在试点白名单
+- **下一步**：等本 tick Verifier 核验 `EovaExpParam`（PR `#5`）；Orchestrator 禁止开 PR、禁止写业务代码
+
+---
+
 ## 2026-08-29T15:28Z - Orchestrator 复核 LC-011 单元 EovaExpParam（未新认领）
 
 - **时间**：2026-08-29T15:28:00Z（cron `*/7`）
