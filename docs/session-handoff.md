@@ -1,5 +1,18 @@
 # Session Handoff
 
+## 2026-08-29T14:30Z - Orchestrator 复核 LC-011 单元 EovaExp（未新认领）
+
+- **时间**：2026-08-29T14:30:00Z（cron `*/10`）
+- **动作**：已有 In Progress=`LC-011`，**不新认领**；Worker JSON 清单已存在且源文件仍在，原样保留；不派下一单元
+- **单元路径**：`meta-eova/eova/core/src/main/java/cn/eova/engine/EovaExp.java` → `remis-eova/backend/yudao-cloud/yudao-module-eova/eova-core/src/main/java/cn/eova/engine/EovaExp.java`
+- **Worker**：`bc-e0817351` IDLE；draft PR `#1` `port(LC-011): EovaExp`（`cursor/eova-porting-143b`）
+- **Verifier**：`bc-5c23de0f` 本 tick 并行跑，结果未回
+- **本 checkout / `dev`**：`remis-eova/` 仍空（仅 `.gitkeep`）；产物在 PR 分支
+- **未认领**：`FE-001` 仍 Ready；`AUTO-003` Ready 但不在试点白名单
+- **下一步**：等 Verifier 通过后再派 `SqlParse` 或改认领 FE-001；Orchestrator 禁止开 PR、禁止写业务代码
+
+---
+
 ## 2026-08-29T14:20Z - Orchestrator 复核 LC-011 单元 EovaExp（未新认领）
 
 - **时间**：2026-08-29T14:20:00Z（cron `*/10`）
