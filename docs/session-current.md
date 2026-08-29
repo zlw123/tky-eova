@@ -44,6 +44,7 @@ Worker 完成状态：
 - **脚手架**：本 checkout 基于 PR `#3`（`cursor/eova-porting-abdb`）的 `remis-eova/`，**未重 port** `EovaExp` / `SqlParse`。
 - **编译桩**：`TableSource` **仍为** compile-stub；**未**把 `TableSource` 当已 port。
 - **golden**：`EovaExpParamGoldenTest`（3 tests）；完整 API golden 等 LC-013。
+- **本轮 Worker PR**：https://github.com/zlw123/tky-eova/pull/5 （DRAFT，`port(LC-011): EovaExpParam`，`cursor/eova-porting-e293` → `dev`）
 
 ---
 

@@ -10,6 +10,7 @@
 - **验收**：`mvn -pl yudao-module-eova/eova-core -am compile -DskipTests` → BUILD SUCCESS；`test` → 12 tests BUILD SUCCESS（EovaExp 4 + SqlParse 5 + EovaExpParam 3）
 - **golden**：`EovaExpParamGoldenTest`；完整 API 等 LC-013（`golden: skipped`）
 - **meta-eova**：只读，未提交
+- **Worker PR**：https://github.com/zlw123/tky-eova/pull/5 （DRAFT，`cursor/eova-porting-e293` → `dev`）
 - **下一步**：Verifier 核验本单元；LC-011 保持 In Progress
 
 ---
