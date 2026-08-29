@@ -8,7 +8,7 @@
 
 ## 2. 当前任务快照
 
-- **Orchestrator 本轮**（2026-08-29T15:56Z，cron `*/7`，`bc-c55875eb`）：已有 In Progress，**未新认领**。`SqlCondition` 清单已存在且源文件仍在，原样保留；Worker PR `#7` 已 port，Verifier 尚未核验 `SqlCondition`，不派再下一单元。
+- **Orchestrator 本轮**（2026-08-29T16:00Z，cron `*/7`，`bc-f5639bcd`）：已有 In Progress，**未新认领**。`SqlCondition` 清单已存在且源文件仍在，原样保留；Worker PR `#7` 已 port，Verifier 尚未核验 `SqlCondition`（无新 Verifier PR），不派再下一单元。本 tick 并行 Worker `bc-5e0fea14` 与 Verifier `bc-519612fb` RUNNING。
 - **In Progress**: 1
   - `LC-011`：eova-core 内核（后端）— `EovaExp`、`SqlParse`、`EovaExpParam` 已验证；本轮单元 `SqlCondition`（Worker 已 port，待 Verifier）
 - **Ready**: 2
@@ -41,6 +41,7 @@ Worker 注意：
 
 - 本 checkout / `dev` 上 `remis-eova/` 仍仅 `.gitkeep`；脚手架与已 port 类在 draft PR `#7`（`cursor/eova-porting-dc30`，基线来自 `#5`）。
 - `SqlCondition` 为无 JFinal 依赖的 POJO（A 直迁）。Worker `bc-cc198c65` 已在 PR `#7` **新建**该文件并自称 compile/16 tests 通过，**仍待 Verifier**。
+- 本 tick 并行 Worker `bc-5e0fea14`（`cursor/eova-porting-ed46`）RUNNING：清单仍是 `SqlCondition`，**禁止再开一单重 port**；以 PR `#7` 为准。
 - `EovaExp`、`SqlParse`、`EovaExpParam` 已验证，**禁止重 port**。`SqlCondition` Verifier 通过前 **禁止重 port**。`TableSource` 在 PR `#7` 仍为 compile-stub，**禁止**当本单元。
 - 未派 `EovaExpBuilder`：其依赖 `ExpUtil.parseSql` 与 JFinal `Db`/`Record`，单单元会被迫堆 stub。
 - Orchestrator **不写业务代码、不开 PR、不 merge**。
@@ -74,7 +75,8 @@ Worker 注意：
 - 15:42Z Orchestrator `bc-511667c6` IDLE，补派 `SqlCondition`。
 - 15:45Z Worker `bc-cc198c65` IDLE，draft PR `#7` `port(LC-011): SqlCondition`。
 - 15:49Z Orchestrator `bc-f02ba73e` IDLE，保留 `SqlCondition` 清单。
-- 15:56Z 本轮无并行 Worker/Verifier。
+- 15:56Z Orchestrator `bc-c55875eb` IDLE，保留 `SqlCondition` 清单；当时无并行 Worker/Verifier。
+- 16:00Z 本轮并行 Worker `bc-5e0fea14` RUNNING（`cursor/eova-porting-ed46`）；并行 Verifier `bc-519612fb` RUNNING（`cursor/eova-72d0`），结果未回、尚无新 PR。
 
 ---
 
@@ -86,7 +88,7 @@ Worker 注意：
    - **GitLab（内网备份）**：`http://10.20.110.206:45001/remis/modules/remis-eova.git`
    - submodule：`meta-eova/eova`
 3. **Kingbase SQL 备份**：`docs/sql/kingbase/`。
-4. **Automation**：本 run `bc-c55875eb-ae31-453c-8292-d203dc535b92`；Worker `bc-cc198c65` IDLE 且 draft PR `#7`；Verifier `bc-2082b094` IDLE 且 draft PR `#6` 仅通过 `EovaExpParam`；上一 Orchestrator `bc-f02ba73e` IDLE（15:49Z 保留 `SqlCondition`）。15:49Z 之后无新 Worker/Verifier。
+4. **Automation**：本 run `bc-f5639bcd-65ce-4548-9c74-ae748e696cfb`；上一 Orchestrator `bc-c55875eb` IDLE（15:56Z 保留 `SqlCondition`）。Worker `bc-cc198c65` IDLE 且 draft PR `#7`；本 tick 并行 Worker `bc-5e0fea14` RUNNING。Verifier `bc-2082b094` IDLE 且 draft PR `#6` 仅通过 `EovaExpParam`；本 tick 并行 Verifier `bc-519612fb` RUNNING，结果未回。
 5. 试点顺序：**LC-011**（`EovaExp` + `SqlParse` + `EovaExpParam` 已验证 → 当前 `SqlCondition` 已 port 待验）→ 再内核单元或 **FE-001/FE-002**。
 6. 源文件已核对存在：`meta-eova/eova/core/src/main/java/cn/eova/engine/SqlCondition.java`。
 
@@ -94,7 +96,7 @@ Worker 注意：
 
 ## 6. 后续锚点
 
-下一 Verifier 按本 JSON 核验 PR `#7` 的 `SqlCondition`。Orchestrator **不**再认领 FE-001，**不**开 PR，Verifier 通过前 **不**派再下一单元。
+下一 Verifier 按本 JSON 核验 PR `#7` 的 `SqlCondition`（本 tick `bc-519612fb` 正在跑，结果未回）。Orchestrator **不**再认领 FE-001，**不**开 PR，Verifier 通过前 **不**派再下一单元。并行 Worker **禁止重 port** `SqlCondition`。
 
 ---
 
