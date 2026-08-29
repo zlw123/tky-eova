@@ -1,5 +1,35 @@
 # Session Handoff
 
+## 2026-08-29T15:42Z - Orchestrator 补派 LC-011 单元 SqlCondition（未新认领）
+
+- **时间**：2026-08-29T15:42:00Z（cron `*/7`）
+- **动作**：已有 In Progress=`LC-011`，**不新认领**；Verifier PR `#6` 确认 `EovaExpParam` 通过且清单已清空，本轮补写下一单元 `SqlCondition`
+- **单元路径**：`meta-eova/eova/core/src/main/java/cn/eova/engine/SqlCondition.java` → `remis-eova/backend/yudao-cloud/yudao-module-eova/eova-core/src/main/java/cn/eova/engine/SqlCondition.java`
+- **traceability**：`cn.eova.engine.SqlCondition`
+- **基线**：draft PR `#5`（`cursor/eova-porting-e293`）尚无 `SqlCondition`；`TableSource` 仍为 compile-stub
+- **未派**：`EovaExpBuilder`（依赖 `ExpUtil`/`Db`，单单元会堆 stub）；Verifier 备选中优先 A 直迁
+- **Worker**：`bc-cb9f1833` IDLE 跳过无 PR；上一 Worker `bc-ff58e26f` IDLE，draft PR `#5` `port(LC-011): EovaExpParam`
+- **Verifier**：`bc-2082b094` IDLE，draft PR `#6` 通过 `EovaExpParam`；`EovaExp`/`SqlParse`/`EovaExpParam` 禁止重 port
+- **本 checkout / `dev`**：`remis-eova/` 仍空（仅 `.gitkeep`）；产物在 PR `#5` 分支
+- **未认领**：`FE-001` 仍 Ready；`AUTO-003` Ready 但不在试点白名单
+- **下一步**：Worker 单文件 port `SqlCondition`；Orchestrator 禁止开 PR、禁止写业务代码
+
+---
+
+## 2026-08-29T15:37Z - Verifier 验证 LC-011 单元 EovaExpParam（通过）
+
+- **时间**：2026-08-29T15:37:20Z（cron `*/35` Verifier，`bc-2082b094`）
+- **对象**：Worker PR `#5` https://github.com/zlw123/tky-eova/pull/5
+- **结论**：单元验证通过；`LC-011` 保持 In Progress；Worker 清单已清空
+- **Java**：`mvn -pl yudao-module-eova/eova-core -am compile -DskipTests` → BUILD SUCCESS
+- **ported from**：通过；结构 49 vs 源 46 行；方法 1:1；无 JFinal `Db`/`Record`；PR `#3` stub 已替换
+- **前端 pnpm build**：skipped（无 `remis-eova/fornt/eova-ui`）
+- **golden: skipped**（无 `docs/golden/`、无 DES-002-R2 baseline）
+- **未 merge**；Automation Tools 无法评论 Worker PR，摘要写在 Verifier docs PR `#6` https://github.com/zlw123/tky-eova/pull/6
+- **下一步**：Orchestrator 派下一内核单元（本轮已派 `SqlCondition`）
+
+---
+
 ## 2026-08-29T15:35Z - Orchestrator 复核 LC-011 单元 EovaExpParam（未新认领）
 
 - **时间**：2026-08-29T15:35:00Z（cron `*/7`）
