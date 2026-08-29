@@ -1,5 +1,18 @@
 # Session Handoff
 
+## 2026-08-29T15:03Z - Worker port LC-011 单元 SqlParse
+
+- **时间**：2026-08-29T15:03Z（cron `*/20` Worker）
+- **动作**：按清单代码级 port `SqlParse`，替换 PR `#1` compile-stub；**未**重 port `EovaExp`；**未**改 meta-eova
+- **单元路径**：`meta-eova/eova/core/src/main/java/cn/eova/engine/SqlParse.java` → `remis-eova/backend/yudao-cloud/yudao-module-eova/eova-core/src/main/java/cn/eova/engine/SqlParse.java`
+- **traceability**：`cn.eova.engine.SqlParse`
+- **附加**：`TableSource` 最小 compile-stub（禁止当已迁移）；`SqlParseGoldenTest` 5 钩子
+- **验收**：cwd `remis-eova/backend/yudao-cloud`；`mvn -pl yudao-module-eova/eova-core -am compile -DskipTests` BUILD SUCCESS；`test` 9 tests BUILD SUCCESS
+- **LC-011**：保持 In Progress，待 Verifier
+- **下一步**：Verifier 核验本 PR；通过前不派下一单元
+
+---
+
 ## 2026-08-29T14:50Z - Orchestrator 复核 LC-011 单元 SqlParse（未新认领）
 
 - **时间**：2026-08-29T14:50:00Z（cron `*/10`）
