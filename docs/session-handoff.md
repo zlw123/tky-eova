@@ -1,5 +1,24 @@
 # Session Handoff
 
+## 2026-08-29 - AUTO-002 Git 初始化并 push
+
+### 本轮目标
+
+将 eova 工作区推送到内网 GitLab remis-eova.git。
+
+### 本轮确认的事实
+
+1. 本地 macOS Keychain 已有 `zhouliwei@10.20.110.206:45001` 凭据，无需拿哥再输密码。
+2. 仓库根 = `/Users/zhouliwei/eova`；`meta-eova/eova` 为 submodule（gitee/eova）。
+3. Kingbase 清洗 SQL 归档至 `docs/sql/kingbase/`（submodule 内副本为本地未提交文件）。
+
+### 下一步
+
+1. **AUTO-003**：Agents Window 导入 `prefill-workflows.json`
+2. **AUTO-004**：Orchestrator 认领 LC-011 → Worker port EovaExp
+
+---
+
 ## 2026-08-29 - AUTO-001 Cursor Automations 三层流水线
 
 ### 本轮目标
