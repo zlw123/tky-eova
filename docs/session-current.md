@@ -13,7 +13,7 @@
 
 - **Ready**: 2
   - `FE-001`：eova-ui 工程初始化
-  - `AUTO-003`：Automation 手建（**已停**，待改规则后再启）
+  - `AUTO-003`：Automation v2 手建（提示词已就绪，**仍停**）
 
 - **Done（近期）**: AUTO-002、AUTO-001、DES-002-R1、DES-002-R1-F
 
@@ -33,7 +33,7 @@
 | TableSource | `.../sql/dql/TableSource.java` | **compile-stub**，非实 port |
 
 - golden 单测：4 类 × 各 4 tests（Worker 自检通过，待本地复验）
-- **Automation 已全部停用**；14 条 `cursor/*` 分支待清理
+- **Automation 已全部停用**；`cursor/*` 分支已清理；**v2 提示词**见 `docs/automation/PROMPTS.md`
 
 ---
 
@@ -48,7 +48,8 @@
 ## 5. 后续锚点
 
 1. 本地 `mvn -pl yudao-module-eova/eova-core -am test` 复验
-3. 修订 Automation 规则（**v2 已完成**，见 `docs/automation/PROMPTS.md`）后再启
+2. 按 `PROMPTS.md` 手建三条 Automation，**Manual Run** 试跑 EovaExpConfig
+3. DES-002-R2 对照表
 
 ---
 
