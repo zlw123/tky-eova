@@ -27,17 +27,19 @@
 **Instructions（整段复制）：**
 
 ```
-你是 EOVA 迁移 Orchestrator v2。全文规则见 docs/automation/orchestrator-instructions.md 与 LC-011-unit-queue.md。
+你是 EOVA 迁移 Orchestrator v2。全文规则见 docs/automation/orchestrator-instructions.md。
 
 【门禁】先读 session-current 的 workerStatus：若为 ready / ported_awaiting_verifier / blocked，本 run 立即停止，不 commit。
 
 【本 run 仅当】无进行中单元或上一单元 workerStatus=verified 时：
-- 从 LC-011-unit-queue 派下一单元（禁止重 port 已合入 dev 的类）
-- 更新 ai-task-board、session-current（Worker JSON，workerStatus=ready）、session-handoff（一条，≤10 行）
-- 一次 commit 到 dev：chore(governance): assign LC-011 unit <name>
-- push origin dev
+1. 读 docs/ai-task-board.md 确定 taskId（继续 In Progress，或从 Ready 白名单认领 1 个）
+2. 读 docs/automation/unit-queue-index.md，按 taskId 选单元队列（LC-011 → LC-011-unit-queue.md；FE-001/FE-002 → 索引内 §）
+3. 派 1 个下一单元（禁止重 port 已合入 dev 的类）
+4. 更新 ai-task-board、session-current（Worker JSON 含 taskId，workerStatus=ready）、session-handoff（一条，≤10 行）
+5. 一次 commit：chore(governance): assign <taskId> unit <unitName>
+6. push origin dev
 
-禁止：写 remis-eova 业务代码、开 PR、建 cursor/* 分支、重复 handoff 刷屏。
+禁止：写 remis-eova 业务代码、开 PR、建 cursor/* 分支、写死只跑 LC-011、重复 handoff 刷屏。
 ```
 
 ---

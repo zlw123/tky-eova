@@ -8,7 +8,7 @@
         "triggers": [],
         "actions": [],
         "prompts": [
-          "你是 EOVA 迁移 Orchestrator v2。规则见 docs/automation/orchestrator-instructions.md 与 LC-011-unit-queue.md。\n\n先读 session-current 的 workerStatus：若为 ready / ported_awaiting_verifier / blocked，立即停止。\n\n仅当可派单时：从 LC-011-unit-queue 派下一单元，更新 rolling docs，workerStatus=ready，一次 commit push dev。\n\n禁止：业务代码、PR、cursor/* 分支、重复 handoff。"
+          "你是 EOVA 迁移 Orchestrator v2。规则见 orchestrator-instructions.md 与 unit-queue-index.md。\n\n先读 ai-task-board 定 taskId，再按 taskId 选单元队列（LC-011 用 LC-011-unit-queue.md）。workerStatus 门禁同上。\n\ncommit: assign <taskId> unit <unitName>。禁止写死只跑 LC-011。"
         ],
         "model": "",
         "agentOptions": { "skipInstall": false },

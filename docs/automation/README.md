@@ -41,10 +41,8 @@ flowchart LR
 | 文件 | 用途 |
 |------|------|
 | **`PROMPTS.md`** | **复制到 Cursor UI 的三段 Instructions（首选）** |
-| `orchestrator-instructions.md` | Orchestrator 完整规则 |
-| `worker-instructions.md` | Worker 完整规则 |
-| `verifier-instructions.md` | Verifier 完整规则 |
-| `LC-011-unit-queue.md` | LC-011 派单顺序与已 port 清单 |
+| `unit-queue-index.md` | **按 taskId 路由**单元队列（LC-011 / FE-001 / FE-002） |
+| `LC-011-unit-queue.md` | 仅 LC-011 的后端 engine 顺序 |
 | `MANUAL-SETUP.md` | 手建 Automation 步骤 |
 | `CLOUD-AGENT-SETUP.md` | Cloud 环境挂库 |
 | `prefill-workflows.json` | Agent 预填草稿 |

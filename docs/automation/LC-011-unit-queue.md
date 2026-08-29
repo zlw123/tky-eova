@@ -1,7 +1,6 @@
-# LC-011 单元队列（Orchestrator 派单用）
+# LC-011 单元队列（仅 taskId=LC-011 时使用）
 
-> DES-002-R2 完成前，Orchestrator **只从本表**派 LC-011 下一单元。  
-> Worker 合入 **dev** 后由 Verifier 标 `verified`，Orchestrator 再派下一行。
+> **不是**全局任务队列。Orchestrator 先读 `unit-queue-index.md` 确认 taskId=LC-011 再打开本文。
 
 ---
 
