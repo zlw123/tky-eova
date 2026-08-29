@@ -90,7 +90,7 @@ Worker 完成说明：
 
 ## 6. 后续锚点
 
-待 Verifier 核验 `SqlCondition`（compile + `ported from` + 结构 1:1）。Verifier 通过前 Orchestrator **不**派再下一单元。Worker **禁止自派**。LC-011 整任务未 Done。
+待 Verifier 核验 `SqlCondition`（PR `#7`：compile + `ported from` + 结构 1:1）。Verifier 通过前 Orchestrator **不**派再下一单元。Worker **禁止自派**。LC-011 整任务未 Done。
 
 ---
 
