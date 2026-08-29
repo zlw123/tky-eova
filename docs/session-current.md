@@ -61,7 +61,7 @@ Worker 完成说明：
 | golden API | **golden: skipped**（钩子已留，完整 baseline 等 LC-013） |
 | LC-011 整任务 | **未完成**（当前单元 `SqlCondition` 待 Verifier） |
 
-- 本轮 Worker PR：待 `open_git_pr`（`cursor/eova-porting-dc30` → `dev`，标题 `port(LC-011): SqlCondition`）
+- 本轮 Worker PR：https://github.com/zlw123/tky-eova/pull/7 （DRAFT/OPEN，`port(LC-011): SqlCondition`，`cursor/eova-porting-dc30` → `dev`）
 - 上一 Worker PR：https://github.com/zlw123/tky-eova/pull/5 （DRAFT，`port(LC-011): EovaExpParam`，`cursor/eova-porting-e293`）
 - Verifier docs PR：https://github.com/zlw123/tky-eova/pull/6 （DRAFT；`EovaExpParam` 已通过）
 - 上一 Worker PR：https://github.com/zlw123/tky-eova/pull/3 （DRAFT，`port(LC-011): SqlParse`）

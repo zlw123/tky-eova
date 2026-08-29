@@ -10,6 +10,7 @@
 - **golden**：`SqlConditionGoldenTest`（List 构造 / varargs / sql-only params=null / setter）；完整 API 等 LC-013
 - **meta-eova**：只读，未改 submodule
 - **LC-011**：保持 In Progress；禁止自派下一单元
+- **Worker PR**：https://github.com/zlw123/tky-eova/pull/7 （`cursor/eova-porting-dc30` → `dev`）
 - **下一步**：Verifier 核验本 PR；Orchestrator 通过前不派再下一单元
 
 ---
