@@ -159,7 +159,7 @@
 
 ## 推进协议
 
-1. Phase 0 核心决策已 Done；**LC-011 In Progress**（`EovaExp` 14:30Z 通过；`SqlParse` 15:05Z 通过；`EovaExpParam` 15:37Z 通过）。Orchestrator 2026-08-29T15:42Z **未新认领**，Verifier PR `#6` 已清空清单，本轮补派下一单元 `SqlCondition`。LC-001 已 Deferred。禁止重 port `EovaExp`/`SqlParse`/`EovaExpParam`。`TableSource` 仍为 compile-stub，不得标整任务 Done。`EovaExpBuilder` 依赖 `ExpUtil`/`Db`，本轮不派。
+1. Phase 0 核心决策已 Done；**LC-011 In Progress**（`EovaExp` 14:30Z 通过；`SqlParse` 15:05Z 通过；`EovaExpParam` 15:37Z 通过）。Orchestrator 2026-08-29T15:49Z **未新认领**；`SqlCondition` 清单已在故保留。Worker PR `#7` 已 port，Verifier 尚未核验，不派再下一单元。LC-001 已 Deferred。禁止重 port `EovaExp`/`SqlParse`/`EovaExpParam`；`SqlCondition` Verifier 通过前禁止重 port。`TableSource` 仍为 compile-stub，不得标整任务 Done。`EovaExpBuilder` 依赖 `ExpUtil`/`Db`，本轮不派。
 2. 涉及新模块/新协议/新表结构 → 先 DES 后 LC。
 3. 身份/System、前端/yudao-ui 整合 → DES-003 / DES-004，不阻塞当前迁移主线。
 4. 每轮结束同步 rolling docs 三件套。
