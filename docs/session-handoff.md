@@ -1,5 +1,18 @@
 # Session Handoff
 
+## 2026-08-29T14:24Z - Worker port LC-011 单元 EovaExp
+
+- **时间**：2026-08-29T14:24:38Z（cron `*/20` Worker）
+- **任务**：`LC-011` 保持 In Progress（仅首单元，非整任务 Done）
+- **产出**：`remis-eova/backend/yudao-cloud/yudao-module-eova/eova-core/src/main/java/cn/eova/engine/EovaExp.java`
+- **追溯**：`// ported from: meta-eova/eova/core/src/main/java/cn/eova/engine/EovaExp.java` + `cn.eova.engine.EovaExp`
+- **基础设施**：`LogKit` → slf4j；`Kv.getInt` → `Map`；无 JFinal `Db`/`Record`
+- **验收**：`cd remis-eova/backend/yudao-cloud && mvn -pl yudao-module-eova/eova-core -am compile -DskipTests` BUILD SUCCESS；`test` 4/4 通过
+- **golden**：类级钩子 `EovaExpGoldenTest`（TODO LC-013）；API baseline 缺失，Verifier 应记 `golden: skipped`
+- **下一步**：Verifier 验本 PR；下一内核单元建议 `SqlParse`（当前为 compile stub）
+
+---
+
 ## 2026-08-29T14:11Z - Orchestrator 认领 LC-011 单元 EovaExp
 
 - **时间**：2026-08-29T14:11:31Z（cron `*/20`）

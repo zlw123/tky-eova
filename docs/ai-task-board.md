@@ -11,7 +11,7 @@
 | 阶段 | 进度 |
 |------|------|
 | Phase 0 设计 | 100%（R1/R1-F Done；R2/R2-F 待出对照表） |
-| Phase 1 后端 port | 0% |
+| Phase 1 后端 port | 0%（EovaExp 已 port，待 Verifier） |
 | Phase 1-F 前端 port | 0% |
 | **整体** | **≈8%** |
 
@@ -159,7 +159,7 @@
 
 ## 推进协议
 
-1. Phase 0 核心决策已 Done；**LC-011 In Progress**（首单元 `EovaExp`，清单见 `session-current.md`）。LC-001 已 Deferred。
+1. Phase 0 核心决策已 Done；**LC-011 In Progress**（首单元 `EovaExp` Worker 已 port，待 Verifier；清单见 `session-current.md`）。LC-001 已 Deferred。
 2. 涉及新模块/新协议/新表结构 → 先 DES 后 LC。
 3. 身份/System、前端/yudao-ui 整合 → DES-003 / DES-004，不阻塞当前迁移主线。
 4. 每轮结束同步 rolling docs 三件套。
