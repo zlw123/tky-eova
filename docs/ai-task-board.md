@@ -39,7 +39,7 @@
 | ID | 标题 | 状态 | 依赖 |
 |----|------|------|------|
 | LC-001 | 创建 remis-eova/backend/yudao-module-eova-api/biz | **Deferred** | 降至 P5；先 port 内核 |
-| LC-011 | eova-core 内核模块（engine/sql/hook 直迁） | **Ready** | DES-002-R1 |
+| LC-011 | eova-core 内核模块（engine/sql/hook 直迁） | **In Progress** | DES-002-R1 |
 | LC-012 | EovaDbGateway + MyBatis 适配层 | Idea | LC-011 |
 | LC-013 | golden API baseline 录制（旧 demo） | Idea | DES-002-R2 |
 | LC-002 | Nacos + application-dev 配置 | Idea | LC-001 |
@@ -159,7 +159,8 @@
 
 ## 推进协议
 
-1. Phase 0 核心决策已 Done；**LC-001 Ready**，等拿哥放行执行。
+1. Phase 0 核心决策已 Done；**LC-011 In Progress**（首单元 `EovaExp`，清单见 `session-current.md`）。LC-001 已 Deferred。
 2. 涉及新模块/新协议/新表结构 → 先 DES 后 LC。
 3. 身份/System、前端/yudao-ui 整合 → DES-003 / DES-004，不阻塞当前迁移主线。
 4. 每轮结束同步 rolling docs 三件套。
+5. DES-002-R2 完成前只跑试点白名单：LC-011 / FE-001 / FE-002。同一时刻仅 1 个 In Progress。

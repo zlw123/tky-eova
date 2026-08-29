@@ -1,5 +1,16 @@
 # Session Handoff
 
+## 2026-08-29T14:11Z - Orchestrator 认领 LC-011 单元 EovaExp
+
+- **时间**：2026-08-29T14:11:31Z（cron `*/20`）
+- **认领任务**：`LC-011`（Ready → In Progress；此前 0 个 In Progress）
+- **单元路径**：`meta-eova/eova/core/src/main/java/cn/eova/engine/EovaExp.java` → `remis-eova/backend/yudao-cloud/yudao-module-eova/eova-core/src/main/java/cn/eova/engine/EovaExp.java`
+- **traceability**：`cn.eova.engine.EovaExp`
+- **未认领**：`FE-001` 仍 Ready；`AUTO-003` Ready 但不在试点白名单
+- **下一步**：Worker 按 `session-current.md` JSON 单文件 port；Orchestrator 禁止开 PR
+
+---
+
 ## 2026-08-29 - 推送到 GitHub tky-eova
 
 ### 本轮目标
