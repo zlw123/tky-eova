@@ -40,7 +40,7 @@
 | LC-011 整任务 | **未完成**（engine 仍有 `EovaExpBuilder` / `EovaExpConfig` / `ExpUtil` / `SqlCondition`） |
 
 - Worker PR：https://github.com/zlw123/tky-eova/pull/5 （DRAFT，`port(LC-011): EovaExpParam`，`cursor/eova-porting-e293`）
-- 本轮 Verifier：`bc-2082b094`（docs PR 见本分支）
+- 本轮 Verifier docs PR：https://github.com/zlw123/tky-eova/pull/6 （DRAFT；`EovaExpParam` 已通过）
 - 上一 Worker PR：https://github.com/zlw123/tky-eova/pull/3 （DRAFT，`port(LC-011): SqlParse`）
 - 上一 Verifier docs PR：https://github.com/zlw123/tky-eova/pull/4 （DRAFT；`SqlParse` 已通过）
 - 更早 Worker PR：https://github.com/zlw123/tky-eova/pull/1 （DRAFT，`EovaExp`）

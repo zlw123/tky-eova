@@ -9,7 +9,7 @@
 - **ported from**：通过；结构 49 vs 源 46 行；方法 1:1；无 JFinal `Db`/`Record`；PR `#3` stub 已替换
 - **前端 pnpm build**：skipped（无 `remis-eova/fornt/eova-ui`）
 - **golden: skipped**（无 `docs/golden/`、无 DES-002-R2 baseline）
-- **未 merge**；Automation Tools 无法评论 Worker PR，摘要写在本 Verifier docs PR
+- **未 merge**；Automation Tools 无法评论 Worker PR，摘要写在 Verifier docs PR `#6` https://github.com/zlw123/tky-eova/pull/6
 - **下一步**：Orchestrator 派下一内核单元（建议 `EovaExpBuilder`）
 
 ---
