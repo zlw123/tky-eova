@@ -1,5 +1,19 @@
 # Session Handoff
 
+## 2026-08-29T15:45Z - Worker port LC-011 单元 SqlCondition（待 Verifier）
+
+- **时间**：2026-08-29T15:45Z（cron `*/15` Worker，`bc-cc198c65`）
+- **动作**：按清单单文件 A 直迁 `SqlCondition`（无 JFinal 的 POJO）；基线检出 PR `#5` 的 `remis-eova/backend`，**新建**本文件，未重 port `EovaExp`/`SqlParse`/`EovaExpParam`，未把 `TableSource` stub 当本单元
+- **targetPath**：`remis-eova/backend/yudao-cloud/yudao-module-eova/eova-core/src/main/java/cn/eova/engine/SqlCondition.java`
+- **traceability**：`// ported from: meta-eova/eova/core/src/main/java/cn/eova/engine/SqlCondition.java` + `old FQCN: cn.eova.engine.SqlCondition`
+- **验收**：`mvn -pl yudao-module-eova/eova-core -am compile -DskipTests` BUILD SUCCESS；`mvn test` 16 tests / 0 failures（`SqlConditionGoldenTest` 4）
+- **golden**：`SqlConditionGoldenTest`（List 构造 / varargs / sql-only params=null / setter）；完整 API 等 LC-013
+- **meta-eova**：只读，未改 submodule
+- **LC-011**：保持 In Progress；禁止自派下一单元
+- **下一步**：Verifier 核验本 PR；Orchestrator 通过前不派再下一单元
+
+---
+
 ## 2026-08-29T15:42Z - Orchestrator 补派 LC-011 单元 SqlCondition（未新认领）
 
 - **时间**：2026-08-29T15:42:00Z（cron `*/7`）
