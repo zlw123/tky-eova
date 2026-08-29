@@ -1,5 +1,19 @@
 # Session Handoff
 
+## 2026-08-29T15:05Z - Verifier 验证 LC-011 单元 SqlParse（通过）
+
+- **时间**：2026-08-29T15:05:12Z（cron `*/30` Verifier，`bc-4866cd2a`）
+- **对象**：Worker PR `#3` https://github.com/zlw123/tky-eova/pull/3
+- **结论**：单元验证通过；`LC-011` 保持 In Progress；Worker 清单已清空
+- **Java**：`mvn -pl yudao-module-eova/eova-core -am compile -DskipTests` → BUILD SUCCESS
+- **ported from**：通过；结构 232 vs 229 行，方法 1:1
+- **JFinal**：无；`TableSource` 仍为 stub
+- **前端**：skipped（无 eova-ui）
+- **golden: skipped**
+- **下一步建议**：`EovaExpParam`（替换 stub）或 `EovaExpBuilder`
+
+---
+
 ## 2026-08-29T15:00Z - Orchestrator 复核 LC-011 单元 SqlParse（未新认领）
 
 - **时间**：2026-08-29T15:00:00Z（cron `*/10`）

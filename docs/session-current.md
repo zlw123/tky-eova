@@ -8,9 +8,9 @@
 
 ## 2. 当前任务快照
 
-- **Orchestrator 本轮**（2026-08-29T15:00Z，cron `*/10`）：已有 In Progress，**未新认领**。`SqlParse` Worker 清单已在 14:40Z 补齐且源文件仍在，本轮原样保留，不派再下一单元。
+- **Verifier 本轮**（2026-08-29T15:05Z，cron `*/30`）：Worker PR `#3` `SqlParse` **单元通过**；`LC-011` 保持 In Progress；Worker 清单已清空，待 Orchestrator 派下一单元。
 - **In Progress**: 1
-  - `LC-011`：eova-core 内核（后端）— 首单元 `EovaExp` 已验证；本轮单元仍为 `SqlParse`
+  - `LC-011`：eova-core 内核（后端）— `EovaExp`、`SqlParse` 已验证；整任务未完成
 - **Ready**: 2
   - `FE-001`：eova-ui 工程初始化（前端，白名单；LC-011 进行中，不新认领）
   - `AUTO-003`：Agents Window 创建三条 Automation（**不在试点白名单，禁止认领**）
@@ -19,45 +19,30 @@
 
 ---
 
-## 3. Worker 清单（本 run 唯一单元）
+## 3. Worker 清单
 
-```json
-{
-  "taskId": "LC-011",
-  "unitType": "java",
-  "sourcePath": "meta-eova/eova/core/src/main/java/cn/eova/engine/SqlParse.java",
-  "targetPath": "remis-eova/backend/yudao-cloud/yudao-module-eova/eova-core/src/main/java/cn/eova/engine/SqlParse.java",
-  "traceability": "cn.eova.engine.SqlParse",
-  "acceptance": [
-    "mvn -pl yudao-module-eova/eova-core -am compile -DskipTests",
-    "无 JFinal Db 直调（网关占位可 TODO）",
-    "替换 PR #1 中 SqlParse compile-stub，禁止把 stub 当已迁移"
-  ]
-}
-```
-
-Worker 注意：
-
-- 本 checkout / `dev` 上 `remis-eova/` 仍仅 `.gitkeep`；脚手架与 `EovaExp` 在 draft PR `#1`（`cursor/eova-porting-143b`）。本单元应基于该分支 **替换 stub**，不要另起空模块。
-- `SqlParse` 依赖 `cn.eova.sql.dql.TableSource`：若编译缺类，只允许最小 stub（字段/getter），**禁止**把 `TableSource` 当本单元已 port。
-- 14:40 Worker `bc-9acdc25d`（`cursor/eova-porting-d1ac`）已 IDLE：**无 PR、远程无该分支**，判定为当时并行读到旧 `EovaExp` 清单后空跑。`EovaExp` 已验证，**禁止重 port**。
-- 本 tick 并行 Worker `bc-8bc8dca0`（`cursor/eova-porting-abdb`）RUNNING，尚无 PR；以本 JSON 为准只做 `SqlParse`。
-- Orchestrator **不写业务代码、不开 PR、不 merge**。
+（已清空。Orchestrator 派下一单元后再写入唯一 JSON。）
 
 ---
 
-## 4. Verifier 已确认（PR #1 / EovaExp）
+## 4. Verifier 已确认（PR #3 / SqlParse）
 
 | 检查项 | 结果 |
 |--------|------|
-| Java compile | **BUILD SUCCESS**（2026-08-29T14:31:32Z） |
-| `ported from` | 通过 |
+| Java compile | **BUILD SUCCESS**（2026-08-29T15:05:12Z） |
+| `ported from` | 通过（`SqlParse` + 既有 `EovaExp`） |
+| 结构对应 | 通过（232 vs 源 229 行；方法 1:1，无整文件重写） |
 | JFinal `Db`/`Record` | 无 |
-| golden API | **golden: skipped** |
-| LC-011 整任务 | **未完成**（`SqlParse` 仍为 stub） |
+| stub 已替换 | 通过（不再是 39 行 compile-stub） |
+| `TableSource` | 仍为 compile-stub，**未**当已 port |
+| 前端 `pnpm build` | **skipped**（无 `remis-eova/fornt/eova-ui`） |
+| golden API | **golden: skipped**（无 `docs/golden/`、无 DES-002-R2 baseline） |
+| LC-011 整任务 | **未完成**（engine 仍有 `EovaExpParam` stub / `EovaExpBuilder` / `EovaExpConfig` / `ExpUtil` / `SqlCondition`） |
 
-- Worker PR：https://github.com/zlw123/tky-eova/pull/1 （DRAFT，未 merge）
-- Verifier docs PR：https://github.com/zlw123/tky-eova/pull/2 （DRAFT；`SqlParse` 尚未验证）
+- Worker PR：https://github.com/zlw123/tky-eova/pull/3 （DRAFT，`port(LC-011): SqlParse`）
+- 上一 Worker PR：https://github.com/zlw123/tky-eova/pull/1 （DRAFT，`EovaExp`）
+- 上一 Verifier docs PR：https://github.com/zlw123/tky-eova/pull/2 （DRAFT，仅 `EovaExp`）
+- 编译命令：`cd remis-eova/backend/yudao-cloud && mvn -pl yudao-module-eova/eova-core -am compile -DskipTests`
 
 ---
 
@@ -69,15 +54,15 @@ Worker 注意：
    - **GitLab（内网备份）**：`http://10.20.110.206:45001/remis/modules/remis-eova.git`
    - submodule：`meta-eova/eova`
 3. **Kingbase SQL 备份**：`docs/sql/kingbase/`。
-4. **Automation**：本 run `bc-58935e16-46e8-495b-a1e3-bb4daacd2b2b`；上一 Orchestrator `bc-145461d0` IDLE（已保留 `SqlParse`）；本 tick 并行 Worker `bc-8bc8dca0` RUNNING、Verifier `bc-4866cd2a` RUNNING。上一 Worker `bc-9acdc25d` IDLE 无 PR；上一 Verifier `bc-5c23de0f` IDLE 且仅通过 `EovaExp`。
-5. 试点顺序：**LC-011**（`EovaExp` 已验证 → 当前 `SqlParse`）→ 再内核单元或 **FE-001/FE-002**。
-6. 源文件已核对存在：`meta-eova/eova/core/src/main/java/cn/eova/engine/SqlParse.java`。PR `#1` 中 `SqlParse.java` 仍为 compile-stub。
+4. **Automation**：本 run `bc-4866cd2a`；Worker `bc-8bc8dca0` 已交付 PR `#3`；Orchestrator `bc-58935e16` IDLE（15:00Z 未新认领）。
+5. 试点顺序：**LC-011**（`EovaExp` + `SqlParse` 已验证 → 下一内核单元）→ 再 **FE-001/FE-002**。
+6. Automation Tools 仅有 `open_git_pr`，无法给 Worker PR 写评论；验证摘要写在本 Verifier docs PR。
 
 ---
 
 ## 6. 后续锚点
 
-本 tick Worker `bc-8bc8dca0` 按本 JSON 单文件 port `SqlParse`（替换 stub）→ Verifier 核验。Orchestrator **不**再认领 FE-001，**不**开 PR。Verifier 通过前不派再下一单元。
+Orchestrator 补下一单元清单（建议替换 `EovaExpParam` stub，或 port `EovaExpBuilder`）。Verifier 通过前不派再下一单元。Orchestrator **不**认领 FE-001，**不**开 PR。
 
 ---
 
