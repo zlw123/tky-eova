@@ -40,6 +40,7 @@
 | LC-011 整任务 | **未完成**（engine 仍有 `EovaExpParam` stub / `EovaExpBuilder` / `EovaExpConfig` / `ExpUtil` / `SqlCondition`） |
 
 - Worker PR：https://github.com/zlw123/tky-eova/pull/3 （DRAFT，`port(LC-011): SqlParse`）
+- 本轮 Verifier docs PR：https://github.com/zlw123/tky-eova/pull/4
 - 上一 Worker PR：https://github.com/zlw123/tky-eova/pull/1 （DRAFT，`EovaExp`）
 - 上一 Verifier docs PR：https://github.com/zlw123/tky-eova/pull/2 （DRAFT，仅 `EovaExp`）
 - 编译命令：`cd remis-eova/backend/yudao-cloud && mvn -pl yudao-module-eova/eova-core -am compile -DskipTests`
