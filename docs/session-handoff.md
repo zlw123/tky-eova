@@ -1,5 +1,19 @@
 # Session Handoff
 
+## 2026-08-29T14:30Z - Verifier 验证 LC-011 单元 EovaExp（通过）
+
+- **时间**：2026-08-29T14:30:00Z（cron `*/30` Verifier）
+- **对象**：Worker PR `#1` https://github.com/zlw123/tky-eova/pull/1 （`cursor/eova-porting-143b`）
+- **Java**：`cd remis-eova/backend/yudao-cloud && mvn -pl yudao-module-eova/eova-core -am compile -DskipTests` → **BUILD SUCCESS**（14:31:32Z）
+- **前端**：`pnpm build` skipped（`remis-eova/fornt/eova-ui` 不存在）
+- **追溯**：`ported from` + 旧 FQCN 通过；源 397 / 目标 404 行，方法集对应；无 JFinal `Db`/`Record`
+- **golden: skipped**（`docs/golden/` 与 DES-002-R2 baseline 均不存在）
+- **任务状态**：`LC-011` 保持 **In Progress**（非整任务 Done）；Worker 清单已清空
+- **禁止**：未 merge PR #1；未写新 port 代码
+- **下一步**：Orchestrator 派下一单元（建议 `SqlParse`）；可请拿哥 review PR #1
+
+---
+
 ## 2026-08-29T14:30Z - Orchestrator 复核 LC-011 单元 EovaExp（未新认领）
 
 - **时间**：2026-08-29T14:30:00Z（cron `*/10`）
