@@ -8,7 +8,7 @@
 
 ## 2. 当前任务快照
 
-- **Orchestrator 本轮**（2026-08-29T15:21Z，cron `*/7`）：已有 In Progress，**未新认领**。`EovaExpParam` 清单已存在且源文件仍在，原样保留；Worker 已提交 draft PR `#5`，Verifier 未通过 `EovaExpParam`，不派再下一单元。
+- **Orchestrator 本轮**（2026-08-29T15:28Z，cron `*/7`）：已有 In Progress，**未新认领**。`EovaExpParam` 清单已存在且源文件仍在，原样保留；Worker 已提交 draft PR `#5`，Verifier 未通过 `EovaExpParam`，不派再下一单元。
 - **In Progress**: 1
   - `LC-011`：eova-core 内核（后端）— `EovaExp`、`SqlParse` 已验证；本轮单元仍为 `EovaExpParam`（Worker 已 port，待 Verifier）
 - **Ready**: 2
@@ -63,7 +63,7 @@ Worker 注意：
 - Verifier docs PR：https://github.com/zlw123/tky-eova/pull/4 （DRAFT；`SqlParse` 已通过，清单已清空）
 - 更早 Worker PR：https://github.com/zlw123/tky-eova/pull/1 （DRAFT，`EovaExp`）
 - 更早 Verifier docs PR：https://github.com/zlw123/tky-eova/pull/2 （DRAFT，仅 `EovaExp`）
-- 15:21Z 复核：PR `#5` 上 `EovaExpParam.java` **已非 stub**（`// ported from` + enum 同源）；尚无 Verifier run 核验本单元。
+- 15:21Z / 15:28Z 复核：PR `#5` 上 `EovaExpParam.java` **已非 stub**（`// ported from` + enum 同源）；15:21Z 之后无新 Verifier run 核验本单元。
 
 ---
 
@@ -75,7 +75,7 @@ Worker 注意：
    - **GitLab（内网备份）**：`http://10.20.110.206:45001/remis/modules/remis-eova.git`
    - submodule：`meta-eova/eova`
 3. **Kingbase SQL 备份**：`docs/sql/kingbase/`。
-4. **Automation**：本 run `bc-e782de71-a7d0-44b1-b9b6-b9e1a176902f`；上一 Orchestrator `bc-137a1f02` IDLE（15:14Z 保留 `EovaExpParam`）；Worker `bc-ff58e26f` IDLE 且 draft PR `#5`；上一 Worker `bc-8bc8dca0` IDLE 且 draft PR `#3`；Verifier `bc-4866cd2a` IDLE 且 PR `#4` 通过 `SqlParse`。15:14Z 之后无新 Verifier。
+4. **Automation**：本 run `bc-0f24eb2a-28cd-422f-b241-3d834e86e7fa`；上一 Orchestrator `bc-e782de71` IDLE（15:21Z 保留 `EovaExpParam`）；Worker `bc-ff58e26f` IDLE 且 draft PR `#5`；上一 Worker `bc-8bc8dca0` IDLE 且 draft PR `#3`；Verifier `bc-4866cd2a` IDLE 且 PR `#4` 通过 `SqlParse`。15:21Z 之后无新 Worker/Verifier。
 5. 试点顺序：**LC-011**（`EovaExp` + `SqlParse` 已验证 → 当前 `EovaExpParam` 已 port 待验证）→ 再内核单元或 **FE-001/FE-002**。
 6. 源文件已核对存在：`meta-eova/eova/core/src/main/java/cn/eova/engine/EovaExpParam.java`。PR `#5` 中 `EovaExpParam.java` 已为实 port。
 
