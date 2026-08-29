@@ -8,9 +8,9 @@
 
 ## 2. 当前任务快照
 
-- **Orchestrator 本轮**（2026-08-29T15:07Z，cron `*/7`）：已有 In Progress，**未新认领**。Verifier PR `#4` 确认 `SqlParse` 通过且清单已清空，本轮补写下一单元 `EovaExpParam`。
+- **Orchestrator 本轮**（2026-08-29T15:14Z，cron `*/7`）：已有 In Progress，**未新认领**。`EovaExpParam` 清单已存在且源文件仍在，原样保留；Worker 尚未接本单元，Verifier 未通过 `EovaExpParam`，不派再下一单元。
 - **In Progress**: 1
-  - `LC-011`：eova-core 内核（后端）— `EovaExp`、`SqlParse` 已验证；本轮单元为 `EovaExpParam`
+  - `LC-011`：eova-core 内核（后端）— `EovaExp`、`SqlParse` 已验证；本轮单元仍为 `EovaExpParam`
 - **Ready**: 2
   - `FE-001`：eova-ui 工程初始化（前端，白名单；LC-011 进行中，不新认领）
   - `AUTO-003`：Agents Window 创建三条 Automation（**不在试点白名单，禁止认领**）
@@ -56,12 +56,13 @@ Worker 注意：
 | stub 已替换 | 通过 |
 | `TableSource` | 仍为 compile-stub，**未**当已 port |
 | golden API | **golden: skipped** |
-| LC-011 整任务 | **未完成**（本轮改派 `EovaExpParam`） |
+| LC-011 整任务 | **未完成**（当前单元仍为 `EovaExpParam`） |
 
 - Worker PR：https://github.com/zlw123/tky-eova/pull/3 （DRAFT，`port(LC-011): SqlParse`）
 - Verifier docs PR：https://github.com/zlw123/tky-eova/pull/4 （DRAFT；`SqlParse` 已通过，清单已清空）
 - 上一 Worker PR：https://github.com/zlw123/tky-eova/pull/1 （DRAFT，`EovaExp`）
 - 上一 Verifier docs PR：https://github.com/zlw123/tky-eova/pull/2 （DRAFT，仅 `EovaExp`）
+- 15:14Z 复核：PR `#3` 上 `EovaExpParam.java` **仍为 compile-stub**（`// compile-stub for LC-011 EovaExp`），尚无新 Worker/Verifier run。
 
 ---
 
@@ -73,7 +74,7 @@ Worker 注意：
    - **GitLab（内网备份）**：`http://10.20.110.206:45001/remis/modules/remis-eova.git`
    - submodule：`meta-eova/eova`
 3. **Kingbase SQL 备份**：`docs/sql/kingbase/`。
-4. **Automation**：本 run `bc-f3d27b81-b828-426c-9ed3-44319bef21c8`；上一 Orchestrator `bc-58935e16` IDLE（15:00Z 保留 `SqlParse`）；Worker `bc-8bc8dca0` IDLE 且 draft PR `#3`；Verifier `bc-4866cd2a` IDLE 且 PR `#4` 通过 `SqlParse`。
+4. **Automation**：本 run `bc-137a1f02-9f67-46e8-b280-489699f477db`；上一 Orchestrator `bc-f3d27b81` IDLE（15:07Z 补派 `EovaExpParam`）；Worker `bc-8bc8dca0` IDLE 且 draft PR `#3`；Verifier `bc-4866cd2a` IDLE 且 PR `#4` 通过 `SqlParse`。15:07Z 之后无新 Worker/Verifier。
 5. 试点顺序：**LC-011**（`EovaExp` + `SqlParse` 已验证 → 当前 `EovaExpParam`）→ 再内核单元或 **FE-001/FE-002**。
 6. 源文件已核对存在：`meta-eova/eova/core/src/main/java/cn/eova/engine/EovaExpParam.java`。PR `#3` 中 `EovaExpParam.java` 仍为 compile-stub。
 
