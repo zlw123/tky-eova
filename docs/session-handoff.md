@@ -1,5 +1,16 @@
 # Session Handoff
 
+## 2026-08-29T14:20Z - Orchestrator 复核 LC-011 单元 EovaExp（未新认领）
+
+- **时间**：2026-08-29T14:20:00Z（cron `*/10`）
+- **动作**：已有 In Progress=`LC-011`，**不新认领**；Worker JSON 清单已存在且源文件仍在，原样保留
+- **单元路径**：`meta-eova/eova/core/src/main/java/cn/eova/engine/EovaExp.java` → `remis-eova/backend/yudao-cloud/yudao-module-eova/eova-core/src/main/java/cn/eova/engine/EovaExp.java`
+- **本 checkout**：`remis-eova/` 仍空（仅 `.gitkeep`）；同源 Worker `bc-e0817351` 并行 porting
+- **未认领**：`FE-001` 仍 Ready；`AUTO-003` Ready 但不在试点白名单
+- **下一步**：等 Worker 落地 EovaExp；Orchestrator 禁止开 PR、禁止写业务代码
+
+---
+
 ## 2026-08-29T14:11Z - Orchestrator 认领 LC-011 单元 EovaExp
 
 - **时间**：2026-08-29T14:11:31Z（cron `*/20`）
