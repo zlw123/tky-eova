@@ -1,104 +1,62 @@
 {
-  "_comment": "无 UI 导入功能。手建见 MANUAL-SETUP.md；Agents Window 可用 open_automation + prefillWorkflowData 预填编辑器",
+  "_comment": "v2：直接 push dev，禁止 cursor/* 与 Draft PR。手建复制 PROMPTS.md",
   "automations": [
     {
       "name": "eova-migration-orchestrator",
-      "description": "读任务板，认领 1 个 Ready 任务为 In Progress，产出单单元 Worker 清单，更新 rolling docs。不写业务代码。",
+      "description": "v2：workerStatus 门禁下派 1 单元清单，只改 docs，push dev。",
       "workflow": {
-        "triggers": [
-          {
-            "cron": {
-              "cron": "0 9 * * 1-5"
-            }
-          }
-        ],
+        "triggers": [],
         "actions": [],
         "prompts": [
-          "你是 EOVA 迁移 Orchestrator。严格按 docs/automation/orchestrator-instructions.md 执行。\n\n本 run：只更新 docs/ai-task-board.md、docs/session-current.md、docs/session-handoff.md；不写 remis-eova 业务代码；最多认领 1 个 Ready 任务并产出 1 个 Worker 单元 JSON 清单。\n\n若已有 In Progress 任务，只补清单不新认领。试点白名单见 orchestrator-instructions。"
+          "你是 EOVA 迁移 Orchestrator v2。规则见 docs/automation/orchestrator-instructions.md 与 LC-011-unit-queue.md。\n\n先读 session-current 的 workerStatus：若为 ready / ported_awaiting_verifier / blocked，立即停止。\n\n仅当可派单时：从 LC-011-unit-queue 派下一单元，更新 rolling docs，workerStatus=ready，一次 commit push dev。\n\n禁止：业务代码、PR、cursor/* 分支、重复 handoff。"
         ],
         "model": "",
-        "agentOptions": {
-          "skipInstall": false
-        },
+        "agentOptions": { "skipInstall": false },
         "memoryEnabled": true,
         "gitConfig": {
-          "repo": "",
+          "repo": "https://github.com/zlw123/tky-eova.git",
           "branch": "dev"
         }
       },
-      "_finishInEditor": [
-        "gitConfig.repo：选择 eova GitHub 仓库",
-        "Cloud Agent 算力（建议开启）",
-        "确认 cron 时区是否符合预期"
-      ]
+      "_finishInEditor": ["Trigger 选手动 Run", "Repository: zlw123/tky-eova"]
     },
     {
       "name": "eova-migration-worker",
-      "description": "按 session-current 中的 Worker 清单，从 meta-eova 代码级 port 1 个单元到 remis-eova，并开 PR。",
+      "description": "v2：workerStatus=ready 时 port 1 单元，mvn test，push dev（无 PR）。",
       "workflow": {
-        "triggers": [
-          {
-            "cron": {
-              "cron": "30 9 * * 1-5"
-            }
-          }
-        ],
+        "triggers": [],
         "actions": [],
         "prompts": [
-          "你是 EOVA 迁移 Worker。严格按 docs/automation/worker-instructions.md 与 DES-002-R1 / R1-F 执行。\n\n从 docs/session-current.md 读取 Worker 清单 JSON；只 port 1 个单元；禁止重写逻辑；禁止动 meta-eova。\n\n完成后：更新 rolling docs、commit、创建 PR（port(taskId): 单元名）。"
+          "你是 EOVA 迁移 Worker v2。规则见 docs/automation/worker-instructions.md 与 DES-002-R1。\n\nworkerStatus 必须为 ready。checkout dev，port 1 单元，mvn -pl yudao-module-eova/eova-core -am test，workerStatus→ported_awaiting_verifier，push origin dev。\n\n禁止：cursor/*、Draft PR、重 port 已合入 dev 的类。"
         ],
         "model": "",
-        "agentOptions": {
-          "skipInstall": false
-        },
+        "agentOptions": { "skipInstall": false },
         "memoryEnabled": true,
         "gitConfig": {
-          "repo": "",
+          "repo": "https://github.com/zlw123/tky-eova.git",
           "branch": "dev"
         }
       },
-      "_finishInEditor": [
-        "gitConfig.repo：与 Orchestrator 相同",
-        "建议启用 Cloud Agent",
-        "可选：改为 Webhook 由 Orchestrator commit 后触发"
-      ]
+      "_finishInEditor": ["Trigger 选手动 Run", "仅在 Orchestrator 派单后触发"]
     },
     {
       "name": "eova-migration-verifier",
-      "description": "对 Worker PR 做编译/golden 验证，回写 Done 或 Blocked。",
+      "description": "v2：dev 上 mvn test，标 verified 或 blocked。",
       "workflow": {
-        "triggers": [
-          {
-            "git": {
-              "pullRequest": {
-                "action": "GIT_PULL_REQUEST_ACTION_PUSHED"
-              }
-            }
-          }
-        ],
-        "actions": [
-          {
-            "prComment": {}
-          }
-        ],
+        "triggers": [],
+        "actions": [],
         "prompts": [
-          "你是 EOVA 迁移 Verifier。严格按 docs/automation/verifier-instructions.md 执行。\n\n验证当前 PR：Java 跑 mvn compile；前端跑 pnpm build（若存在）；检查 ported from 追溯；golden 缺失则跳过 API diff 并记录。\n\n结果写入 rolling docs；失败标 Blocked 并在 PR 评论摘要；不写新 port 代码。"
+          "你是 EOVA 迁移 Verifier v2。规则见 docs/automation/verifier-instructions.md。\n\nworkerStatus 必须为 ported_awaiting_verifier。git pull dev，mvn test，检查 ported from。\n\n通过→verified；失败→blocked。禁止 port 代码、禁止验 PR 分支。"
         ],
         "model": "",
-        "agentOptions": {
-          "skipInstall": false
-        },
+        "agentOptions": { "skipInstall": false },
         "memoryEnabled": true,
         "gitConfig": {
-          "repo": "",
+          "repo": "https://github.com/zlw123/tky-eova.git",
           "branch": "dev"
         }
       },
-      "_finishInEditor": [
-        "git.pullRequest.repos：限定 eova 仓库",
-        "gitConfig.repo + branch",
-        "PR 评论权限"
-      ]
+      "_finishInEditor": ["Trigger 选手动 Run", "仅在 Worker push dev 后触发"]
     }
   ]
 }

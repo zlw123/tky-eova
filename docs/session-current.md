@@ -48,8 +48,7 @@
 ## 5. 后续锚点
 
 1. 本地 `mvn -pl yudao-module-eova/eova-core -am test` 复验
-2. 修订 Automation 规则（Worker merge 到 dev、Orchestrator 禁止直 push）
-3. DES-002-R2 对照表
+3. 修订 Automation 规则（**v2 已完成**，见 `docs/automation/PROMPTS.md`）后再启
 
 ---
 
