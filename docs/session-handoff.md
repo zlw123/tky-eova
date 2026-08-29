@@ -1,5 +1,19 @@
 # Session Handoff
 
+## 2026-08-29T16:02Z - Verifier 验证 LC-011 单元 SqlCondition（通过）
+
+- **时间**：2026-08-29T16:02:08Z（cron `*/35` Verifier，`bc-519612fb`）
+- **对象**：Worker PR `#7` https://github.com/zlw123/tky-eova/pull/7
+- **结论**：单元验证通过；`LC-011` 保持 In Progress；Worker 清单已清空
+- **Java**：`mvn -pl yudao-module-eova/eova-core -am compile -DskipTests` → BUILD SUCCESS
+- **ported from**：通过；结构 54 vs 源 55 行；构造器 3 + getter/setter 1:1；无 JFinal `Db`/`Record`
+- **前端 pnpm build**：skipped（无 `remis-eova/fornt/eova-ui`）
+- **golden: skipped**（无 `docs/golden/`、无 DES-002-R2 baseline）
+- **未 merge**；Automation Tools 无法评论 Worker PR，摘要写在本 Verifier docs PR
+- **下一步**：Orchestrator 派下一内核单元；并行 Worker `bc-5e0fea14` 禁止重 port `SqlCondition`
+
+---
+
 ## 2026-08-29T16:00Z - Orchestrator 复核 LC-011 单元 SqlCondition（未新认领）
 
 - **时间**：2026-08-29T16:00:00Z（cron `*/7`）
