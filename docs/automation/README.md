@@ -55,7 +55,7 @@ flowchart LR
 | `orchestrator-instructions.md` | Orchestrator 完整 prompt |
 | `worker-instructions.md` | Worker 完整 prompt（LC-* / FE-* 路由） |
 | `verifier-instructions.md` | Verifier 完整 prompt |
-| `prefill-workflows.json` | 三条 Automation 的编辑器预填草稿（Agents Window 导入用） |
+| `prefill-workflows.json` | Agent 预填草稿（**无 UI 导入**；手建见 `MANUAL-SETUP.md`） |
 
 ---
 

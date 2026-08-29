@@ -22,9 +22,12 @@
 ## 3. 当前已知结论
 
 1. **Automation 模式**：Orchestrator → Worker → Verifier（见 `docs/automation/README.md`）。
-2. **Git 远程**：`http://10.20.110.206:45001/remis/modules/remis-eova.git`（**dev** 开发分支，main 受保护；submodule meta-eova/eova）。
+2. **Git 远程**：
+   - **GitHub（Cursor Cloud / Automation）**：`https://github.com/zlw123/tky-eova.git`（分支 **dev**）
+   - **GitLab（内网备份）**：`http://10.20.110.206:45001/remis/modules/remis-eova.git`
+   - submodule：`meta-eova/eova`
 3. **Kingbase SQL 备份**：`docs/sql/kingbase/`（原 meta-eova 本地未跟踪文件已归档）。
-4. **编辑器**：Agents Window 导入 `docs/automation/prefill-workflows.json` → AUTO-003。
+4. **Automation**：按 `docs/automation/MANUAL-SETUP.md` 手建三条（无 JSON 导入）；可选 Agents Window 预填编辑器 → AUTO-003。
 5. 试点顺序：**LC-011**（EovaExp）→ 验证后 **FE-001/FE-002**。
 
 ---

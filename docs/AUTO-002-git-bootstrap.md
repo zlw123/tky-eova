@@ -83,4 +83,4 @@ git submodule add https://gitee.com/eova/eova.git meta-eova/eova
 | `docs/ai-task-board.md` | 是 |
 | `meta-eova/eova/...`（Worker 读源） | 是（submodule 初始化后） |
 
-push 成功后，在 **Agents Window** 用 `docs/automation/prefill-workflows.json` 创建三条 Automation。
+push 成功后，按 **`docs/automation/MANUAL-SETUP.md`** 在 Automations UI **手建**三条 Automation（或用 Agents Window 让 Agent 预填编辑器）。

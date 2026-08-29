@@ -1,5 +1,5 @@
 {
-  "_comment": "Agents Window 中通过 open_automation 导入；需先将 eova 仓库 push 到 GitHub 并在编辑器补全 repo/branch",
+  "_comment": "无 UI 导入功能。手建见 MANUAL-SETUP.md；Agents Window 可用 open_automation + prefillWorkflowData 预填编辑器",
   "automations": [
     {
       "name": "eova-migration-orchestrator",

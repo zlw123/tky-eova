@@ -142,7 +142,7 @@
 | ID | 标题 | 状态 | 依赖 | 产出 |
 |----|------|------|------|------|
 | AUTO-001 | 三层流水线文档 + 预填草稿 | **Done** | — | `docs/automation/*` |
-| AUTO-002 | eova 根目录 git 初始化并 push | **Done** | AUTO-001 | `http://10.20.110.206:45001/remis/modules/remis-eova.git` |
+| AUTO-002 | eova 根目录 git 初始化并 push | **Done** | AUTO-001 | GitHub `zlw123/tky-eova` + GitLab remis-eova |
 | AUTO-003 | 创建并启用三条 Automation | **Ready** | AUTO-002 | orchestrator / worker / verifier |
 | AUTO-004 | 首跑试点 LC-011 单单元 | Idea | AUTO-003, LC-011 | EovaExp port PR |
 

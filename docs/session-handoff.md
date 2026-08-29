@@ -1,6 +1,17 @@
 # Session Handoff
 
-## 2026-08-29 - AUTO-002 Git 初始化并 push
+## 2026-08-29 - 推送到 GitHub tky-eova
+
+### 本轮目标
+
+将工作区推送到 `https://github.com/zlw123/tky-eova`，便于 Cursor Cloud Agent 绑库。
+
+### 远程策略
+
+- **github** → `zlw123/tky-eova`（Automation / Cloud Agent 主 remote）
+- **origin** → 内网 GitLab remis-eova（备份）
+
+---
 
 ### 本轮目标
 
