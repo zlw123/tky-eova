@@ -9,7 +9,7 @@
 - **ported from**：通过；结构 54 vs 源 55 行；构造器 3 + getter/setter 1:1；无 JFinal `Db`/`Record`
 - **前端 pnpm build**：skipped（无 `remis-eova/fornt/eova-ui`）
 - **golden: skipped**（无 `docs/golden/`、无 DES-002-R2 baseline）
-- **未 merge**；Automation Tools 无法评论 Worker PR，摘要写在本 Verifier docs PR
+- **未 merge**；Automation Tools 无法评论 Worker PR，摘要写在 Verifier docs PR `#8` https://github.com/zlw123/tky-eova/pull/8
 - **下一步**：Orchestrator 派下一内核单元；并行 Worker `bc-5e0fea14` 禁止重 port `SqlCondition`
 
 ---

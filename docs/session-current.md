@@ -50,7 +50,7 @@ Orchestrator / Worker 注意：
 | LC-011 整任务 | **未完成**（内核仍有后续单元；`TableSource` 仍 stub） |
 
 - 本轮 Worker PR：https://github.com/zlw123/tky-eova/pull/7 （DRAFT，`port(LC-011): SqlCondition`，`cursor/eova-porting-dc30`）
-- 本轮 Verifier docs PR：见本 run 新开 PR（`cursor/eova-72d0`）
+- 本轮 Verifier docs PR：https://github.com/zlw123/tky-eova/pull/8 （DRAFT，`SqlCondition` 已通过）
 - 上一 Worker PR：https://github.com/zlw123/tky-eova/pull/5 （DRAFT，`port(LC-011): EovaExpParam`）
 - 上一 Verifier docs PR：https://github.com/zlw123/tky-eova/pull/6 （DRAFT；`EovaExpParam` 已通过）
 - 上一 Worker PR：https://github.com/zlw123/tky-eova/pull/3 （DRAFT，`port(LC-011): SqlParse`）
