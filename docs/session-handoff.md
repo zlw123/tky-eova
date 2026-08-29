@@ -1,5 +1,28 @@
 # Session Handoff
 
+## 2026-08-29T14:40Z - Orchestrator 补派 LC-011 单元 SqlParse（未新认领）
+
+- **时间**：2026-08-29T14:40:00Z（cron `*/10`）
+- **动作**：已有 In Progress=`LC-011`，**不新认领**；Verifier PR `#2` 确认 `EovaExp` 通过且清单已清空，本轮补写下一单元 `SqlParse`
+- **单元路径**：`meta-eova/eova/core/src/main/java/cn/eova/engine/SqlParse.java` → `remis-eova/backend/yudao-cloud/yudao-module-eova/eova-core/src/main/java/cn/eova/engine/SqlParse.java`
+- **traceability**：`cn.eova.engine.SqlParse`
+- **基线**：draft PR `#1`（`cursor/eova-porting-143b`）已有 `SqlParse` compile-stub，Worker 应替换而非当已迁移
+- **并行**：Worker `bc-9acdc25d` 本 tick 并行启动，可能读到旧 `EovaExp` 清单；`EovaExp` 已验证禁止重 port
+- **未认领**：`FE-001` 仍 Ready；`AUTO-003` Ready 但不在试点白名单
+- **下一步**：Worker 单文件 port `SqlParse`；Orchestrator 禁止开 PR、禁止写业务代码
+
+---
+
+## 2026-08-29T14:30Z - Verifier 验证 LC-011 单元 EovaExp（通过）
+
+- **时间**：2026-08-29T14:30:00Z（cron `*/30` Verifier，`bc-5c23de0f`）
+- **对象**：Worker PR `#1` https://github.com/zlw123/tky-eova/pull/1
+- **结论**：单元验证通过；`LC-011` 保持 In Progress；Worker 清单已清空（见 draft PR `#2`）
+- **Java**：`mvn -pl yudao-module-eova/eova-core -am compile -DskipTests` → BUILD SUCCESS
+- **golden: skipped**
+
+---
+
 ## 2026-08-29T14:30Z - Orchestrator 复核 LC-011 单元 EovaExp（未新认领）
 
 - **时间**：2026-08-29T14:30:00Z（cron `*/10`）
