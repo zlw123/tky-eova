@@ -6,6 +6,15 @@
 
 ---
 
+## Orchestrator 停止（2026-08-30T10:44Z）
+
+- **是否派单**: 否
+- **唯一 blocker**: DES-002-R3 的 `reviewStatus` 不是 `approved`（`docs/DES-002-R3-overall-migration-redesign.md` 在 `origin/dev` 上不存在，无法读取 `reviewStatus`）
+- **unitId / runId / sourceRevision / sourceSha256 / targetBeforeSha256 / leaseUntil / acceptanceProfile**: 未分配
+- 本 run 未写入 `automation/`、未提交、未开 PR
+
+---
+
 ## 2. 当前任务快照
 
 - **In Progress**: 1
