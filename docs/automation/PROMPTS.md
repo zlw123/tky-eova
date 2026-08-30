@@ -49,7 +49,7 @@
 4. automation/README.md（persistence probe 文档仅在需要排障时读取）
 5. docs/DES-002-R3-overall-migration-redesign.md
 
-以下任一条件成立，立即停止并在 session-current/session-handoff 记录唯一阻塞原因：
+以下任一条件成立，立即停止；只在 `automation/state/current.json` / `automation/queue/units.json` 记录唯一 blocker。若 blocker 和机器状态均未变化，则 no-op 退出，不生成重复 commit：
 - DES-002-R3 的 `reviewStatus` 不是 `approved`；
 - `automation/state/current.json` 不可读写，或控制面 `stateRevision`/lease 校验失败；
 - Slice 0 manifest 不是 frozen，或存在 unmapped、duplicate owner、未知 vendor/shell、未解释 deferred；

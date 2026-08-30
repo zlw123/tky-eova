@@ -97,8 +97,8 @@ workerStatus=blocked → 只记 Blocked，不派新单元
 }
 ```
 
-3. `docs/session-current.md`、`docs/session-handoff.md`、`docs/ai-task-board.md`：本地协作者的治理摘要，不由云端 Orchestrator 提交。
-4. 只提交上述 `automation/` 文件到 `dev`；不要创建治理文档 commit。
+3. `docs/session-current.md`、`docs/session-handoff.md`、`docs/ai-task-board.md`：只读的本地治理参考；云端 Orchestrator 不修改、不提交。
+4. 只提交上述 `automation/` 文件到 `dev`；如果 blocker 和机器状态没有变化，直接 no-op，不创建重复 commit。
 
 ## 禁止（2026-08-29 事故教训）
 
