@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "activeRunId": null,
+  "activeTaskId": null,
+  "activeUnitId": null,
+  "status": "idle",
+  "expectedActor": "orchestrator",
+  "stateRevision": 0,
+  "leaseOwner": null,
+  "leaseUntil": null,
+  "controlPlaneStatus": "blocked",
+  "blocker": "control-plane-not-persistent: workspace persistence probe is not executed",
+  "updatedAt": "2026-08-30T18:05:59+08:00"
+}

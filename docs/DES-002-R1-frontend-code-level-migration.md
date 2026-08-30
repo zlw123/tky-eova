@@ -12,9 +12,9 @@
 
 | 来源 | 路径 | 文件约数 | 说明 |
 |------|------|----------|------|
-| 平台 UI | `meta-eova/eova/view/.../webapp/eova/` | **113** | 打进 `eova-meta-view` JAR |
-| Demo 扩展 | `meta-eova/eova/demo/src/main/webapp/` | **25** | 自定义组件/主题/业务页 |
-| 第三方 | `lib/vue/*`、`lib/eova/*` | ~10 | 需换 npm，不 port  min 文件 |
+| 平台 UI | `meta-eova/eova/view/src/main/resources/webapp/eova/` | **105** | 其中 `ui` 共享层 6、`lib` 第三方 9、`_view` 页面/模板 86、错误页 4 |
+| Demo 扩展 | `meta-eova/eova/demo/src/main/webapp/` | **27** | `_component`、`_eova`、`_view`、`demo`、`excel`、`hotel`、`product` |
+| 合计（JS/Vue/HTML） | 上述两棵目录 | **132** | `84 JS`、`46 HTML`、`2 Vue`；逐文件清单由 DES-002-R2-F 冻结 |
 
 ### 1.2 技术栈现状（不是从零开始）
 
@@ -42,7 +42,7 @@
 | `_view/template/eova.template.js` | 139 | 模板公共按钮 |
 | `ui/ext/eova.form.js` | 68 | 表单扩展 |
 
-**合计自研业务 JS（不含 min 库）≈ 55 个文件、~3500 行** — 这是前端代码级迁移的主战场。
+旧记录中的“自研业务 JS 约 55 个”只是历史估算，不能作为派单总数。当前只冻结 `84 JS / 46 HTML / 2 Vue` 的资产总量；剔除第三方、错误页、纯壳模板和重复入口后的业务文件数，必须由 DES-002-R2-F 的 manifest 逐项分类后再确定。
 
 ---
 
@@ -306,7 +306,7 @@ remis-eova/fornt/eova-ui/
 
 | 维度 | 总数 | 已迁移 | 进度 |
 |------|------|--------|------|
-| 业务 JS 文件（F-A~G） | ~55 | 0 | 0% |
+| 前端资产（JS/Vue/HTML） | 132 | 0 | 0%（分类 manifest 未冻结） |
 | 契约 URL 条目 | ~40 | 0 | 0% |
 | EovaUI 组件映射 | ~15（待梳） | 0 | 0% |
 | 模板页（table/tree/form） | 6 | 0 | 0% |
@@ -318,7 +318,7 @@ remis-eova/fornt/eova-ui/
 
 | ID | 标题 | 依赖 |
 |----|------|------|
-| DES-002-R2-F | EovaUI 组件映射表 + 55 文件对照 | DES-002-R1-F |
+| DES-002-R2-F | EovaUI 组件映射表 + 132 资产分类对照 | DES-002-R1-F |
 | FE-001 | eova-ui 工程初始化（Vite+TS+EP） | DES-002-03 |
 | FE-002 | eova-urls + eova-http 契约层 | FE-001 |
 | FE-003 | port EovaLayer | FE-002 |
@@ -367,5 +367,5 @@ sequenceDiagram
 ## 14. 下一步
 
 1. 拿哥确认 **DES-002-R1-F** 口径。  
-2. 产出 **DES-002-R2-F**：55 文件完整对照 + 15 组件映射表。  
-3. **FE-001 / FE-002** 与后端 **LC-011** 可并行（契约层不依赖 Spring）。
+2. 产出 **DES-002-R2-F**：132 资产完整对照、业务/第三方/壳文件分类和组件映射表。
+3. FE-001 / FE-002 与后端 LC-011 在依赖上可独立，但受全局“仅 1 个 In Progress”和三条 Automation 串行门禁约束，不能实际并行派发。

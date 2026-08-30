@@ -2,6 +2,8 @@
 
 > Orchestrator **不**默认只跑 LC-011。先读 `docs/ai-task-board.md` 定 **taskId**，再查下表选单元队列。
 
+所有 `targetPaths` 必须使用仓库相对路径；Orchestrator 派单时写入完整仓库相对路径。
+
 ---
 
 ## 1. 选哪个任务（taskId）
@@ -11,15 +13,13 @@
 | 已有 **1 个** `In Progress` | **继续该 taskId**，派其下一单元（LC-011 未 Done 时不切换 FE-001） |
 | 无 `In Progress` | 从 **Ready 白名单**认领 **1 个**（优先级见下） |
 
-### Ready 白名单（DES-002-R2 完成前）
+### Ready 白名单（R3 评审后的剩余门禁期间）
 
 | 优先级 | taskId | 单元队列文档 |
 |--------|--------|--------------|
-| 1 | LC-011 | `LC-011-unit-queue.md` |
-| 2 | FE-001 | 本节 §FE-001（单单元脚手架） |
-| 3 | FE-002 | 本节 §FE-002（依赖 FE-001 Done） |
+| — | （暂不开放） | 已完成 R3 评审，但仍等待 workspace persistence probe、Slice 0 manifest freeze 和旧 demo baseline |
 
-**禁止认领**：AUTO-003、Idea、Deferred、Blocked、不在上表的任务。
+**禁止认领**：LC-011、FE-001、FE-002、AUTO-003、Idea、Deferred、Blocked 和不在上表的任务。
 
 ---
 
@@ -39,10 +39,13 @@ Worker 清单 JSON 的 `taskId` **必须**与上表一致；commit message 用 `
 
 | 字段 | 值 |
 |------|-----|
+| unitId | `FE-001-000` |
 | unitName | `eova-ui-scaffold` |
 | unitType | `scaffold` |
-| sourcePath | —（无单文件，按 DES-002-R1-F 初始化） |
-| targetPath | `remis-eova/fornt/eova-ui/` |
+| sourcePath | `null`（无单文件，按 DES-002-R1-F 初始化） |
+| targetPaths | `remis-eova/fornt/eova-ui/` |
+| dependencies | `[]` |
+| acceptanceProfile | `frontend-build` |
 | acceptance | `pnpm install && pnpm build` |
 
 整任务完成后 Orchestrator 将 FE-001 标 **Done**。
@@ -51,13 +54,13 @@ Worker 清单 JSON 的 `taskId` **必须**与上表一致；commit message 用 `
 
 ## 4. FE-002（契约层，FE-001 后）
 
-| 顺序 | unitName | targetPath |
-|------|----------|------------|
-| 1 | eova-urls | `remis-eova/fornt/eova-ui/src/api/eova-urls.ts` |
-| 2 | eova-http | `remis-eova/fornt/eova-ui/src/utils/eova-http.ts` |
+| 顺序 | unitId | unitName | dependencies | acceptanceProfile | targetPaths |
+|------|--------|----------|--------------|------------------|------------|
+| 1 | FE-002-001 | eova-urls | `[FE-001-000]` | `frontend-contract` | `remis-eova/fornt/eova-ui/src/api/eova-urls.ts` |
+| 2 | FE-002-002 | eova-http | `[FE-002-001, DES-API-R2]` | `frontend-contract` | `remis-eova/fornt/eova-ui/src/utils/eova-http.ts` |
 
 ---
 
-## 5. DES-002-R2 之后
+## 5. R3 评审通过后的放行条件
 
-完整 267 Java / 55 JS 对照表就绪后，本索引扩展为按 taskId 链到各 `*-unit-queue.md`；届时取消试点白名单。
+完成 workspace persistence probe、Slice 0 manifest 和旧 demo baseline 后，才恢复 LC-011/FE-001 的白名单；完整 267 Java / 132 前端资产分类对照表就绪后，本索引再按 taskId 链到各 `*-unit-queue.md`。在 manifest 冻结前不得按估算数量派单。

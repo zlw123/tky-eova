@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-08-30T18:05:59+08:00",
+  "units": [],
+  "queueStatus": "blocked",
+  "blocker": "control-plane-not-persistent: workspace persistence probe is not executed; Slice 0 manifest and old demo baseline are not frozen/ready"
+}

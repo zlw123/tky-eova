@@ -1,0 +1,54 @@
+# DES-002-R3 Slice 0 基线输入
+
+> 状态：baseline_pending / Design-only
+> 目的：把旧 demo 的启动、数据源、接口样例和首批 golden case 固定成可录制输入；当前只有静态来源证据，尚未执行旧 demo。
+
+## 1. 静态确认的旧 demo 入口
+
+来源：`meta-eova/eova` submodule，revision `1b1d39e7350f7e031b216aad0399fc8cc55dce08`。
+
+| 项 | 静态来源 | 当前结论 |
+|---|---|---|
+| 启动类 | `demo/src/main/java/cn/eova/meta/RunEovaMeta.java` | 待旧 demo 实际启动确认 |
+| 启动脚本 | `demo/eova.sh` | Undertow 默认端口 `9090`，`APP_NAME=eova-meta-9090` |
+| Java | `demo/eova.sh` | 旧脚本显式使用 Java 8 |
+| 平台库 | `demo/src/main/resources/eova/dev.txt` | 配置键为 `eova.url`，目标 schema `eova_meta` |
+| 业务库 | `demo/src/main/resources/eova/dev.txt` | 配置键为 `main.url`，目标 schema `demo` |
+| 浏览器入口 | `meta-eova/eova/README.md` | `http://127.0.0.1:9090/` |
+| Router API | `demo/src/test/java/api/UserApi.http` | `/router`，`demo.user.*` 方法 |
+
+静态 README 中的 MySQL 连接串不能直接作为当前运行环境事实；迁移 baseline 必须重新确认 Kingbase schema、账号、端口和数据快照。
+
+## 2. 首批 golden case（只定义，不伪造响应）
+
+从 `demo/src/test/java/api/UserApi.http` 提取以下 case：
+
+| caseId | 请求 | 目的 |
+|---|---|---|
+| `router-user-query-ok` | POST `/router?app_key=10000&method=demo.user.query&timestamp=0&sign=devnocheck`，空 JSON | 正常查询、响应 envelope、空结果 |
+| `router-user-add-ok` | POST `/router?app_key=10000&method=demo.user.add&timestamp=0&sign=devnocheck`，`login_id/nickname` | 新增字段、影响行数和响应 |
+| `router-user-query-bad-sign` | 同 query，错误 sign | 鉴权失败状态码、错误文本和 envelope |
+| `router-unknown-app-key` | 未知 `app_key` + `demo.user.err` | app_key 校验和错误短路 |
+| `router-user-login` | POST `/router?app_key=10000&method=demo.user.login...` | 登录成功/失败、token 或 session 语义 |
+
+API baseline 还必须从旧前端真实调用中补充 `/grid/*`、`/api/meta/*`、`/api/home/menu`、表单、上传和导出 case；不能只依赖 `.http` 文件。
+
+## 3. 录制前 readiness checklist
+
+1. 核对 submodule revision、旧 demo 启动命令和实际监听端口。
+2. 确认 `eova_meta` 与 `demo` 测试 schema、表数量、快照标识和最小权限账号。
+3. 访问 `/`，完成登录，记录 cookie/session/token 的真实形态。
+4. 对每个 case 保存脱敏 request、response、status、headers、HAR 和日志时间戳。
+5. 对新增/更新/删除 case 使用专用测试数据，录制前后数据校验，避免污染基线。
+6. 记录失败 case，不得只保留成功请求；错误文本、状态码和空值均是契约。
+
+## 4. 当前门禁
+
+- `old-demo-readiness`: `not executed`
+- `api-golden`: `baseline_pending`
+- `database-snapshot`: 需要实时确认，不能直接复用旧结论
+- `workspace-persistence-probe`: `not executed`
+- Slice 0 manifest：已生成 `provisional`，未冻结
+
+在这些状态转为 `ready` 前，不得启用 Worker 批量迁移，也不得把现有 engine 类升级为切片 `verified`。
+

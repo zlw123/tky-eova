@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "name": "eova-automation-control-plane",
+  "repository": "https://github.com/zlw123/tky-eova.git",
+  "branch": "dev",
+  "statusSource": "automation/",
+  "initializedAt": "2026-08-30T18:05:59+08:00"
+}

@@ -1,0 +1,20 @@
+{
+  "manifestRevision": "provisional-20260830T032254Z",
+  "sourceRevision": "1b1d39e7350f7e031b216aad0399fc8cc55dce08",
+  "status": "provisional",
+  "java": {
+    "count": 267,
+    "sha256": "f7227347d4484a9566f387abe52890f13987fcc1242ae1b43149901a5fb662f8"
+  },
+  "frontend": {
+    "count": 132,
+    "sha256": "c18db5daac0b4a09bc92f74b9c46af4be3acd15010305e7719e988de3b5e06ac"
+  },
+  "freezeReady": false,
+  "freezeBlockers": [
+    "target mapping is provisional",
+    "directDependencies not audited",
+    "contractRefs not audited",
+    "workspace persistence probe not executed"
+  ]
+}

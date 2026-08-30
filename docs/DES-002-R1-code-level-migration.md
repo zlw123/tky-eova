@@ -200,7 +200,7 @@ remis-eova/
 
 详见 **`DES-002-R1-frontend-code-level-migration.md`**：
 
-- 55 个业务 JS 逐文件 port（F-A~F-G 分级）
+- 前端 132 个 JS/Vue/HTML 资产先按 DES-002-R2-F 分类；完成分类后再对业务子集逐文件 port（F-A~F-G 分级），不得沿用旧的“55 个业务 JS”估算
 - 契约冻结：`window.urls`、`{ state, msg, data }`、`uzoo.page` 字段
 - 阶段 FP0~FP7，任务 FE-001~FE-010
 - 与 **DES-002-R2** golden API 清单共用 baseline

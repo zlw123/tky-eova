@@ -1,4 +1,4 @@
-# Cloud Agent 挂库指南（remis-eova / 内网 GitLab）
+# Cloud Agent 挂库指南（zlw123/tky-eova）
 
 > 对应故障：`repos: null`、`/agent` 为空、`gh 未登录`、读不到 `docs/automation/*`  
 > **Cursor Cloud Agent 推荐仓库**：`https://github.com/zlw123/tky-eova.git`（分支 dev）  
@@ -21,23 +21,19 @@
 
 ## 2. 去哪里挂？（两步，顺序不能反）
 
-### 第一步：Cursor 连上你的 GitLab（账号级，一次性）
+### 第一步：Cursor 连接 GitHub 主仓（账号级，一次性）
 
 1. 打开 [Cursor Dashboard → Integrations](https://cursor.com/dashboard?tab=integrations)
-2. **Advanced → GitLab Self-Hosted**（内网实例走这条，不是 gitlab.com）
-3. 在 **GitLab 管理端**（需 Admin）创建 OAuth Application：
-   - Redirect URI：`https://cursor.com/gitlab-connected`
-   - Trusted：`true`，Confidential：`true`
-   - Scopes：`api`、`write_repository`
-4. 把 **Application ID / Secret** 填回 Cursor，点 **Connect**
-5. Integrations 里对该连接点 **Manage → Sync Repos**，把 `remis/modules/remis-eova` 同步进来
+2. 确认 GitHub 账号已连接，并能看到 `zlw123/tky-eova`。
+3. 给 Cloud Agent Environment 选择该仓库，默认分支选择 `dev`。
+4. 如果 GitHub 集成不可用，才使用下方 GitLab Self-Hosted 备份方案；不要把两个仓库同时作为 Automation 主目标。
 
 **内网可达性**（`10.20.110.206` 若公网访问不到 Cursor）：
 
 - 方案 A：GitLab 对 Cursor 出口 IP 做白名单（文档推荐 IP 见 [GitLab 集成文档](https://cursor.com/docs/integrations/gitlab)）
 - 方案 B：**Enterprise** 用 [Private Connectivity](https://cursor.com/docs/cloud-agent/private-connectivity)（PrivateLink / Cloudflare Tunnel / Reverse Proxy）
 
-没有连通性，Integrations 连上了 Cloud Agent 也 clone 失败。
+没有连通性，Integration 连上了 Cloud Agent 也 clone 失败；因此必须先在 Environment 中确认仓库已实际 checkout。
 
 **计划要求**：
 
@@ -46,12 +42,12 @@
 
 ---
 
-### 第二步：给 Cloud Agent Environment 绑定 remis-eova
+### 第二步：给 Cloud Agent Environment 绑定 `zlw123/tky-eova`
 
 1. 打开 [Cloud Agents Dashboard](https://cursor.com/dashboard?tab=cloud-agents)
 2. 找到环境 `f3d0660e-…`（或 **New environment** 重建，更干净）
 3. **Agent-driven setup**（推荐）或编辑现有环境：
-   - **Select repositories** → 选 **`remis/modules/remis-eova`**
+   - **Select repositories** → 选 **`zlw123/tky-eova`**
    - 默认分支选 **dev**
    - 若有 submodule：install 脚本里加  
      `git submodule update --init --recursive`  
@@ -65,7 +61,7 @@
 
 1. [Automations](https://cursor.com/automations) → 打开 `eova-migration-orchestrator`
 2. **Enable**（你那次是 `enabled: false`）
-3. **Repository / Branch**：`remis-eova` + **dev**
+3. **Repository / Branch**：`zlw123/tky-eova` + **dev**
 4. **Compute / Environment**：选刚绑定仓库的 Environment（不要选 repos 为空的环境）
 5. Save → **Manual Run** 试跑，再看 run 详情里是否已 checkout 到 `docs/`
 
@@ -73,7 +69,7 @@
 
 ## 3. 能挂刚才的 Git 库吗？
 
-**能**，就是 `http://10.20.110.206:45001/remis/modules/remis-eova.git`，在 Cursor 里显示为 **`remis/modules/remis-eova`**（group 项目）。
+GitHub 主仓是 `https://github.com/zlw123/tky-eova.git`。如果必须使用内网备份，才连接 `http://10.20.110.206:45001/remis/modules/remis-eova.git`，在 Cursor 中显示为 `remis/modules/remis-eova`；两者不可混用为同一轮 Automation 的主仓。
 
 注意：
 
@@ -93,17 +89,17 @@ Automation 编辑页把 **Compute 从 Cloud 改 Local**：
 - 不依赖 Cursor 云端访问 `10.20.110.206`
 - 适合 Orchestrator 只改 docs、本机 Keychain 已能 push 的阶段
 
-Cloud 打通后再切回 Cloud Agent（并行跑、不占用本机）。
+Cloud 打通后再切回 Cloud Agent；仍必须按 Orchestrator → Worker → Verifier 串行触发，不得并行跑。
 
 ---
 
 ## 5. 修完后的验收清单
 
-- [ ] Integrations → GitLab Self-Hosted → Connected，Sync Repos 能看到 remis-eova
-- [ ] Cloud Environment → repos 含 remis-eova，Build **Active**
+- [ ] GitHub Integration 已连接，能看到 `zlw123/tky-eova`
+- [ ] Cloud Environment → repos 含 `zlw123/tky-eova`，Build **Active**
 - [ ] Automation **enabled**，Environment 选对，branch = **dev**
 - [ ] Manual Run 日志里能 `cat docs/automation/orchestrator-instructions.md`
-- [ ] 能 `git push origin dev`
+- [ ] 能 push 到 URL `https://github.com/zlw123/tky-eova.git` 对应的 GitHub 主 remote 的 `dev`（不要假设 remote 名为 `origin`）
 
 ---
 
