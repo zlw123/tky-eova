@@ -24,33 +24,35 @@
 4. 没有重复 owner、未解释 deferred 或把 compile-stub 标为 verified 的记录。
 5. 复核后将 manifestRevision 从 `S01-v0-provisional` 更新为新的冻结版本，并将切片状态保留为 `preparing`，直到 baseline 也完成。
 
-## 旧 demo baseline 录制
+## 基线分工：源码证据 + 最小运行态
 
-在旧源码 revision `1b1d39e7350f7e031b216aad0399fc8cc55dce08` 上实际启动 `demo/eova.sh`，确认 Java 8、端口 `9090`、Kingbase schema、测试账号和 session 存储。所有结果写入本地 `docs/.local/slices/S01-login-shell/`，不提交。
+登录分支、菜单组装、Tab 状态机和退出调用链以固定旧源码为语义基线，不要求通过重复运行去“证明”代码已经写明的分支。manifest 中必须记录对应旧文件、方法、分支和契约；源码证据不足时才补充分析，不以猜测替代。
 
-至少录制：
+仍需在旧源码 revision `1b1d39e7350f7e031b216aad0399fc8cc55dce08` 上启动一次 `demo/eova.sh`，只验证源码无法可靠推出的运行态事实：Java/端口/数据源 readiness、真实 HTTP envelope、cookie/session 形态、静态资源加载和固定 viewport 的实际页面几何。所有结果写入本地 `docs/.local/slices/S01-login-shell/`，不提交。
+
+最小运行态录制：
 
 | caseId | 证据 |
 |---|---|
 | `S01-login-page` | 登录页截图、viewport、静态资源和初始网络请求 |
-| `S01-login-success` | 脱敏请求/响应、状态码、headers、cookie/session、HAR、日志时间 |
-| `S01-login-failure` | 错误密码的状态码、错误文本、envelope 和截图 |
-| `S01-home-menu` | `/api/home/menu` 请求/响应、菜单层级/顺序和主框架截图 |
-| `S01-main-shell-tabs` | 菜单打开、Tab 切换、刷新和返回行为截图/录屏 |
-| `S01-logout` | 退出请求、session 失效、回到登录页的结果 |
+| `S01-login-success` | 脱敏请求/响应、状态码、headers、cookie/session 形态和日志时间 |
+| `S01-login-failure` | 错误密码的实际状态码、错误文本和 envelope（分支语义以源码为准） |
+| `S01-home-menu` | `/api/home/menu` 实际响应、菜单层级/顺序和主框架加载结果 |
+| `S01-main-shell-tabs` | 至少一次菜单打开、Tab 切换或刷新 smoke；完整状态机以源码证据为准 |
+| `S01-logout` | 退出请求、session 失效和回到登录页的实际结果 |
 | `S01-login-visual-baseline` | 登录页和主框架在固定 viewport 的完整截图 |
 
-新增、删除或权限变化不属于本切片，另建切片或单元；不要为了录 baseline 修改旧库中的业务数据。
+不要求在 S01 录制全量 CRUD、上传、导出或所有 API；这些属于后续切片。新增、删除或权限变化不属于本切片，另建切片或单元；不要为了录 baseline 修改旧库中的业务数据。
 
 ## `ready=true` 准入
 
 只有以下条件同时满足，才能把 `automation/slices/index.json` 中 S01 更新为 `manifestStatus=frozen`、`baselineStatus=ready`、`ready=true`，并把对应单元放入 Ready 白名单：
 
 1. S01 局部 manifest 已冻结。
-2. 旧 demo 实际启动、登录、菜单、Tab 和退出均有证据。
-3. 失败登录和 session 失效场景已录制。
-4. 旧页面截图和新页面验收视口已固定。
-5. API/HAR、UI 证据路径和验收步骤可被 Verifier 直接读取。
+2. manifest 已为登录、菜单、Tab、退出和 session 分支保留可追溯的源码证据。
+3. 旧 demo 最小运行态 smoke 已完成：启动、登录成功/失败、菜单、退出和 session 失效可访问。
+4. 旧页面截图和新页面验收视口已固定；实际 cookie/session、HTTP envelope 和资源加载结果已记录。
+5. 需要运行态对照的 API/HAR、UI 证据路径和验收步骤可被 Verifier 直接读取；仅由源码确定的逻辑不重复造运行证据。
 
 `ready=true` 之前不得让 Orchestrator 派 S01 单元；不得仅通过修改 JSON 字段放行。
 

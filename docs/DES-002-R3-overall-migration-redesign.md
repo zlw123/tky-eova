@@ -141,7 +141,7 @@ S 类没有单文件源路径时，必须有对应 DES 方法契约；不能把 
 
 ### Slice 1：登录与主框架切片（S01-login-shell）
 
-范围：旧 `LoginService`、`LoginController`、登录页逻辑/视图/样式、主框架菜单/Tab/退出逻辑，以及它们的最小依赖闭包。验收必须覆盖登录成功、登录失败、session/cookie、菜单加载、主框架结构、退出登录和旧新截图/HAR 对照。
+范围：旧 `LoginService`、`LoginController`、登录页逻辑/视图/样式、主框架菜单/Tab/退出逻辑，以及它们的最小依赖闭包。登录分支、菜单组装、Tab 状态机和退出调用链以固定旧源码逐项映射；运行态只需补充源码无法推出的真实 cookie/session、HTTP envelope、资源加载、最小登录/菜单/退出 smoke 和旧新截图/HAR 对照。
 
 当前状态：`preparing`；局部 manifest 为 `S01-v0-provisional`，旧 demo readiness、API/HAR、截图和 logout 证据尚未完成。
 
