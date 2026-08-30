@@ -36,7 +36,7 @@ workspace persistence probe、Slice 0 manifest freeze 和旧 demo baseline 仍�
 ### 本轮确认
 
 1. 远端 `github/dev` 曾因 Cursor Orchestrator 提交 `fd7ffc2` 暂时领先；已无损 rebase，保留其 `DES-002-R3` 缺失阻塞记录。
-2. 本地提交 `43bb5f0` 已成功 push 到 `github/dev`；远端现在包含 `automation/`、R3 设计文档和最新三份 Automation 提示词。
+2. 本地提交 `43bb5f0` 和状态记录 `287c2e2` 已成功 push 到 `github/dev`；远端现在包含 `automation/`、R3 设计文档和最新三份 Automation 提示词。
 3. 远端控制面读回为 `activeRunId=null`、`stateRevision=0`、`controlPlaneStatus=blocked`、`runs=[]`；没有业务派单或迁移 Run。
 
 ### 当前剩余问题
