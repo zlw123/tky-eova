@@ -220,7 +220,7 @@ docs/golden/<case-id>/
 
 每次运行必须幂等：使用 `unitId + sourceRevision + sourceSha256` 判断是否重复；同一状态重复触发不得重复 append handoff、重复 commit 或重复 push。为避免两个 run 同时读到同一状态，写入前必须重新读取 session-current，并使用 `runId`、`leaseUntil` 和 `updatedAt` 做条件检查。`runId` 使用 `<automation>-<UTC timestamp>-<random suffix>`，`leaseUntil` 使用 ISO-8601 UTC 时间，租约最长 30 分钟；过期只能由新 run 重新读取后接管，不能覆盖仍在有效租约内的 run。发现状态、runId、revision 或目标 hash 已变化时停止并标记 blocked，不自行猜测修复。
 
-三条 Automation 必须串行。Worker 不得由自身 push、PR 或高频 cron 触发；Verifier 允许使用 GitHub `New push to branch=dev` 做即时触发，但必须保留状态/hash/runId/lease 门禁和每日 Schedule 兜底。初期只允许 Manual Run；R3 放行且 persistence probe 通过后，才允许启用：Orchestrator 工作日 09:00、Worker 10:00、Verifier push 事件 + 14:00（Asia/Shanghai）Schedule。所有触发器只唤醒 run，状态不匹配时必须 no-op。
+三条 Automation 必须串行。Worker 不得由自身 push、PR 或高频 cron 触发；Verifier 允许使用 GitHub `New push to branch=dev` 做即时触发，但必须保留状态/hash/runId/lease 门禁和每日 Schedule 兜底。初期只允许 Manual Run；R3 放行且 Git 控制面、manifest 和 baseline 门禁通过后，才允许启用：Orchestrator 工作日 09:00、Worker 10:00、Verifier push 事件 + 14:00（Asia/Shanghai）Schedule。所有触发器只唤醒 run，状态不匹配时必须 no-op。
 
 ## 9. Git 与工作区规则
 

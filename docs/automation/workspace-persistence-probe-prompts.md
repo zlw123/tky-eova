@@ -1,10 +1,10 @@
-# workspace persistence probe 手动提示词
+# workspace persistence probe 手动提示词（可选诊断）
 
-> 用途：在正式启用迁移 Automation 前，验证 Orchestrator、Worker、Verifier 是否共享同一份持久化工作区。
+> 用途：在怀疑云端 workspace 挂载、路径或权限异常时，验证 Orchestrator、Worker、Verifier 是否共享同一份工作区。该流程不再是正式迁移门禁。
 >
 > 这不是业务迁移 run。三条 Automation 需要临时以 `PERSISTENCE_PROBE_MODE` 执行，不能直接使用正常迁移提示词，否则 R3 门禁会按预期阻止运行。
 
-## 执行前
+## 执行前（仅在需要诊断时）
 
 1. 三个 Automation 都选择 **Manual Run**；临时关闭 Schedule 和 GitHub event，避免混入其他 run。
 2. 三个 run 必须使用相同 Repository：`https://github.com/zlw123/tky-eova.git`、相同 Branch：`dev`、相同 workspace 挂载和权限。
@@ -67,4 +67,4 @@ Repository 必须是 https://github.com/zlw123/tky-eova.git，Branch 必须是 d
 
 ## 通过标准
 
-只有同一个文件、同一个 `probeId`、同一个绝对 `workspacePath` 被四次 run 连续读写，并最终得到 `result=passed`，才可以把 `workspace persistence probe` 改为 `passed`，随后再评审 manifest 和 baseline 门禁。任何一个 run 失败，都保持 `blocked/not executed`，不得用本地进程读写结果替代 Cursor 跨 run 证据。
+只有同一个文件、同一个 `probeId`、同一个绝对 `workspacePath` 被四次 run 连续读写并最终得到 `result=passed`，才能说明诊断通过。诊断失败只记录 `control-plane-not-persistent` 供排障，不改变正式 `automation/` 状态，也不要求通过诊断后才能派单；正式派单仍由 Git 控制面、manifest、baseline、Ready 白名单和 lease 门禁决定。

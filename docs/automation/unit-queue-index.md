@@ -17,7 +17,7 @@
 
 | 优先级 | taskId | 单元队列文档 |
 |--------|--------|--------------|
-| — | （暂不开放） | 已完成 R3 评审，但仍等待 workspace persistence probe、Slice 0 manifest freeze 和旧 demo baseline |
+| — | （暂不开放） | 已完成 R3 评审，但仍等待 Slice 0 manifest freeze 和旧 demo baseline |
 
 **禁止认领**：LC-011、FE-001、FE-002、AUTO-003、Idea、Deferred、Blocked 和不在上表的任务。
 
@@ -63,4 +63,4 @@ Worker 清单 JSON 的 `taskId` **必须**与上表一致；commit message 用 `
 
 ## 5. R3 评审通过后的放行条件
 
-完成 workspace persistence probe、Slice 0 manifest 和旧 demo baseline 后，才恢复 LC-011/FE-001 的白名单；完整 267 Java / 132 前端资产分类对照表就绪后，本索引再按 taskId 链到各 `*-unit-queue.md`。在 manifest 冻结前不得按估算数量派单。
+完成 Slice 0 manifest 和旧 demo baseline 后，才恢复 LC-011/FE-001 的白名单；完整 267 Java / 132 前端资产分类对照表就绪后，本索引再按 taskId 链到各 `*-unit-queue.md`。在 manifest 冻结前不得按估算数量派单；persistence probe 仅作可选诊断。

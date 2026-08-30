@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-30T18:05:59+08:00",
+  "updatedAt": "2026-08-30T19:28:50+08:00",
   "units": [],
   "queueStatus": "blocked",
-  "blocker": "control-plane-not-persistent: workspace persistence probe is not executed; Slice 0 manifest and old demo baseline are not frozen/ready"
+  "blocker": "slice0-gates-not-ready: manifest is provisional; old demo baseline is not ready; persistence probe is optional diagnostic only"
 }

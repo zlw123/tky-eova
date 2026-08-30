@@ -5,10 +5,17 @@
   "activeUnitId": null,
   "status": "idle",
   "expectedActor": "orchestrator",
-  "stateRevision": 0,
+  "stateRevision": 1,
   "leaseOwner": null,
   "leaseUntil": null,
   "controlPlaneStatus": "blocked",
-  "blocker": "control-plane-not-persistent: workspace persistence probe is not executed",
-  "updatedAt": "2026-08-30T18:05:59+08:00"
+  "manifestStatus": "provisional",
+  "oldDemoBaselineStatus": "not_ready",
+  "persistenceProbe": {
+    "mode": "optional_diagnostic",
+    "status": "not_run",
+    "evidencePath": null
+  },
+  "blocker": "slice0-gates-not-ready: manifest is provisional; old demo baseline is not ready",
+  "updatedAt": "2026-08-30T19:28:50+08:00"
 }

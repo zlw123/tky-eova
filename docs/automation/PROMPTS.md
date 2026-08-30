@@ -7,15 +7,16 @@
 > 旧源码：`meta-eova/eova/`（只读）；新代码：`remis-eova/`
 >
 >
-> 机器状态事实源：同一 `dev` 分支下的 `automation/`；当前 `automation/state/current.json` 为 `controlPlaneStatus=blocked`。
+> 机器状态事实源：同一 `dev` 分支下的 `automation/`；当前因 Slice 0 manifest/baseline 未就绪，`automation/state/current.json` 为 `controlPlaneStatus=blocked`。
 
 ## 使用方式
 
-1. 当前 R3 评审已通过，但 persistence probe、Slice 0 manifest freeze 和旧 demo baseline 未完成，三条 Automation 只能 Manual Run 做控制面探测；不得派业务单元。
-2. 放行后统一使用 **Schedule / Weekdays**，时区 `Asia/Shanghai`，错峰配置如下：Orchestrator `09:00`，Worker `10:00`，Verifier `14:00`。三条均为每天最多一次，不要配置 `*/7` 或同一时刻触发。
-3. 只有 Orchestrator 写出 `workerStatus=ready` 后，Worker 的定时 run 才能执行；只有 Worker 写出 `ported_awaiting_verifier` 且已 push `dev` 后，Verifier 才能执行。Verifier 可同时配置 GitHub `New push to branch=dev` 即时触发和每天 `14:00` Schedule 兜底；条件不满足时只记录 no-op/blocker 并退出。
-4. R3 `reviewStatus=approved`、workspace persistence probe 通过、Slice 0 manifest 冻结、旧 demo baseline 就绪后，才允许启用上述 Schedule。
-5. 治理文档（`docs/session-current.md`、`docs/session-handoff.md`、`docs/ai-task-board.md` 和 `docs/.local/`）只在本地维护，不进入代码 commit；云端三条 Automation 只以 `automation/` 机器状态为事实源。
+1. 当前 R3 评审已通过，但 Slice 0 manifest freeze 和旧 demo baseline 未完成，三条 Automation 只能 Manual Run 做控制面检查；不得派业务单元。persistence probe 仅作可选诊断。
+2. 本地 rolling docs 只作协作参考；若其历史记录与 `automation/` 机器状态或本提示词冲突，以 `automation/` 和本提示词为准，不得把历史 blocker 恢复为当前门禁。
+3. 放行后统一使用 **Schedule / Weekdays**，时区 `Asia/Shanghai`，错峰配置如下：Orchestrator `09:00`，Worker `10:00`，Verifier `14:00`。三条均为每天最多一次，不要配置 `*/7` 或同一时刻触发。
+4. 只有 Orchestrator 写出 `workerStatus=ready` 后，Worker 的定时 run 才能执行；只有 Worker 写出 `ported_awaiting_verifier` 且已 push `dev` 后，Verifier 才能执行。Verifier 可同时配置 GitHub `New push to branch=dev` 即时触发和每天 `14:00` Schedule 兜底；条件不满足时只记录 no-op/blocker 并退出。
+5. R3 `reviewStatus=approved`、`automation/state/current.json` 可读写、Slice 0 manifest 冻结、旧 demo baseline 就绪后，才允许启用上述 Schedule。
+6. 治理文档（`docs/session-current.md`、`docs/session-handoff.md`、`docs/ai-task-board.md` 和 `docs/.local/`）只在本地维护，不进入代码 commit；云端三条 Automation 只以 `automation/` 机器状态为事实源。
 
 ## 共同不可违反规则
 
@@ -24,8 +25,8 @@
 - 每个目标文件必须保留 `ported from`、旧 FQCN（或 S 类适配契约）和 `sourceRevision` 追溯信息；程序方法签名配套简短中文注释。
 - GitHub 主 remote 通过 URL `https://github.com/zlw123/tky-eova.git` 识别，目标分支为 `dev`；`origin` 是内网备份，不能作为 Automation 发布目标。
 - 禁止创建 `cursor/*` 分支、Draft PR、自动 merge；所有角色固定在 `dev`，并按角色白名单提交：Orchestrator/Verifier 只能提交 `automation/`，Worker 可提交当前单元业务代码和对应 `automation/runs/<runId>/` 结果，不能提交治理文档或修改 `meta-eova/eova` submodule。
-- `automation/state/current.json`、`automation/queue/units.json` 和 `automation/runs/index.json` 是控制面核心状态；写入前必须 fetch/rebase，检查 `stateRevision`、`activeRunId`、lease 和 hash，禁止 force push。
-- 状态必须形成 `ready -> ported_awaiting_verifier -> verified`；任何证据缺失、hash/revision 不一致、测试失败或环境不可用都写 `blocked`，不能猜测为通过。
+- `automation/state/current.json`、`automation/queue/units.json` 和 `automation/runs/index.json` 是控制面核心状态；写入前必须 fetch/rebase，检查 `stateRevision`、`activeRunId`、`controlPlaneStatus`、`manifestStatus`、`oldDemoBaselineStatus`、lease 和 hash，禁止 force push。
+- 状态必须形成 `ready -> ported_awaiting_verifier -> verified`；任何控制面、证据、hash/revision、测试或环境问题都写 `blocked`，不能猜测为通过。`docs/.local/persistence-probe-*.json` 不参与正式状态转换。
 - `BUILD SUCCESS`、单测通过、静态资源存在或进程启动成功都不是迁移完成；按 `acceptanceProfile` 执行实际验证，没有 baseline 必须明确 `golden: skipped`，未执行必须明确 `not executed`。
 
 ---
@@ -45,12 +46,12 @@
 1. automation/state/current.json、automation/queue/units.json、automation/runs/index.json
 2. docs/ai-task-board.md、docs/session-current.md
 3. docs/automation/unit-queue-index.md 及对应队列文档
-4. docs/automation/workspace-persistence-probe.md
+4. automation/README.md（persistence probe 文档仅在需要排障时读取）
 5. docs/DES-002-R3-overall-migration-redesign.md
 
 以下任一条件成立，立即停止并在 session-current/session-handoff 记录唯一阻塞原因：
 - DES-002-R3 的 `reviewStatus` 不是 `approved`；
-- workspace persistence probe 不是 passed（当前 not executed）；
+- `automation/state/current.json` 不可读写，或控制面 `stateRevision`/lease 校验失败；
 - Slice 0 manifest 不是 frozen，或存在 unmapped、duplicate owner、未知 vendor/shell、未解释 deferred；
 - Ready 白名单为空且没有可继续的 In Progress，或同时存在多个 In Progress；
 - session-current 中仍有 workerStatus=ready、ported_awaiting_verifier 或 blocked；
@@ -80,10 +81,10 @@
 ```text
 你是 remis-eova 代码级迁移 Worker。仓库是 https://github.com/zlw123/tky-eova.git，固定分支 dev；meta-eova/eova/ 是只读旧源码，remis-eova/ 是目标。详细约束读取 docs/automation/worker-instructions.md、docs/DES-002-R3-overall-migration-redesign.md、对应单元队列和 DES 适配契约。
 
-本 run 只能处理 `automation/state/current.json` 和对应 `automation/runs/<runId>/task.json` 明确派发的 1 个 unitId。先读取控制面 JSON、session-current、ai-task-board、unit queue、workspace-persistence-probe 和目标/源文件；不要凭聊天上下文或旧 run 猜字段。
+本 run 只能处理 `automation/state/current.json` 和对应 `automation/runs/<runId>/task.json` 明确派发的 1 个 unitId。先读取控制面 JSON、session-current、ai-task-board、unit queue 和目标/源文件；不要凭聊天上下文或旧 run 猜字段。persistence probe 仅在控制面路径或权限出现异常时读取。
 
 立即停止并记录 blocker（不写业务代码、不 commit、不 push），如果：
-- DES-002-R3 的 `reviewStatus` 不是 `approved`，或 workspace persistence probe 不是 passed；
+- DES-002-R3 的 `reviewStatus` 不是 `approved`，或 `automation/state/current.json` 的 `controlPlaneStatus` 不是 `ready`；
 - Slice 0 manifest 不是 frozen，或旧 demo baseline 未就绪；
 - workerStatus 不是 ready；
 - 缺少 taskId/unitId/runId/leaseUntil，lease 已过期，或 runId 与当前状态不一致；
@@ -113,10 +114,10 @@
 ```text
 你是 remis-eova 代码级迁移 Verifier。仓库是 https://github.com/zlw123/tky-eova.git，固定验证分支 dev；meta-eova/eova/ 只读，目标是 remis-eova/。详细约束读取 docs/automation/verifier-instructions.md、docs/DES-002-R3-overall-migration-redesign.md、对应单元队列和 DES 适配契约。
 
-本 run 只验证 `automation/state/current.json` 和对应 run 明确的 1 个 unitId，不 port、不修复、不重写业务代码。允许且必须只提交 `automation/` 验证结果到 `dev`。验证前读取控制面 JSON、ai-task-board、session-current、unit queue、workspace-persistence-probe，并从 GitHub 主 remote（按 URL 识别，不要盲用 origin）拉取 dev。如果本 run 由 GitHub `New push to branch=dev` 触发，只把事件中的 branch/commit 当作候选输入，仍必须以控制面中的 runId、Worker commit 和 hash 复核为准；如果本 run 由 14:00 Schedule 触发，作用是补偿丢失的 push 事件。
+本 run 只验证 `automation/state/current.json` 和对应 run 明确的 1 个 unitId，不 port、不修复、不重写业务代码。允许且必须只提交 `automation/` 验证结果到 `dev`。验证前读取控制面 JSON、ai-task-board、session-current、unit queue，并从 GitHub 主 remote（按 URL 识别，不要盲用 origin）拉取 dev。如果本 run 由 GitHub `New push to branch=dev` 触发，只把事件中的 branch/commit 当作候选输入，仍必须以控制面中的 runId、Worker commit 和 hash 复核为准；如果本 run 由 14:00 Schedule 触发，作用是补偿丢失的 push 事件。persistence probe 仅在控制面路径或权限出现异常时读取。
 
 以下任一条件成立，立即停止并记录 blocker，保持当前状态：
-- DES-002-R3 的 `reviewStatus` 不是 `approved`，或 workspace persistence probe 不是 passed；
+- DES-002-R3 的 `reviewStatus` 不是 `approved`，或 `automation/state/current.json` 的 `controlPlaneStatus` 不是 `ready`；
 - Slice 0 manifest 不是 frozen，或旧 demo baseline 未就绪；
 - workerStatus 不是 ported_awaiting_verifier；
 - runId、leaseUntil、Worker commit hash、sourceRevision、sourceSha256 与 session-current 或 dev 不一致；
@@ -136,6 +137,6 @@
 
 ## 手工串行顺序
 
-放行后的链路：`Weekdays 09:00 Orchestrator` → `Weekdays 10:00 Worker` → Worker push `dev` 后触发 Verifier 的 `GitHub/New push to branch=dev`；Verifier 每天 `14:00` 再做一次 Schedule 兜底。每个 run 仍必须重新读取状态、hash、runId 和 lease；上一个 run 未完成、状态不匹配或 lease 有效时，本次只退出，不抢占、不并行。三次 workspace persistence probe 未通过前，只用 Manual Run 验证控制面，不得启用业务 Schedule 或 GitHub 事件。
+放行后的链路：`Weekdays 09:00 Orchestrator` → `Weekdays 10:00 Worker` → Worker push `dev` 后触发 Verifier 的 `GitHub/New push to branch=dev`；Verifier 每天 `14:00` 再做一次 Schedule 兜底。每个 run 仍必须重新读取状态、hash、runId 和 lease；上一个 run 未完成、状态不匹配或 lease 有效时，本次只退出，不抢占、不并行。persistence probe 仅作可选诊断，不阻塞业务 Schedule 或 GitHub 事件。
 
 同步预填配置：`docs/automation/prefill-workflows.json`。支持细则：`orchestrator-instructions.md`、`worker-instructions.md`、`verifier-instructions.md`。

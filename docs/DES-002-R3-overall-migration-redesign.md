@@ -1,6 +1,6 @@
 # DES-002-R3 remis-eova 代码级迁移总体重设计
 
-> 状态：Review approved / Design-only（评审通过；workspace persistence probe、manifest freeze 和 baseline 仍待完成）
+> 状态：Review approved / Design-only（评审通过；manifest freeze 和 baseline 仍待完成；workspace persistence probe 已降级为可选诊断）
 > 版本：2026-08-30
 > reviewStatus：`approved`（拿哥确认：R3 评审通过）
 > 适用仓库：`https://github.com/zlw123/tky-eova.git`
@@ -212,15 +212,16 @@ Meta read -> Widget query -> permission filter -> API response -> table page
 
 ## 8. Automation 新协议
 
-### 8.1 启动前必须做 workspace persistence probe
+### 8.1 Git 控制面为正式持久化边界
 
-由于治理状态按规则不提交，三条 Automation 启动前必须证明它们共享同一持久化工作区，至少验证：
+三条 Automation 的正式共享状态统一写入同一仓库 `dev` 分支的 `automation/` 目录，不依赖未提交的 `session-current.md` 或 `docs/.local/`：
 
-1. Orchestrator 写入的 `session-current.md` 能被 Worker 读取。
-2. Worker 写入的 `ported_awaiting_verifier` 能被 Verifier 读取。
-3. Verifier 写入的结果能被下一次 Orchestrator 读取。
+1. `automation/state/current.json` 保存唯一活动 run、`stateRevision`、lease 和正式门禁状态。
+2. `automation/queue/units.json` 保存单元队列及 manifest/baseline 门禁。
+3. `automation/runs/index.json` 与 `automation/runs/<runId>/` 保存 run 摘要、任务快照、结果和事件。
+4. 每次写入前 fetch/rebase 并复核 revision、runId、lease 和 hash；push 冲突必须重新读取，禁止 force push。
 
-探测失败时状态为 `blocked: control-plane-not-persistent`，不允许通过 Git commit 或业务代码猜测恢复。若以后改用外部控制面，必须另立 DES 记录其权限、审计和恢复策略。
+`docs/.local/persistence-probe-*.json` 降级为可选诊断工具，用于排查云端工作区路径问题，不再作为正式派单前置条件，也不改变 `workerStatus` 或业务队列。若正式控制面不可读，才记录 `control-plane-not-persistent` 并停止。
 
 ### 8.2 串行状态机
 
@@ -230,7 +231,7 @@ design_ready -> ready -> ported_awaiting_verifier -> verified
 ```
 
 - 每次只允许一个 `unitId` 和一个有效 lease。
-- 首次和不稳定阶段只 Manual Run；R3 放行且 persistence probe 通过后，Orchestrator 工作日 09:00、Worker 10:00 使用错峰 Schedule，Verifier 使用 GitHub `New push to branch=dev` 即时触发并保留工作日 14:00（Asia/Shanghai）Schedule 兜底。
+- 首次和不稳定阶段只 Manual Run；R3 放行且 manifest、baseline 和控制面门禁通过后，Orchestrator 工作日 09:00、Worker 10:00 使用错峰 Schedule，Verifier 使用 GitHub `New push to branch=dev` 即时触发并保留工作日 14:00（Asia/Shanghai）Schedule 兜底。
 - Schedule 和 GitHub 事件都只负责唤醒，不能绕过 `workerStatus`、hash、runId、lease 和单元依赖门禁；不满足条件时必须 no-op，禁止 Worker 监听自身 push，禁止并行抢占。
 - Worker 直接推 GitHub `dev`；不建 `cursor/*`、不建 Draft PR。
 - Verifier 只验证，不修复业务代码。
@@ -244,12 +245,12 @@ Worker 只能修改清单 `targetPaths` 和必要构建文件；不能顺便补�
 
 R3 评审期间，唯一 `In Progress` 应为 `DES-002-R3`。所有迁移 Worker 单元暂停为 `Idea` 或 `Deferred`，不保留一个看似正在执行但实际上没有 Automation run 的 `LC-011 In Progress`。
 
-R3 评审通过后再按 Slice 0 → Slice 1 的顺序只开放一个 Ready 单元；FE-001 不能绕过清单和控制面探测抢跑。
+R3 评审通过后再按 Slice 0 → Slice 1 的顺序只开放一个 Ready 单元；FE-001 不能绕过清单、manifest、baseline 和控制面门禁抢跑。
 
 ## 10. R3 评审通过标准
 
 1. 拿哥确认“垂直切片 + manifest + 依赖闭包 + evidence gate”作为主路线。
-2. 完成 workspace persistence probe，或明确批准一个外部控制面。
+2. 确认 `automation/` Git 控制面可读写；可选 persistence probe 不再作为硬门禁。
 3. 完成 Slice 0 的 manifest 和旧 demo baseline 设计输入。
 4. 把现有 LC-011 的 4 个已合入类重新标记为“代码已合入、切片未验证”，不再计入完整迁移百分比。
 5. 更新 `ai-task-board.md`、`session-current.md`、`session-handoff.md`，然后才允许手工启用三条 Automation。

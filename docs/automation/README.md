@@ -60,7 +60,7 @@ flowchart LR
 
 | 自动化 | 触发 | 说明 |
 |--------|------|------|
-| R3 评审前三条 | **Manual Run** | 只做 workspace persistence probe，不派业务单元 |
+| R3 评审前三条 | **Manual Run** | 只做控制面 smoke，不派业务单元；persistence probe 为可选诊断 |
 | Orchestrator | 放行后：Weekdays 09:00（Asia/Shanghai） | 每天最多一次，禁止 `*/7` |
 | Worker | 放行后：Weekdays 10:00（Asia/Shanghai） | 读取 `workerStatus=ready`，否则 no-op |
 | Verifier | 放行后：GitHub `New push to branch=dev` + Weekdays 14:00（Asia/Shanghai）兜底 | 即时验证 Worker push；Schedule 防止事件丢失 |
@@ -71,7 +71,7 @@ Orchestrator 和 Worker 仍只用错峰 Schedule；只有 Verifier 使用 `New p
 
 ## 5. 控制面与 workerStatus 状态机
 
-机器状态事实源是仓库根目录 `automation/`：`state/current.json`、`queue/units.json`、`runs/index.json` 和 `runs/<runId>/`。本地 `docs/session-current.md`、`docs/session-handoff.md`、`docs/ai-task-board.md`、`docs/.local/` 只作本地治理视图，不作为云端跨 run 共享存储。
+机器状态事实源是仓库根目录 `automation/`：`state/current.json`、`queue/units.json`、`runs/index.json` 和 `runs/<runId>/`。本地 `docs/session-current.md`、`docs/session-handoff.md`、`docs/ai-task-board.md`、`docs/.local/` 只作治理视图；`docs/.local/persistence-probe-*.json` 仅作可选诊断，不作为正式跨 run 状态。
 
 | 值 | 谁可跑 |
 |----|--------|

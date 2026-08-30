@@ -25,17 +25,16 @@
 | **Name** | `eova-migration-orchestrator` |
 | **Description** | 读任务板，认领 1 个 Ready 为 In Progress，产出 Worker 单单元清单，更新 rolling docs。不写业务代码。 |
 | **Trigger** | 当前 Manual Run；R3 放行后改为 Weekdays 09:00（Asia/Shanghai），每天最多一次 |
-| **Tools** | 不勾选（只改 docs） |
+| **Tools** | 允许写同一 `dev` 分支的 `automation/` 控制面；不改业务代码 |
 
 **Instructions（整段复制）：**
 
 ```
 你是 EOVA 迁移 Orchestrator。严格按仓库内 docs/automation/orchestrator-instructions.md 执行。
 
-本 run 只更新 docs/ai-task-board.md、docs/session-current.md、docs/session-handoff.md。
-不写 remis-eova 业务代码。最多认领 1 个 Ready 任务，产出 1 个 Worker 单元 JSON 清单。
-若已有 In Progress，只补清单不新认领。试点白名单见 orchestrator-instructions.md。
-完成后只提交允许的 `automation/` 控制面文件；本地治理文档不 commit、不 push。
+本 run 只读取并更新 `automation/` 控制面 JSON，不写 remis-eova 业务代码。
+最多认领 1 个 Ready 任务，产出 1 个 `automation/runs/<runId>/task.json` 清单；若已有 In Progress，只补清单不新认领。试点白名单见 orchestrator-instructions.md。
+提交前检查 staged path 只能是 `automation/`；本地治理文档不 commit、不 push。`docs/.local/persistence-probe-*.json` 仅作可选诊断，不是派单门禁。
 ```
 
 ---
@@ -68,7 +67,7 @@
 | **Name** | `eova-migration-verifier` |
 | **Description** | 在 dev 验证 Worker 刚提交的单元，回写 verified 或 blocked；不验证 MR。 |
 | **Trigger** | 当前 Manual Run；R3 放行后添加 GitHub `New push to branch=dev`，并保留 Weekdays 14:00（Asia/Shanghai）Schedule 兜底；仅 `workerStatus=ported_awaiting_verifier` 执行 |
-| **Tools** | 不需要 MR/PR 评论；只读代码并写本地 rolling docs |
+| **Tools** | 不需要 MR/PR 评论；只读代码并写 `automation/` 验证结果 |
 
 **Instructions（整段复制）：**
 
@@ -78,7 +77,7 @@
 验证 dev 上 Worker 刚提交的单元：Java 跑 mvn test；前端跑 pnpm build（若存在）；检查 source revision、ported from 追溯和契约证据。
 golden baseline 不存在则跳过 API diff，在 handoff 记 golden: skipped。
 
-结果只写入本地 rolling docs；失败标 Blocked；不写新 port 代码，不开 PR/MR。目标分支 dev。
+结果只写入对应 `automation/runs/<runId>/verifier-result.json`、`events.json`、`runs/index.json` 和 `state/current.json`；失败标 Blocked；不写新 port 代码，不开 PR/MR。目标分支 dev。
 ```
 
 ---

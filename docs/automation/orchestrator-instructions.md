@@ -33,7 +33,7 @@ workerStatus=blocked → 只记 Blocked，不派新单元
 
 ### R3 总体重设计冻结门禁
 
-只要 `docs/DES-002-R3-overall-migration-redesign.md` 的 `reviewStatus` 不是 `approved`，或 `unit-queue-index.md` 的 Ready 白名单为空，Orchestrator 必须停止，不得派发 LC-011、FE-001、FE-002 或任何 Worker 单元。R3 评审已通过，但还必须确认 workspace persistence probe、Slice 0 manifest freeze 和旧 demo baseline 均通过；否则记录对应 blocker。`DES-002-R3` 保持 `In Progress` 仅表示这些执行前置尚未完成，不再表示评审未通过。
+只要 `docs/DES-002-R3-overall-migration-redesign.md` 的 `reviewStatus` 不是 `approved`、`automation/state/current.json` 的 `controlPlaneStatus` 不是 `ready`、`manifestStatus` 不是 `frozen`、`oldDemoBaselineStatus` 不是 `ready`、或 `unit-queue-index.md` 的 Ready 白名单为空，Orchestrator 必须停止，不得派发 LC-011、FE-001、FE-002 或任何 Worker 单元。R3 评审已通过，但还必须确认 Slice 0 manifest freeze 和旧 demo baseline 均通过；persistence probe 仅作可选诊断。`DES-002-R3` 保持 `In Progress` 仅表示这些执行前置尚未完成，不再表示评审未通过。
 
 **本 run 开头先读 `workerStatus`：**
 

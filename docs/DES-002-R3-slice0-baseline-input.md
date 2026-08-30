@@ -47,8 +47,7 @@ API baseline 还必须从旧前端真实调用中补充 `/grid/*`、`/api/meta/*
 - `old-demo-readiness`: `not executed`
 - `api-golden`: `baseline_pending`
 - `database-snapshot`: 需要实时确认，不能直接复用旧结论
-- `workspace-persistence-probe`: `not executed`
+- `workspace-persistence-probe`: `optional_diagnostic / not run`
 - Slice 0 manifest：已生成 `provisional`，未冻结
 
-在这些状态转为 `ready` 前，不得启用 Worker 批量迁移，也不得把现有 engine 类升级为切片 `verified`。
-
+在 old-demo-readiness、api-golden、database-snapshot 和 manifest 转为 `ready/frozen` 前，不得启用 Worker 批量迁移，也不得把现有 engine 类升级为切片 `verified`。workspace persistence probe 不再是正式门禁。
