@@ -4,6 +4,8 @@
 > manifest：`automation/slices/S01-login-shell/manifest.jsonl`（`S01-v0-provisional`）
 > baseline：`docs/.local/slices/S01-login-shell/`（尚未录制）
 
+本切片执行顺序以 `automation/plan/migration-plan.json` 的 `planRevision=20260830-v1`、`dispatchOrder=1` 和 `unitOrder` 为准。Orchestrator 只能按该顺序派单；切片范围或单元顺序变更必须先由拿哥和主协作者更新计划并递增 `planRevision`。
+
 ## 目标
 
 把可运行的 `eova-meta` 登录与主框架迁移到已确定的新技术栈，保持旧系统的功能、接口、状态和 UI 效果。代码级迁移是实现约束：旧 Java 方法和旧 JS/Vue 逻辑逐方法、逐函数 port；只替换 Spring、Kingbase/MyBatis、Vue 3、Element Plus 等底座调用。

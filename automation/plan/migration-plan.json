@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "planRevision": "20260830-v1",
+  "repository": "https://github.com/zlw123/tky-eova.git",
+  "branch": "dev",
+  "planningAuthority": "human-and-primary-codex",
+  "executionAuthority": "orchestrator-read-only-scheduler",
+  "changePolicy": "Only the human maintainer or primary Codex may change this plan; Orchestrator, Worker and Verifier must not reorder, split, merge or invent slices.",
+  "productGoal": "将可运行的 eova-meta 迁移到已确定的新技术栈，保持功能、接口、交互和 UI 效果；代码级 port 是防漂移约束。",
+  "globalRules": [
+    "每次只允许一个 active run 和一个有效 lease",
+    "只从本计划和对应切片 manifest 读取派单顺序",
+    "遇到未定义范围、依赖缺失、契约冲突或验收证据不足时 blocked，不自行规划替代路线",
+    "计划变更必须递增 planRevision，并由主协作者记录变更原因"
+  ],
+  "slices": [
+    {
+      "dispatchOrder": 1,
+      "sliceId": "S01-login-shell",
+      "purpose": "建立可登录、可加载菜单、可进入主框架并可退出的运行基座",
+      "status": "preparing",
+      "manifestPath": "automation/slices/S01-login-shell/manifest.jsonl",
+      "baselinePath": "docs/.local/slices/S01-login-shell/",
+      "entryCriteria": [
+        "旧版登录、session、菜单、Tab、退出行为已录制",
+        "S01 局部 manifest 已冻结"
+      ],
+      "unitOrder": [
+        "S01-BE-LOGIN-001",
+        "S01-BE-LOGIN-002",
+        "S01-FE-LOGIN-001",
+        "S01-FE-LOGIN-002",
+        "S01-FE-LOGIN-003",
+        "S01-FE-LOGIN-004",
+        "S01-VAL-001"
+      ],
+      "exitCriteria": [
+        "登录成功/失败、session/cookie、菜单、Tab、退出与旧版等价",
+        "固定 viewport 下登录页和主框架无未经批准的视觉漂移"
+      ]
+    },
+    {
+      "dispatchOrder": 2,
+      "sliceId": "S02-meta-widget-core",
+      "purpose": "建立一个元数据驱动对象从 Meta 读取到 Widget 表格页面的最小闭环",
+      "status": "planned",
+      "manifestPath": "automation/slices/S02-meta-widget-core/manifest.jsonl",
+      "baselinePath": "docs/.local/slices/S02-meta-widget-core/",
+      "entryCriteria": [
+        "S01 已 verified",
+        "选定一个真实 eova-meta object 并冻结局部 API/HAR/UI baseline"
+      ],
+      "unitOrder": [
+        "S02-S-KV-001",
+        "S02-S-TEMPLATE-001",
+        "S02-K-EXP-001",
+        "S02-D-DB-GATEWAY-001",
+        "S02-B-META-SERVICE-001",
+        "S02-B-WIDGET-MANAGER-001",
+        "S02-A-META-API-001",
+        "S02-F-TABLE-001",
+        "S02-VAL-001"
+      ],
+      "exitCriteria": [
+        "Meta read、查询、分页、权限过滤、API response 和 table page 与旧版等价",
+        "无未声明 compile-stub，API/HAR/UI 证据齐全"
+      ]
+    },
+    {
+      "dispatchOrder": 3,
+      "sliceId": "S03-form-permission-journey",
+      "purpose": "在一个真实对象上完成表单、权限和完整 CRUD 旅程",
+      "status": "planned",
+      "manifestPath": "automation/slices/S03-form-permission-journey/manifest.jsonl",
+      "baselinePath": "docs/.local/slices/S03-form-permission-journey/",
+      "entryCriteria": [
+        "S02 已 verified",
+        "旧版 add/update/detail/delete 和角色权限 baseline 已冻结"
+      ],
+      "unitOrder": [
+        "S03-B-FORM-001",
+        "S03-A-FORM-API-001",
+        "S03-F-FORM-001",
+        "S03-B-AUTH-001",
+        "S03-A-AUTH-API-001",
+        "S03-VAL-001"
+      ],
+      "exitCriteria": [
+        "登录→菜单→列表→新增→保存→编辑→删除→权限限制完整旅程等价"
+      ]
+    },
+    {
+      "dispatchOrder": 4,
+      "sliceId": "S04-tree-and-tree-table",
+      "purpose": "迁移树、树表、父子联动和层级查询能力",
+      "status": "planned",
+      "manifestPath": "automation/slices/S04-tree-and-tree-table/manifest.jsonl",
+      "baselinePath": "docs/.local/slices/S04-tree-and-tree-table/",
+      "entryCriteria": [
+        "S03 已 verified",
+        "旧版 tree/tree-table 对象和交互 baseline 已冻结"
+      ],
+      "unitOrder": [],
+      "exitCriteria": [
+        "树节点加载、展开、选择、父子过滤和树表结果与旧版等价"
+      ]
+    },
+    {
+      "dispatchOrder": 5,
+      "sliceId": "S05-meta-admin",
+      "purpose": "迁移元对象、元字段、菜单、角色和元数据管理页面",
+      "status": "planned",
+      "manifestPath": "automation/slices/S05-meta-admin/manifest.jsonl",
+      "baselinePath": "docs/.local/slices/S05-meta-admin/",
+      "entryCriteria": [
+        "S04 已 verified",
+        "旧版 meta/menu/role 页面和数据变更 baseline 已冻结"
+      ],
+      "unitOrder": [],
+      "exitCriteria": [
+        "元对象和字段配置变更可驱动前台页面，菜单角色管理与旧版等价"
+      ]
+    },
+    {
+      "dispatchOrder": 6,
+      "sliceId": "S06-extensions-and-io",
+      "purpose": "迁移上传、Excel 导入导出、Hook、任务和 demo 扩展组件",
+      "status": "planned",
+      "manifestPath": "automation/slices/S06-extensions-and-io/manifest.jsonl",
+      "baselinePath": "docs/.local/slices/S06-extensions-and-io/",
+      "entryCriteria": [
+        "S05 已 verified",
+        "扩展能力逐项明确保留、适配或 deferred"
+      ],
+      "unitOrder": [],
+      "exitCriteria": [
+        "范围内上传、导入导出、Hook、任务和 demo 扩展均有旧新证据"
+      ]
+    },
+    {
+      "dispatchOrder": 7,
+      "sliceId": "S07-platform-runtime",
+      "purpose": "接入 Gateway、Nacos、Redis、动态数据源和部署运行时",
+      "status": "planned",
+      "manifestPath": "automation/slices/S07-platform-runtime/manifest.jsonl",
+      "baselinePath": "docs/.local/slices/S07-platform-runtime/",
+      "entryCriteria": [
+        "至少 S01-S05 已 verified",
+        "运行时路由、服务名、配置和回滚边界已重新 live 验证"
+      ],
+      "unitOrder": [],
+      "exitCriteria": [
+        "Gateway/Nacos/双库/Redis/部署联调通过且临时路由配置已恢复"
+      ]
+    },
+    {
+      "dispatchOrder": 8,
+      "sliceId": "S08-full-parity-release",
+      "purpose": "执行全量功能、接口、UI、权限和数据回归并形成发布包",
+      "status": "planned",
+      "manifestPath": "automation/slices/S08-full-parity-release/manifest.jsonl",
+      "baselinePath": "docs/.local/slices/S08-full-parity-release/",
+      "entryCriteria": [
+        "所有计划内功能切片已 verified",
+        "完整 source-to-target 审计账本已冻结"
+      ],
+      "unitOrder": [],
+      "exitCriteria": [
+        "功能、API/HAR、UI、权限、数据库和部署验收全部通过",
+        "无未解释 deferred、compile-stub 或视觉漂移，发布和回滚材料齐全"
+      ]
+    }
+  ]
+}

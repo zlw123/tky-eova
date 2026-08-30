@@ -4,6 +4,7 @@
   "repository": "https://github.com/zlw123/tky-eova.git",
   "branch": "dev",
   "statusSource": "automation/",
+  "planPath": "automation/plan/migration-plan.json",
   "sliceRegistry": "automation/slices/index.json",
   "initializedAt": "2026-08-30T18:05:59+08:00"
 }

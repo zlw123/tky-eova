@@ -12,10 +12,11 @@
 - `runs/<runId>/`：任务快照、派单、Worker 结果、Verifier 结果和事件明细。
 - `slices/index.json`：按用户旅程登记切片状态、局部 manifest 和局部 baseline。
 - `slices/<sliceId>/manifest.jsonl`：当前切片逐单元源/目标/依赖/契约清单。
+- `plan/migration-plan.json`：主协作者预先冻结的迁移路线；Orchestrator 只读并按 `dispatchOrder` 调度。
 
 ## 当前状态
 
-全局 Git 控制面当前 `controlPlaneStatus=ready`，表示本目录可读写、可审计；当前没有可派切片，所以 `queueStatus=blocked`。`S01-login-shell` 的局部 `manifestStatus=provisional`、`baselineStatus=not_ready`，准备完成后才会进入 Ready。`docs/.local/persistence-probe-*.json` 仅是可选诊断，不是正式派单门禁；正式状态由本目录的提交历史、`stateRevision`、lease 和 hash 保护。
+全局 Git 控制面当前 `controlPlaneStatus=ready`，表示本目录可读写、可审计；当前没有可派切片，所以 `queueStatus=blocked`。迁移路线以 `plan/migration-plan.json` 为准，Orchestrator 不负责长程规划，只按已冻结的 `dispatchOrder` 和 `unitOrder` 调度。`S01-login-shell` 的局部 `manifestStatus=provisional`、`baselineStatus=not_ready`，准备完成后才会进入 Ready。`docs/.local/persistence-probe-*.json` 仅是可选诊断，不是正式派单门禁；正式状态由本目录的提交历史、`stateRevision`、lease 和 hash 保护。
 
 ## 写入边界
 

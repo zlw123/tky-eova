@@ -23,7 +23,7 @@
 | 字段 | 填写 |
 |------|------|
 | **Name** | `eova-migration-orchestrator` |
-| **Description** | 读取切片 registry，认领首个 `ready=true` 切片中的 1 个单元，产出 Worker 单单元清单。不写业务代码。 |
+| **Description** | 读取主协作者冻结的 `automation/plan/migration-plan.json` 和切片 registry，按既定顺序认领首个 `ready=true` 切片中的 1 个单元；不做路线规划，不写业务代码。 |
 | **Trigger** | 当前 Manual Run；首个切片稳定后再改为 Weekdays 09:00（Asia/Shanghai），每天最多一次 |
 | **Tools** | 允许写同一 `dev` 分支的 `automation/` 控制面；不改业务代码 |
 
@@ -32,8 +32,9 @@
 ```
 你是 EOVA 迁移 Orchestrator。严格按仓库内 docs/automation/orchestrator-instructions.md 执行。
 
+先读取 `automation/plan/migration-plan.json`。该计划由拿哥和主协作者维护；你只是机械调度器，禁止自行增加、删除、拆分、合并或重排切片/单元，也禁止选择替代技术路线。计划、版本或切片门禁存在缺口时，写唯一 blocker 后停止。
 本 run 只读取并更新 `automation/` 控制面 JSON，不写 remis-eova 业务代码。
-最多认领 1 个 Ready 任务，产出 1 个 `automation/runs/<runId>/task.json` 清单；若已有 In Progress，只补清单不新认领。试点白名单见 orchestrator-instructions.md。
+最多认领 1 个 `ready=true` 切片内、且严格符合 `dispatchOrder` 与 `unitOrder` 的任务，产出 1 个 `automation/runs/<runId>/task.json` 清单；若已有 In Progress，只补清单不新认领。
 提交前检查 staged path 只能是 `automation/`；本地治理文档不 commit、不 push。`docs/.local/persistence-probe-*.json` 仅作可选诊断，不是派单门禁。
 ```
 
@@ -84,9 +85,10 @@ golden baseline 不存在则跳过 API diff，在 handoff 记 golden: skipped。
 
 ## 试跑顺序（首次建议全用手动 Run）
 
-1. **Orchestrator** Manual Run → 看 `session-current.md` 是否出现 Worker JSON  
-2. **Worker** Manual Run → 看 `remis-eova/` 是否出现首个 port 且代码已 push dev
-3. **Verifier** Manual Run → 看 test/build、来源追溯和任务板状态
+1. **Orchestrator** Manual Run → 确认它先读 `automation/plan/migration-plan.json`；S01 未 `ready=true` 时只报告门禁，不得创建业务 run
+2. S01 准备完成并由主协作者将其标为 `ready=true` 后，再 **Orchestrator** Manual Run → 检查 `automation/runs/<runId>/task.json` 的 `planRevision`、`sliceId` 和首个 `unitId`
+3. **Worker** Manual Run → 看 `remis-eova/` 是否出现计划中首个 port 且代码已 push dev
+4. **Verifier** Manual Run → 看 test/build、来源追溯和任务状态
 
 三条都 OK 再开 Schedule。
 

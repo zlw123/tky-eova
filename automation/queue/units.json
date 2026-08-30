@@ -1,6 +1,8 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-08-30T20:15:00+08:00",
+  "updatedAt": "2026-08-30T20:48:00+08:00",
+  "planPath": "automation/plan/migration-plan.json",
+  "planRevision": "20260830-v1",
   "sliceRegistryPath": "automation/slices/index.json",
   "activeSliceId": null,
   "units": [],

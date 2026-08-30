@@ -4,9 +4,11 @@
   "activeTaskId": null,
   "activeUnitId": null,
   "activeSliceId": null,
+  "planPath": "automation/plan/migration-plan.json",
+  "planRevision": "20260830-v1",
   "status": "idle",
   "expectedActor": "orchestrator",
-  "stateRevision": 2,
+  "stateRevision": 3,
   "leaseOwner": null,
   "leaseUntil": null,
   "controlPlaneStatus": "ready",
@@ -17,5 +19,5 @@
     "evidencePath": null
   },
   "blocker": "no-ready-slice: S01-login-shell manifest and old-demo baseline are not ready",
-  "updatedAt": "2026-08-30T20:15:00+08:00"
+  "updatedAt": "2026-08-30T20:48:00+08:00"
 }

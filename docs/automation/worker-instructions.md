@@ -4,9 +4,9 @@
 
 ## 启动门禁
 
-1. 读 `automation/state/current.json` 和对应 `automation/runs/<runId>/task.json` 的 Worker 清单；`docs/session-current.md` 只作本地治理参考。
+1. 读只读计划 `automation/plan/migration-plan.json`、`automation/state/current.json` 和对应 `automation/runs/<runId>/task.json` 的 Worker 清单；`docs/session-current.md` 只作本地治理参考。
 2. **`workerStatus` 必须为 `ready`**，否则 **立即停止**（只写一行 Blocked 原因，不 port）。
-3. 若 `docs/DES-002-R3-overall-migration-redesign.md` 的 `reviewStatus` 不是 `approved`，或全局 `controlPlaneStatus` 不是 `ready`，立即停止；当前切片的 manifest/baseline 门禁由 Orchestrator 在派单前确认，Worker 不得自行放行未 ready 的切片。
+3. 若 `docs/DES-002-R3-overall-migration-redesign.md` 的 `reviewStatus` 不是 `approved`，或全局 `controlPlaneStatus` 不是 `ready`，立即停止；复核 run 的 `planRevision`、`sliceId`、`manifestRevision` 与计划/registry 一致。Worker 不得自行放行、重排或扩大未 ready 的切片。
 4. 对 A/B/C/D/E 单元和真实前端 port 读 `sourcePath` 全文 + 对应 R1 设计；对 S 类 support 单元读对应 DES 适配设计、方法契约和 acceptanceProfile，不得伪造 sourcePath。
 5. 确认 `targetPaths`（兼容单数 `targetPath`）在 **dev** 上尚不存在或为 stub（stub 可替换为实 port）。
 6. 复核 `sourceRevision`、`sourceSha256` 和 `targetBeforeSha256`；sourcePath 本身有未提交修改、目标 hash 已变化、或 run lease 已过期时立即停止并标记 blocked。

@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "planRevision": "20260830-v1",
   "updatedAt": "2026-08-30T20:15:00+08:00",
   "slices": [
     {
@@ -25,6 +26,97 @@
         "S01-FE-LOGIN-004",
         "S01-VAL-001"
       ]
+    },
+    {
+      "sliceId": "S02-meta-widget-core",
+      "name": "元数据驱动表格闭环",
+      "order": 2,
+      "status": "planned",
+      "manifestPath": "automation/slices/S02-meta-widget-core/manifest.jsonl",
+      "manifestStatus": "not_started",
+      "baselinePath": "docs/.local/slices/S02-meta-widget-core/",
+      "baselineStatus": "not_ready",
+      "ready": false,
+      "blockers": ["等待 S01 verified；真实对象 API/HAR/UI baseline 尚未冻结"],
+      "unitIds": ["S02-S-KV-001", "S02-S-TEMPLATE-001", "S02-K-EXP-001", "S02-D-DB-GATEWAY-001", "S02-B-META-SERVICE-001", "S02-B-WIDGET-MANAGER-001", "S02-A-META-API-001", "S02-F-TABLE-001", "S02-VAL-001"]
+    },
+    {
+      "sliceId": "S03-form-permission-journey",
+      "name": "表单权限旅程",
+      "order": 3,
+      "status": "planned",
+      "manifestPath": "automation/slices/S03-form-permission-journey/manifest.jsonl",
+      "manifestStatus": "not_started",
+      "baselinePath": "docs/.local/slices/S03-form-permission-journey/",
+      "baselineStatus": "not_ready",
+      "ready": false,
+      "blockers": ["等待 S02 verified；旧版 CRUD 和角色权限 baseline 尚未冻结"],
+      "unitIds": ["S03-B-FORM-001", "S03-A-FORM-API-001", "S03-F-FORM-001", "S03-B-AUTH-001", "S03-A-AUTH-API-001", "S03-VAL-001"]
+    },
+    {
+      "sliceId": "S04-tree-and-tree-table",
+      "name": "树与树表",
+      "order": 4,
+      "status": "planned",
+      "manifestPath": "automation/slices/S04-tree-and-tree-table/manifest.jsonl",
+      "manifestStatus": "not_started",
+      "baselinePath": "docs/.local/slices/S04-tree-and-tree-table/",
+      "baselineStatus": "not_ready",
+      "ready": false,
+      "blockers": ["等待 S03 verified；树和树表对象 baseline 尚未冻结"],
+      "unitIds": []
+    },
+    {
+      "sliceId": "S05-meta-admin",
+      "name": "元数据管理",
+      "order": 5,
+      "status": "planned",
+      "manifestPath": "automation/slices/S05-meta-admin/manifest.jsonl",
+      "manifestStatus": "not_started",
+      "baselinePath": "docs/.local/slices/S05-meta-admin/",
+      "baselineStatus": "not_ready",
+      "ready": false,
+      "blockers": ["等待 S04 verified；meta/menu/role 管理 baseline 尚未冻结"],
+      "unitIds": []
+    },
+    {
+      "sliceId": "S06-extensions-and-io",
+      "name": "扩展与输入输出",
+      "order": 6,
+      "status": "planned",
+      "manifestPath": "automation/slices/S06-extensions-and-io/manifest.jsonl",
+      "manifestStatus": "not_started",
+      "baselinePath": "docs/.local/slices/S06-extensions-and-io/",
+      "baselineStatus": "not_ready",
+      "ready": false,
+      "blockers": ["等待 S05 verified；扩展能力范围尚未逐项冻结"],
+      "unitIds": []
+    },
+    {
+      "sliceId": "S07-platform-runtime",
+      "name": "平台运行时",
+      "order": 7,
+      "status": "planned",
+      "manifestPath": "automation/slices/S07-platform-runtime/manifest.jsonl",
+      "manifestStatus": "not_started",
+      "baselinePath": "docs/.local/slices/S07-platform-runtime/",
+      "baselineStatus": "not_ready",
+      "ready": false,
+      "blockers": ["等待前置切片 verified；Gateway/Nacos/双库/Redis 运行态尚未 live 验证"],
+      "unitIds": []
+    },
+    {
+      "sliceId": "S08-full-parity-release",
+      "name": "全量对等发布",
+      "order": 8,
+      "status": "planned",
+      "manifestPath": "automation/slices/S08-full-parity-release/manifest.jsonl",
+      "manifestStatus": "not_started",
+      "baselinePath": "docs/.local/slices/S08-full-parity-release/",
+      "baselineStatus": "not_ready",
+      "ready": false,
+      "blockers": ["等待所有计划切片 verified；全量审计账本和发布回滚材料尚未冻结"],
+      "unitIds": []
     }
   ]
 }

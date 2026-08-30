@@ -217,6 +217,14 @@ Meta read -> Widget query -> permission filter -> API response -> table page
 
 ## 8. Automation 新协议
 
+### 8.0 规划层与调度层分离
+
+迁移长程规划由拿哥与主协作者维护，不授权云端 Orchestrator 自主推理整条路线。规划结果冻结在 `automation/plan/migration-plan.json`，其中明确 `planRevision`、切片顺序、进入/退出条件和已冻结的单元顺序。
+
+Orchestrator 只是机械调度器：读取计划、校验状态/hash/lease、按 `dispatchOrder` 和 `unitOrder` 派一个单元。它不得新增、删除、拆分、合并或重排切片/单元，不得选择替代技术路线；遇到计划缺口或冲突必须 `blocked`，由主协作者更新计划。Worker 和 Verifier 同样不能修改计划。
+
+计划可以分层细化：全程切片路线提前冻结；每个切片开始前，由主协作者补齐局部 manifest、依赖 DAG、baseline 和 acceptanceProfile，并递增 `planRevision`。未细化且未 `ready` 的后续切片不能被 Orchestrator执行。
+
 ### 8.1 Git 控制面为正式持久化边界
 
 三条 Automation 的正式共享状态统一写入同一仓库 `dev` 分支的 `automation/` 目录，不依赖未提交的 `session-current.md` 或 `docs/.local/`：
