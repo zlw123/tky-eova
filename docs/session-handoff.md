@@ -1,5 +1,13 @@
 # Session Handoff
 
+## 2026-08-30T10:44Z - Orchestrator 未派单（控制面门禁）
+
+- **唯一 blocker**: DES-002-R3 的 `reviewStatus` 不是 `approved`（`docs/DES-002-R3-overall-migration-redesign.md` 在 `origin/dev` 不存在）
+- 未派单；未写 `automation/`；未 commit；未开 PR
+- 后续：先落地并批准 DES-002-R3，再执行 workspace persistence probe 与 Slice 0 frozen manifest
+
+---
+
 ## 2026-08-29 - Automation 收敛：PR #7 合入 dev + 清理 cursor 分支
 
 ### 背景
