@@ -24,6 +24,18 @@ workspace persistence probe、Slice 0 manifest freeze 和旧 demo baseline 仍�
 
 在 Cursor UI 按 `docs/automation/workspace-persistence-probe-prompts.md` 完成 3 次角色 run + 1 次 Orchestrator 最终读回，再决定是否把控制面从 `blocked` 更新为 `ready`。
 
+## 2026-08-30 - 发布控制面并复核调度反馈
+
+### 本轮确认
+
+1. 远端 `github/dev` 曾因 Cursor Orchestrator 提交 `fd7ffc2` 暂时领先；已无损 rebase，保留其 `DES-002-R3` 缺失阻塞记录。
+2. 本地提交 `43bb5f0` 已成功 push 到 `github/dev`；远端现在包含 `automation/`、R3 设计文档和最新三份 Automation 提示词。
+3. 远端控制面读回为 `activeRunId=null`、`stateRevision=0`、`controlPlaneStatus=blocked`、`runs=[]`；没有业务派单或迁移 Run。
+
+### 当前剩余问题
+
+本次调度反馈属于控制面发布前的旧版本 Run；三次 persistence probe、manifest freeze 和旧 demo baseline 仍未完成，不能启用业务 Schedule。
+
 ## 2026-08-30 - 明确规划设计与 Automation 实现边界
 
 ### 本轮确认

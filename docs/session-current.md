@@ -57,6 +57,7 @@
 - **审计发现并已修正**：仓库新增项目级 `AGENTS.md`；LC-011 队列拆成 S 类适配链，但 persistence probe、manifest freeze 和 baseline 完成前仍暂停，不得派 `EovaExpConfig`。
 - **Automation 控制面已初始化**：同一 `dev` 分支新增顶层 `automation/` 目录；`automation/state/current.json` 当前为 `idle`、`controlPlaneStatus=blocked`，队列为空，未创建任何 run。
 - **三份 Automation 提示词已更新**：`docs/automation/PROMPTS.md`、`orchestrator-instructions.md`、`worker-instructions.md`、`verifier-instructions.md` 和 `prefill-workflows.json` 已统一为单分支控制面模型；Orchestrator/Verifier 只提交 `automation/`，Worker 分两次提交代码和状态。
+- **最新发布状态**：本地提交 `43bb5f0` 已推送并与 `github/dev` 同步；此前 Orchestrator 关于 `DES-002-R3` 缺失的反馈发生在该发布之前，不能作为当前远端状态判断。
 
 ---
 
