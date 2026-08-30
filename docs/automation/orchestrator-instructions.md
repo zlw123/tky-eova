@@ -10,6 +10,7 @@
 - `automation/queue/units.json`：单元索引和队列门禁。
 - `automation/runs/index.json`：run 摘要数组。
 - `automation/runs/<runId>/`：task、dispatch、events 和结果明细。
+- `automation/slices/index.json`：切片 registry；每个切片拥有自己的 manifest/baseline 状态。
 
 写入前必须从 GitHub 主 remote fetch/rebase；提交前检查 staged path 只能是 `automation/`，push 冲突时重新读取状态，禁止 force push。
 
@@ -31,9 +32,9 @@ workerStatus=verified → 派下一单元 workerStatus=ready，或整任务 Done
 workerStatus=blocked → 只记 Blocked，不派新单元
 ```
 
-### R3 总体重设计冻结门禁
+### R3 总体重设计与切片门禁
 
-只要 `docs/DES-002-R3-overall-migration-redesign.md` 的 `reviewStatus` 不是 `approved`、`automation/state/current.json` 的 `controlPlaneStatus` 不是 `ready`、`manifestStatus` 不是 `frozen`、`oldDemoBaselineStatus` 不是 `ready`、或 `unit-queue-index.md` 的 Ready 白名单为空，Orchestrator 必须停止，不得派发 LC-011、FE-001、FE-002 或任何 Worker 单元。R3 评审已通过，但还必须确认 Slice 0 manifest freeze 和旧 demo baseline 均通过；persistence probe 仅作可选诊断。`DES-002-R3` 保持 `In Progress` 仅表示这些执行前置尚未完成，不再表示评审未通过。
+只要 `docs/DES-002-R3-overall-migration-redesign.md` 的 `reviewStatus` 不是 `approved`、`automation/state/current.json` 的 `controlPlaneStatus` 不是 `ready`，或不存在 `automation/slices/index.json` 中 `ready=true` 的切片，Orchestrator 必须停止。候选切片还必须满足自身 `manifestStatus=frozen`、`baselineStatus=ready`、依赖已满足且 Ready 白名单非空；全量 267/132 manifest 和全量旧 demo baseline 不再是首单前置。persistence probe 仅作可选诊断。
 
 **本 run 开头先读 `workerStatus`：**
 
@@ -55,25 +56,26 @@ workerStatus=blocked → 只记 Blocked，不派新单元
 
 ## 试点白名单（DES-002-R2 完成前）
 
-见 `docs/automation/unit-queue-index.md` §Ready 白名单。  
-**LC-011-unit-queue.md 仅服务于 taskId=LC-011**，不是全局唯一队列。
+见 `automation/slices/index.json` 和 `docs/automation/unit-queue-index.md` §Ready 白名单。
+**LC-011-unit-queue.md 仅服务于 taskId=LC-011**，不是全局唯一队列；优先选择 registry 中 order 最小且 `ready=true` 的切片。
 
 ## 派单步骤
 
 1. 从 `ai-task-board` 确定 **taskId**（继续 In Progress 或认领 Ready）。
-2. 打开 `unit-queue-index.md`，按 taskId 找到单元队列。
-3. 取该队列中按顺序排列、依赖全部 verified 且未在 dev 实 port 的第一个单元（S 类 support 单元允许 `sourcePath=null`；stub 不算已 port）。
+2. 打开 `automation/slices/index.json`，选择第一个 `ready=true` 的切片，再打开 `unit-queue-index.md` 按 taskId 找到单元队列。
+3. 取该切片 manifest/队列中按顺序排列、依赖全部 verified 且未在 dev 实 port 的第一个单元（S 类 support 单元允许 `sourcePath=null`；stub 不算已 port）。
 4. 对有 sourcePath 的单元执行 `git -C meta-eova/eova rev-parse HEAD` 和 `shasum -a 256`；S 类 support 单元的 sourcePath 写 `null`，必须改为读取对应 DES 设计和适配契约。若有 sourcePath 本身有未提交修改或无法确认 revision，停止派单。
 5. 对每个 targetPath 计算当前 hash（不存在写 `null`），写入 Worker JSON；`taskId` 与任务板一致；优先使用 R2 字段 `unitId`、`sourceRevision`、`sourceSha256`、`targetBeforeSha256`、`dependencies`、`acceptanceProfile`，单数 `targetPath` 仅作兼容别名。
 
 ## 本 run 产出
 
 1. `docs/ai-task-board.md`：至多 1 个 In Progress。
-2. `automation/runs/<runId>/task.json`、`dispatch.json`、`events.json`、`runs/index.json`、`queue/units.json`、`state/current.json`：完整控制面状态（含 `workerStatus: "ready"`）：
+2. `automation/runs/<runId>/task.json`、`dispatch.json`、`events.json`、`runs/index.json`、`queue/units.json`、`state/current.json`：完整控制面状态（含 `sliceId`、`workerStatus: "ready"`）：
 
 ```json
 {
   "taskId": "LC-011",
+  "sliceId": "S01-login-shell",
   "unitId": "LC-011-001",
   "unitType": "java",
   "unitName": "EovaExpConfig",

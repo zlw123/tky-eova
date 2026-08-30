@@ -7,15 +7,15 @@
 > 旧源码：`meta-eova/eova/`（只读）；新代码：`remis-eova/`
 >
 >
-> 机器状态事实源：同一 `dev` 分支下的 `automation/`；当前因 Slice 0 manifest/baseline 未就绪，`automation/state/current.json` 为 `controlPlaneStatus=blocked`。
+> 机器状态事实源：同一 `dev` 分支下的 `automation/`；全局 Git 控制面可用，业务派单由 `automation/slices/index.json` 的局部切片门禁决定。
 
 ## 使用方式
 
-1. 当前 R3 评审已通过，但 Slice 0 manifest freeze 和旧 demo baseline 未完成，三条 Automation 只能 Manual Run 做控制面检查；不得派业务单元。persistence probe 仅作可选诊断。
+1. 当前 R3 评审已通过；三条 Automation 先用 Manual Run。全局控制面只负责共享状态、单 run、lease 和并发；Orchestrator 只能派发 `slices/index.json` 中 `ready=true` 且自身 manifest/baseline 已通过的切片单元。persistence probe 仅作可选诊断。
 2. 本地 rolling docs 只作协作参考；若其历史记录与 `automation/` 机器状态或本提示词冲突，以 `automation/` 和本提示词为准，不得把历史 blocker 恢复为当前门禁。
 3. 放行后统一使用 **Schedule / Weekdays**，时区 `Asia/Shanghai`，错峰配置如下：Orchestrator `09:00`，Worker `10:00`，Verifier `14:00`。三条均为每天最多一次，不要配置 `*/7` 或同一时刻触发。
 4. 只有 Orchestrator 写出 `workerStatus=ready` 后，Worker 的定时 run 才能执行；只有 Worker 写出 `ported_awaiting_verifier` 且已 push `dev` 后，Verifier 才能执行。Verifier 可同时配置 GitHub `New push to branch=dev` 即时触发和每天 `14:00` Schedule 兜底；条件不满足时只记录 no-op/blocker 并退出。
-5. R3 `reviewStatus=approved`、`automation/state/current.json` 可读写、Slice 0 manifest 冻结、旧 demo baseline 就绪后，才允许启用上述 Schedule。
+5. R3 `reviewStatus=approved` 且 `automation/state/current.json` 可读写后，可以手动运行控制面；只有存在 `ready=true` 的切片时才允许业务派单。Schedule 仍待首个切片稳定后再启用。
 6. 治理文档（`docs/session-current.md`、`docs/session-handoff.md`、`docs/ai-task-board.md` 和 `docs/.local/`）只在本地维护，不进入代码 commit；云端三条 Automation 只以 `automation/` 机器状态为事实源。
 
 ## 共同不可违反规则
@@ -25,7 +25,7 @@
 - 每个目标文件必须保留 `ported from`、旧 FQCN（或 S 类适配契约）和 `sourceRevision` 追溯信息；程序方法签名配套简短中文注释。
 - GitHub 主 remote 通过 URL `https://github.com/zlw123/tky-eova.git` 识别，目标分支为 `dev`；`origin` 是内网备份，不能作为 Automation 发布目标。
 - 禁止创建 `cursor/*` 分支、Draft PR、自动 merge；所有角色固定在 `dev`，并按角色白名单提交：Orchestrator/Verifier 只能提交 `automation/`，Worker 可提交当前单元业务代码和对应 `automation/runs/<runId>/` 结果，不能提交治理文档或修改 `meta-eova/eova` submodule。
-- `automation/state/current.json`、`automation/queue/units.json` 和 `automation/runs/index.json` 是控制面核心状态；写入前必须 fetch/rebase，检查 `stateRevision`、`activeRunId`、`controlPlaneStatus`、`manifestStatus`、`oldDemoBaselineStatus`、lease 和 hash，禁止 force push。
+- `automation/state/current.json`、`automation/queue/units.json`、`automation/runs/index.json` 和 `automation/slices/index.json` 是控制面核心状态；写入前必须 fetch/rebase，检查 `stateRevision`、`activeRunId`、`activeSliceId`、`controlPlaneStatus`、lease 和 hash。manifest/baseline 状态以当前切片记录为准，禁止 force push。
 - 状态必须形成 `ready -> ported_awaiting_verifier -> verified`；任何控制面、证据、hash/revision、测试或环境问题都写 `blocked`，不能猜测为通过。`docs/.local/persistence-probe-*.json` 不参与正式状态转换。
 - `BUILD SUCCESS`、单测通过、静态资源存在或进程启动成功都不是迁移完成；按 `acceptanceProfile` 执行实际验证，没有 baseline 必须明确 `golden: skipped`，未执行必须明确 `not executed`。
 
@@ -43,7 +43,7 @@
 本 run 只做派单和 `automation/` 控制面状态更新，不写 remis-eova 业务代码。允许且必须提交 `automation/` 状态到同一仓库的 `dev`；禁止提交其他路径、创建分支或 PR。
 
 先按顺序读取：
-1. automation/state/current.json、automation/queue/units.json、automation/runs/index.json
+1. automation/state/current.json、automation/queue/units.json、automation/runs/index.json、automation/slices/index.json
 2. docs/ai-task-board.md、docs/session-current.md
 3. docs/automation/unit-queue-index.md 及对应队列文档
 4. automation/README.md（persistence probe 文档仅在需要排障时读取）
@@ -52,17 +52,17 @@
 以下任一条件成立，立即停止；只在 `automation/state/current.json` / `automation/queue/units.json` 记录唯一 blocker。若 blocker 和机器状态均未变化，则 no-op 退出，不生成重复 commit：
 - DES-002-R3 的 `reviewStatus` 不是 `approved`；
 - `automation/state/current.json` 不可读写，或控制面 `stateRevision`/lease 校验失败；
-- Slice 0 manifest 不是 frozen，或存在 unmapped、duplicate owner、未知 vendor/shell、未解释 deferred；
+- 不存在 `ready=true` 的切片，或候选切片的 `manifestStatus` 不是 `frozen`、`baselineStatus` 不是 `ready`、存在 unmapped/duplicate owner/未知 vendor/shell/未解释 deferred；
 - Ready 白名单为空且没有可继续的 In Progress，或同时存在多个 In Progress；
 - session-current 中仍有 workerStatus=ready、ported_awaiting_verifier 或 blocked；
 - runId/leaseUntil 未过期检查失败，或同一 unitId 已被其他 run 占用；
 - 无法从真实旧源码、固定 sourceRevision 和单元队列确定 sourcePath/sourceFqcn/targetPaths/directDependencies/allowedAdaptations/contractRefs/acceptanceProfile。
 
 门禁全部通过后，只派 1 个单元：
-1. 已有 In Progress 时必须恰好只有 1 个并继续其 taskId；没有 In Progress 时，只能从 unit-queue-index 的 Ready 白名单认领 1 个。不能自行把 Idea/Deferred/Blocked 改成 Ready，也不能写死只跑 LC-011。
-2. 读取该单元源文件全文和 manifest，重新计算 sourceRevision、sourceSha256，并读取目标文件当前 targetBeforeSha256；S 类无单文件源路径时必须填写对应 DES 方法契约，不能借 null 设计新 API。
+1. 已有 In Progress 时必须恰好只有 1 个并继续其 taskId/sliceId；没有 In Progress 时，只能从 registry 中 order 最小且 `ready=true` 的切片及其 Ready 白名单认领 1 个。不能自行把 Idea/Deferred/Blocked 或未 ready 切片改成 Ready，也不能写死只跑 LC-011。
+2. 读取候选切片 manifest 中该单元源文件全文，重新计算 sourceRevision、sourceSha256，并读取目标文件当前 targetBeforeSha256；S 类无单文件源路径时必须填写对应 DES 方法契约，不能借 null 设计新 API。
 3. 检查 directDependencies 均已 verified 或在清单中明确允许；已合入 dev 的类不能重复派发，compile-stub 不能算 verified。
-4. 从 automation/state/sequence.json 原子分配唯一 runId，leaseUntil 不超过当前时间 30 分钟；写入 `automation/runs/<runId>/task.json`、`dispatch.json`、`events.json`、`runs/index.json`、`queue/units.json` 和 `state/current.json`，完整保存 taskId、unitId、unitType、sourcePath、sourceFqcn、targetPaths、sourceRevision、sourceSha256、targetBeforeSha256、directDependencies、allowedAdaptations、contractRefs、acceptanceProfile、manifestRevision、runId、leaseUntil、stateRevision、workerStatus=ready。
+4. 从 automation/state/sequence.json 原子分配唯一 runId，leaseUntil 不超过当前时间 30 分钟；写入 `automation/runs/<runId>/task.json`、`dispatch.json`、`events.json`、`runs/index.json`、`queue/units.json` 和 `state/current.json`，完整保存 sliceId、taskId、unitId、unitType、sourcePath、sourceFqcn、targetPaths、sourceRevision、sourceSha256、targetBeforeSha256、directDependencies、allowedAdaptations、contractRefs、acceptanceProfile、manifestRevision、runId、leaseUntil、stateRevision、workerStatus=ready。
 5. 写入前重新 fetch/rebase 并复核 stateRevision、activeRunId、hash 和 lease；若变化或 push 冲突，重新读取，禁止覆盖。写入后读回所有 JSON，并检查 staged path 只能是 `automation/`。
 
 不修改业务代码、不提交治理文档、不创建分支或 PR。只提交 `automation/` 状态到 `dev`；本地 rolling docs 如需记录，由本地协作者维护，不纳入该 commit。
@@ -85,7 +85,7 @@
 
 立即停止并记录 blocker（不写业务代码、不 commit、不 push），如果：
 - DES-002-R3 的 `reviewStatus` 不是 `approved`，或 `automation/state/current.json` 的 `controlPlaneStatus` 不是 `ready`；
-- Slice 0 manifest 不是 frozen，或旧 demo baseline 未就绪；
+- 当前切片 manifest 不是 frozen，或当前切片 baseline 未就绪；
 - workerStatus 不是 ready；
 - 缺少 taskId/unitId/runId/leaseUntil，lease 已过期，或 runId 与当前状态不一致；
 - sourceRevision/sourceSha256/targetBeforeSha256 与派单时或当前 dev 不一致；
@@ -118,7 +118,7 @@
 
 以下任一条件成立，立即停止并记录 blocker，保持当前状态：
 - DES-002-R3 的 `reviewStatus` 不是 `approved`，或 `automation/state/current.json` 的 `controlPlaneStatus` 不是 `ready`；
-- Slice 0 manifest 不是 frozen，或旧 demo baseline 未就绪；
+- 当前切片 manifest 不是 frozen，或当前切片 baseline 未就绪；
 - workerStatus 不是 ported_awaiting_verifier；
 - runId、leaseUntil、Worker commit hash、sourceRevision、sourceSha256 与 session-current 或 dev 不一致；
 - targetPaths 已扩大、目标文件在 Worker 提交后又被修改，或单元依赖未 verified；

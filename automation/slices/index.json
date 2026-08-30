@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-08-30T20:15:00+08:00",
+  "slices": [
+    {
+      "sliceId": "S01-login-shell",
+      "name": "登录与主框架",
+      "order": 1,
+      "status": "preparing",
+      "manifestPath": "automation/slices/S01-login-shell/manifest.jsonl",
+      "manifestStatus": "provisional",
+      "baselinePath": "docs/.local/slices/S01-login-shell/",
+      "baselineStatus": "not_ready",
+      "ready": false,
+      "blockers": [
+        "old demo 未实际启动并验证登录/session/menu/logout",
+        "旧新页面截图、API/HAR 和错误场景证据未录制"
+      ],
+      "unitIds": [
+        "S01-BE-LOGIN-001",
+        "S01-BE-LOGIN-002",
+        "S01-FE-LOGIN-001",
+        "S01-FE-LOGIN-002",
+        "S01-FE-LOGIN-003",
+        "S01-FE-LOGIN-004",
+        "S01-VAL-001"
+      ]
+    }
+  ]
+}

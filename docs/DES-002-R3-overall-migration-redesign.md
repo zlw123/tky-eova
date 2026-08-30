@@ -1,6 +1,6 @@
 # DES-002-R3 remis-eova 代码级迁移总体重设计
 
-> 状态：Review approved / Design-only（评审通过；manifest freeze 和 baseline 仍待完成；workspace persistence probe 已降级为可选诊断）
+> 状态：Review approved / Design-only（评审通过；按切片准备局部 manifest 和 baseline；workspace persistence probe 已降级为可选诊断）
 > 版本：2026-08-30
 > reviewStatus：`approved`（拿哥确认：R3 评审通过）
 > 适用仓库：`https://github.com/zlw123/tky-eova.git`
@@ -130,19 +130,24 @@ S 类没有单文件源路径时，必须有对应 DES 方法契约；不能把 
 
 ## 6. 垂直切片顺序
 
-### Slice 0：基线和清单（当前唯一的设计前置）
+### 切片局部门禁（替代全量 Slice 0 前置）
 
-产出：
+完整 267 Java / 132 前端资产 manifest 和完整 baseline 仍是最终审计账本，但不再阻塞第一个功能切片。每个垂直切片单独登记：
 
-- Java 267 文件 manifest。
-- 前端 132 资产分类 manifest。
-- 旧 demo 启动/readiness 记录。
-- API/HAR golden case 清单。
-- 目标模块和依赖闭包图。
+1. `automation/slices/<sliceId>/manifest.jsonl`：只覆盖该用户旅程实际触达的源文件、目标路径、依赖、契约和 hash。
+2. `baselinePath`：只覆盖该切片的旧系统启动、API/HAR、数据库或 UI 证据。
+3. 只有该切片 `manifestStatus=frozen`、`baselineStatus=ready`、依赖已满足且 `ready=true`，Orchestrator 才能派发其中一个单元。
+4. 某个切片未准备好只阻塞该切片；Orchestrator 可以等待或选择其他已经 `ready` 的切片，但仍保持单 run 串行。
 
-退出条件：没有 `unmapped`、`duplicate owner`、未知 vendor、未知 shell 或未解释 deferred 项；manifest revision 冻结。
+### Slice 1：登录与主框架切片（S01-login-shell）
 
-### Slice 1：表达式内核兼容切片
+范围：旧 `LoginService`、`LoginController`、登录页逻辑/视图/样式、主框架菜单/Tab/退出逻辑，以及它们的最小依赖闭包。验收必须覆盖登录成功、登录失败、session/cookie、菜单加载、主框架结构、退出登录和旧新截图/HAR 对照。
+
+当前状态：`preparing`；局部 manifest 为 `S01-v0-provisional`，旧 demo readiness、API/HAR、截图和 logout 证据尚未完成。
+
+退出条件：S01 manifest 冻结、S01 baseline ready、所有 S01 单元按依赖完成并通过功能/UI 验收。
+
+### Slice 2：表达式内核兼容切片
 
 顺序：
 
@@ -245,12 +250,12 @@ Worker 只能修改清单 `targetPaths` 和必要构建文件；不能顺便补�
 
 R3 评审期间，唯一 `In Progress` 应为 `DES-002-R3`。所有迁移 Worker 单元暂停为 `Idea` 或 `Deferred`，不保留一个看似正在执行但实际上没有 Automation run 的 `LC-011 In Progress`。
 
-R3 评审通过后再按 Slice 0 → Slice 1 的顺序只开放一个 Ready 单元；FE-001 不能绕过清单、manifest、baseline 和控制面门禁抢跑。
+R3 评审通过后按切片 registry 的 `order` 选择第一个 `ready=true` 的切片，再只开放该切片中依赖满足的一个单元；任何单元不能绕过自身 manifest、baseline 和控制面门禁抢跑。完整全量 manifest 不再是首单前置。
 
 ## 10. R3 评审通过标准
 
 1. 拿哥确认“垂直切片 + manifest + 依赖闭包 + evidence gate”作为主路线。
 2. 确认 `automation/` Git 控制面可读写；可选 persistence probe 不再作为硬门禁。
-3. 完成 Slice 0 的 manifest 和旧 demo baseline 设计输入。
+3. 完成首个功能切片（S01-login-shell）的局部 manifest 和旧 demo baseline 设计输入。
 4. 把现有 LC-011 的 4 个已合入类重新标记为“代码已合入、切片未验证”，不再计入完整迁移百分比。
-5. 更新 `ai-task-board.md`、`session-current.md`、`session-handoff.md`，然后才允许手工启用三条 Automation。
+5. 更新切片 registry、三份 Automation 提示词和 rolling docs；全局 Git 控制面可用即可手动运行 Automation，业务派单仍由各切片局部门禁决定。

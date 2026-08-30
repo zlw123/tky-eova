@@ -1,21 +1,21 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "activeRunId": null,
   "activeTaskId": null,
   "activeUnitId": null,
+  "activeSliceId": null,
   "status": "idle",
   "expectedActor": "orchestrator",
-  "stateRevision": 1,
+  "stateRevision": 2,
   "leaseOwner": null,
   "leaseUntil": null,
-  "controlPlaneStatus": "blocked",
-  "manifestStatus": "provisional",
-  "oldDemoBaselineStatus": "not_ready",
+  "controlPlaneStatus": "ready",
+  "sliceRegistryPath": "automation/slices/index.json",
   "persistenceProbe": {
     "mode": "optional_diagnostic",
     "status": "not_run",
     "evidencePath": null
   },
-  "blocker": "slice0-gates-not-ready: manifest is provisional; old demo baseline is not ready",
-  "updatedAt": "2026-08-30T19:28:50+08:00"
+  "blocker": "no-ready-slice: S01-login-shell manifest and old-demo baseline are not ready",
+  "updatedAt": "2026-08-30T20:15:00+08:00"
 }

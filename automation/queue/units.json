@@ -1,7 +1,9 @@
 {
-  "schemaVersion": 1,
-  "updatedAt": "2026-08-30T19:28:50+08:00",
+  "schemaVersion": 2,
+  "updatedAt": "2026-08-30T20:15:00+08:00",
+  "sliceRegistryPath": "automation/slices/index.json",
+  "activeSliceId": null,
   "units": [],
   "queueStatus": "blocked",
-  "blocker": "slice0-gates-not-ready: manifest is provisional; old demo baseline is not ready; persistence probe is optional diagnostic only"
+  "blocker": "no-ready-slice: S01-login-shell manifest and old-demo baseline are not ready"
 }

@@ -6,7 +6,7 @@
 
 1. 读 `automation/state/current.json` 和对应 `automation/runs/<runId>/task.json` Worker 清单；`docs/session-current.md` 只作本地治理参考。
 2. **`workerStatus` 必须为 `ported_awaiting_verifier`**，否则 **立即停止**。
-3. 若 `docs/DES-002-R3-overall-migration-redesign.md` 的 `reviewStatus` 不是 `approved`，或 `automation/state/current.json` 的 `controlPlaneStatus` 不是 `ready`、`manifestStatus` 不是 `frozen`、`oldDemoBaselineStatus` 不是 `ready`，立即停止，不修改业务代码。R3 保持 `In Progress` 只表示执行前置尚未完成，不代表评审未通过。
+3. 若 `docs/DES-002-R3-overall-migration-redesign.md` 的 `reviewStatus` 不是 `approved`，或全局 `controlPlaneStatus` 不是 `ready`，立即停止；验证时还必须读取该 run 的 `sliceId`，复核该切片 manifest/baseline 版本与 run 快照一致。
 4. 从 GitHub 主 remote（按 URL `https://github.com/zlw123/tky-eova.git` 识别，不得盲用 `origin`）拉取 `dev`，确认 `targetPaths`（兼容单数 `targetPath`）中的每个目标文件存在。
 5. 复核 `runId`、`sourceRevision`、`sourceSha256`、`targetBeforeSha256` 和 Worker commit；任一与清单或 dev 不一致，判定为 blocked。
 

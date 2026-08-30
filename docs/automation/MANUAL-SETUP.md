@@ -23,8 +23,8 @@
 | 字段 | 填写 |
 |------|------|
 | **Name** | `eova-migration-orchestrator` |
-| **Description** | 读任务板，认领 1 个 Ready 为 In Progress，产出 Worker 单单元清单，更新 rolling docs。不写业务代码。 |
-| **Trigger** | 当前 Manual Run；R3 放行后改为 Weekdays 09:00（Asia/Shanghai），每天最多一次 |
+| **Description** | 读取切片 registry，认领首个 `ready=true` 切片中的 1 个单元，产出 Worker 单单元清单。不写业务代码。 |
+| **Trigger** | 当前 Manual Run；首个切片稳定后再改为 Weekdays 09:00（Asia/Shanghai），每天最多一次 |
 | **Tools** | 允许写同一 `dev` 分支的 `automation/` 控制面；不改业务代码 |
 
 **Instructions（整段复制）：**
@@ -44,8 +44,8 @@
 | 字段 | 填写 |
 |------|------|
 | **Name** | `eova-migration-worker` |
-| **Description** | 按 `automation/state/current.json` 和 `runs/<runId>/task.json` 的 Worker 清单，代码级 port 1 个单元到 remis-eova，直接提交并 push dev，再提交对应 `automation/` 结果。 |
-| **Trigger** | 当前 Manual Run；R3 放行后改为错峰 Weekdays 10:00（Asia/Shanghai），仅 `workerStatus=ready` 执行 |
+| **Description** | 按 `automation/state/current.json`、`slices/index.json` 和 `runs/<runId>/task.json` 的 Worker 清单，代码级 port 当前切片的 1 个单元到 remis-eova，直接提交并 push dev，再提交对应 `automation/` 结果。 |
+| **Trigger** | 当前 Manual Run；首个切片稳定后改为错峰 Weekdays 10:00（Asia/Shanghai），仅 `workerStatus=ready` 执行 |
 | **Tools** | 使用 dev 分支直接提交并 push；禁止创建 cursor/* 分支、Draft PR 或 MR。 |
 
 **Instructions（整段复制）：**
@@ -66,7 +66,7 @@
 |------|-----|
 | **Name** | `eova-migration-verifier` |
 | **Description** | 在 dev 验证 Worker 刚提交的单元，回写 verified 或 blocked；不验证 MR。 |
-| **Trigger** | 当前 Manual Run；R3 放行后添加 GitHub `New push to branch=dev`，并保留 Weekdays 14:00（Asia/Shanghai）Schedule 兜底；仅 `workerStatus=ported_awaiting_verifier` 执行 |
+| **Trigger** | 当前 Manual Run；首个切片稳定后添加 GitHub `New push to branch=dev`，并保留 Weekdays 14:00（Asia/Shanghai）Schedule 兜底；仅 `workerStatus=ported_awaiting_verifier` 执行 |
 | **Tools** | 不需要 MR/PR 评论；只读代码并写 `automation/` 验证结果 |
 
 **Instructions（整段复制）：**
