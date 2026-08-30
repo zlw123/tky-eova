@@ -1,5 +1,12 @@
 # Session Handoff
 
+## 2026-08-30T11:02Z - Orchestrator 未派单（控制面门禁）
+
+- **唯一 blocker**: workspace persistence probe 不是 `passed`（当前 `not executed`）
+- 已确认 `origin/dev` 上 `DES-002-R3.reviewStatus=approved`；Slice 0 manifest 仍为 `provisional`；Ready 白名单为空
+- 未派单；未改写 `automation/`（现有 JSON 已记录同一 blocker）；未 commit；未开 PR
+- 后续：按 `docs/automation/workspace-persistence-probe.md` 完成 3 次角色 Manual Run + 1 次 Orchestrator 读回
+
 ## 2026-08-30T10:44Z - Orchestrator 未派单（控制面门禁）
 
 - **唯一 blocker**: DES-002-R3 的 `reviewStatus` 不是 `approved`（`docs/DES-002-R3-overall-migration-redesign.md` 在 `origin/dev` 不存在）

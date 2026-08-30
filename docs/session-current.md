@@ -6,12 +6,12 @@
 
 ---
 
-## Orchestrator 停止（2026-08-30T10:44Z）
+## Orchestrator 停止（2026-08-30T11:02Z）
 
 - **是否派单**: 否
-- **唯一 blocker**: DES-002-R3 的 `reviewStatus` 不是 `approved`（`docs/DES-002-R3-overall-migration-redesign.md` 在 `origin/dev` 上不存在，无法读取 `reviewStatus`）
+- **唯一 blocker**: workspace persistence probe 不是 `passed`（当前 `not executed`；`docs/.local/` 无 `persistence-probe-*.json`）
 - **unitId / runId / sourceRevision / sourceSha256 / targetBeforeSha256 / leaseUntil / acceptanceProfile**: 未分配
-- 本 run 未写入 `automation/`、未提交、未开 PR
+- 已切到 `dev` 并 pull 到 `287c2e2`；`DES-002-R3.reviewStatus=approved`；未改 `automation/`（控制面已是 `blocked`）；未 commit；未开 PR
 
 ---
 
