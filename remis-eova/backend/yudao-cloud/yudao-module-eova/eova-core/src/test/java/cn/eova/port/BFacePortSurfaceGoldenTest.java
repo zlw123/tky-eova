@@ -72,7 +72,11 @@ class BFacePortSurfaceGoldenTest {
             "cn.eova.mod.EovaModClassLoader",
             "cn.eova.core.meta.MetaEngine",
             "cn.eova.service.FileService",
-            "cn.eova.plugin.cron4j.DemoTask");
+            "cn.eova.plugin.cron4j.DemoTask",
+            // 第五轮：依赖【已声明 stub】EovaConfig 的薄边单元
+            "cn.eova.common.utils.io.ClassUtil",
+            "cn.eova.auth.AuthUri",
+            "cn.eova.mod.emi.EMILoader");
 
     /**
      * 已声明适配：允许在【新实现侧】出现的差异。
@@ -222,9 +226,9 @@ class BFacePortSurfaceGoldenTest {
         assertTrue(problems.isEmpty(), "声明面差异必须为 0，实际：\n" + String.join("\n", problems));
         // 非空洞性护栏：8 个单元合计声明方法数必须达到已知下界（实测 40+，取下界 30）。
         // 若旧侧装载失败被误判成"两侧都空"，或 UNITS 被改小，这里会先报错。
-        // 实测 22 个单元合计 150+，下界取 135（随单元增加而上调，防止误判空洞）
-        assertTrue(totalOldMethods >= 135,
-                "旧侧声明方法合计 " + totalOldMethods + " 少于下界 135，判据可能已空洞");
+        // 实测 25 个单元合计 160+，下界取 150（随单元增加而上调，防止误判空洞）
+        assertTrue(totalOldMethods >= 150,
+                "旧侧声明方法合计 " + totalOldMethods + " 少于下界 150，判据可能已空洞");
         // 字段护栏用【聚合下界】而非"逐单元非空"：RequestUtil / ExceUtil 这类纯静态工具类
         // 本就没有声明字段，要求"每单元都有字段"会误报（该误报本次已被护栏自己抓到）。
         assertTrue(totalOldFields >= 15,
