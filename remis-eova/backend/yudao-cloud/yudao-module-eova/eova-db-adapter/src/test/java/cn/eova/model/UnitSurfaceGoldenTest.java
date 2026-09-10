@@ -72,7 +72,10 @@ class UnitSurfaceGoldenTest {
             "cn.eova.model.MetaFieldDiy",
             "cn.eova.model.Task",
             "cn.eova.model.Msg",
-            "cn.eova.model.EovaOption");
+            "cn.eova.model.EovaOption",
+            // 第七批：LogKit 等价物 + RecordUtil + ColumnMeta
+            "cn.eova.common.utils.jfinal.RecordUtil",
+            "cn.eova.core.meta.ColumnMeta");
 
     @Test
     @DisplayName("模型层声明面：字段/方法签名/常量值/父类与旧实现逐项一致")
@@ -165,6 +168,10 @@ class UnitSurfaceGoldenTest {
         // enjoy 版 Kv 是 API 子集且移除了 toJson，故必须固化，见 R40）
         if ("Kv".equals(simpleName)) {
             return "LegacyKv";
+        }
+        // 已声明的底座替换：jfinal LogKit -> LegacyLogKit（见 ColumnMeta 的追溯头）
+        if ("LogKit".equals(simpleName)) {
+            return "LegacyLogKit";
         }
         return simpleName;
     }

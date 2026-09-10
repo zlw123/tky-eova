@@ -75,15 +75,8 @@ public abstract class EovaModel<M extends EovaModel<M>> implements Serializable 
     /** 是否经 dao() 标记为 DAO 实例 */
     private boolean daoFlag;
 
-    /** 默认持久化网关（单数据源场景）；启动时注入 */
-    private static volatile EovaDbGateway gateway;
-
-    /**
-     * 按数据源名注册的网关：EOVA 是双数据源（eova / 用户业务库），
-     * 而 {@code BaseModel} 的 {@code execute}/{@code isExist} 等都按
-     * {@code _getConfigName()} 决定操作哪个库，故网关必须能按数据源名解析。
-     */
-    private static final Map<String, EovaDbGateway> gateways = new java.util.LinkedHashMap<>();
+    // 网关解析统一委托 cn.eova.db.EovaGateways（单一事实源）——
+    // 因为旧 Db.use(ds) 是静态入口，非 Model 类（如 ColumnMeta）也要用它。
 
     /** 缓存实现；启动时注入（未注入时缓存方法明确报错） */
     private static volatile CacheService cacheService;
@@ -92,7 +85,7 @@ public abstract class EovaModel<M extends EovaModel<M>> implements Serializable 
      * 注入持久化网关（启动时由容器调用）
      */
     public static void setGateway(EovaDbGateway gw) {
-        gateway = gw;
+        EovaGateways.setFallback(gw);
     }
 
     /**
@@ -102,19 +95,14 @@ public abstract class EovaModel<M extends EovaModel<M>> implements Serializable 
      * @param gw         该数据源的网关
      */
     public static void setGateway(String configName, EovaDbGateway gw) {
-        synchronized (gateways) {
-            gateways.put(configName, gw);
-        }
+        EovaGateways.register(configName, gw);
     }
 
     /**
      * 清空数据源网关注册（仅供测试隔离）
      */
     public static void clearGateways() {
-        synchronized (gateways) {
-            gateways.clear();
-        }
-        gateway = null;
+        EovaGateways.clear();
     }
 
     /**
@@ -139,31 +127,14 @@ public abstract class EovaModel<M extends EovaModel<M>> implements Serializable 
      * @return 该数据源的网关
      */
     protected EovaDbGateway gw(String configName) {
-        synchronized (gateways) {
-            EovaDbGateway byDs = gateways.get(configName);
-            if (byDs != null) {
-                return byDs;
-            }
-        }
-        return gw();
+        return EovaGateways.get(configName);
     }
 
+    /**
+     * 按本模型绑定的数据源取网关（{@code _getConfigName()} 为空时用默认网关）
+     */
     protected EovaDbGateway gw() {
-        String ds = _getConfigName();
-        if (ds != null) {
-            synchronized (gateways) {
-                EovaDbGateway byDs = gateways.get(ds);
-                if (byDs != null) {
-                    return byDs;
-                }
-            }
-        }
-        EovaDbGateway g = gateway;
-        if (g == null) {
-            throw new IllegalStateException(
-                    "EovaModel 未注入 EovaDbGateway（数据源=" + ds + "）");
-        }
-        return g;
+        return EovaGateways.get(_getConfigName());
     }
 
     private static CacheService cache() {
@@ -203,7 +174,7 @@ public abstract class EovaModel<M extends EovaModel<M>> implements Serializable 
      * 未注入网关时的报错入口，供 diagnostic 使用
      */
     public static boolean isConfigured() {
-        return gateway != null;
+        return EovaGateways.fallback() != null;
     }
 
     // ———————————————————————— 属性容器 ————————————————————————
