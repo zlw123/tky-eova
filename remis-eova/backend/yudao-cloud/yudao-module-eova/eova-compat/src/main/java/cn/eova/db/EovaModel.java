@@ -214,15 +214,15 @@ public abstract class EovaModel<M extends EovaModel<M>> implements Serializable 
      * 属性名数组
      */
     public String[] _getAttrNames() {
-        return attrs.getColumnNames().toArray(new String[0]);
+        return attrs.getColumnNames();
     }
 
     /**
      * 属性值数组（与 {@link #_getAttrNames()} 同序）
      */
     public Object[] _getAttrValues() {
-        Set<String> names = attrs.getColumnNames();
-        Object[] out = new Object[names.size()];
+        String[] names = attrs.getColumnNames();
+        Object[] out = new Object[names.length];
         int i = 0;
         for (String n : names) {
             out[i++] = attrs.getObject(n);

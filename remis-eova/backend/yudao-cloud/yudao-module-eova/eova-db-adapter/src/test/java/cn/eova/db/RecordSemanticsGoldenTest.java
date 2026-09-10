@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -64,7 +66,23 @@ class RecordSemanticsGoldenTest {
     private static final Set<String> EXCLUDED = Set.of(
             "env|config", "env|探针表已创建",
             "find|record.class",
-            "accessor|getColumns.keySet", "accessor|getColumnNames", "case|getColumns.keys",
+            // 【已修正口径的排除】键序不可作契约 —— 但这只该排除【顺序】，不应排除【内容与返回类型】。
+            // 证据（本轮实测）：表 demo.users 的列序为
+            //   id,status,login_id,login_pwd,nickname,nickname1,reg_time,info,tag
+            // 与【新实现】完全一致；而旧 golden 为 id,info,...,reg_time,status,tag
+            // （info/status 互换）—— 说明旧序是 jfinal CaseInsensitiveContainerFactory 的
+            // 容器产物，不是数据序。故顺序确非契约。
+            // 【该排除曾掩盖一条已记录在案的契约】：旧侧探针 Sp6Record:135-136 原文就写着
+            //   "// getColumnNames() 返回 String[]（不是 Set）"
+            // 而新接缝当时返回 Set<String>，因整条探针被排除而从未被发现，
+            // 直到移植 DbUtil 时编译失败才暴露（DbUtil:388 用 String[] 接）。
+            // 现内容与类型由 RecordColumnNamesSeamGoldenTest 跨实现比对覆盖。
+            "accessor|getColumns.keySet", "accessor|getColumnNames",
+            // 正当排除：旧侧探针的键是 case|getColumns.keys，新侧探针已改名为
+            // case|set(MyKey)后 getColumns.keys（语义更强：显式表达了"set 之后再看键"），
+            // 故旧键在新侧本就不会产出。这是**名称变更**，不是契约被放弃 ——
+            // 键大小写行为由 case|get(*) 系列 9 条探针覆盖。
+            "case|getColumns.keys",
             "json|getColumns 类型", "json|toJson(单条)", "json|toJson(带null字段)", "null|toJson",
             "update|诊断.内存Record.modifyFlag", "update|诊断.findById整行",
             "update|诊断.findFirst整行", "update(byId)|诊断.整行"
@@ -145,7 +163,7 @@ class RecordSemanticsGoldenTest {
     // ---------------- 探测（与 SP6 逐项对应） ----------------
 
     /** 执行与 SP6 相同的操作序列 */
-    private void runProbe() {
+    private void runProbe() throws Exception {
         probeFindAndAccessors();
         probeCoercion();
         probeCase();
@@ -156,7 +174,7 @@ class RecordSemanticsGoldenTest {
         probeTx();
     }
 
-    private void probeFindAndAccessors() {
+    private void probeFindAndAccessors() throws Exception {
         List<EovaRecord> list = gw.find("select * from users order by id limit 3");
         emit("find", "list.size", list.size());
         EovaRecord r = list.get(0);
@@ -175,6 +193,18 @@ class RecordSemanticsGoldenTest {
             emit("accessor", "getLocalDateTime(" + col + ")", sr(() -> r.getLocalDateTime(col)));
             emit("accessor", "get(" + col + ",默认值)", sr(() -> r.get(col, "DEFAULT")));
         }
+        // 与旧侧探针 Sp6Record:134-136 逐条对应。旧侧原文注释：
+        //   // getColumns 的键大小写（容器工厂语义的直接证据）
+        //   record("accessor", "getColumns.keySet", new ArrayList<>(r.getColumns().keySet()));
+        //   // getColumnNames() 返回 String[]（不是 Set）
+        //   record("accessor", "getColumnNames", new ArrayList<>(Arrays.asList(r.getColumnNames())));
+        // 这两条此前【既未在新侧产出、又被 EXCLUDED 跳过】—— 于是契约无任何比对。
+        // 这两条【不在此处比对】，改由 RecordColumnNamesSeamGoldenTest 做跨实现判据 ——
+        // 原因见 EXCLUDED 中该两项的说明：旧序是 jfinal 大小写不敏感容器的产物，
+        // 不是数据序，故顺序不可作契约；但【内容与返回类型】必须比对，而 golden 的
+        // 值比对抓不到 String[] 与 Set<String> 的区别（两者 JSON 化后都是数组）。
+        // 类型断言亦移至该专用判据，避免与 golden 的"逐字节文本比对"口径混在一起。
+
         emit("accessor", "get(不存在的列).isNull", r.get("no_such_column") == null);
         emit("accessor", "getStr(不存在的列)", sr(() -> r.getStr("no_such_column")));
         emit("accessor", "getInt(不存在的列)", sr(() -> r.getInt("no_such_column")));

@@ -253,10 +253,31 @@ public class EovaRecord implements LegacyJsonKit.JsonColumns, java.io.Serializab
     }
 
     /**
-     * 取列名集合（小写）
+     * 取列名数组（小写）。
+     *
+     * <p><b>返回类型必须与 jfinal 一致：{@code String[]}，不是 {@code Set<String>}。</b>
+     * 旧字节码（jfinal 5.2.6 {@code Record.getColumnNames}）为：
+     * <pre>
+     * Set&lt;String&gt; set = getColumns().keySet();
+     * return set.toArray(new String[set.size()]);
+     * </pre>
+     * 故顺序即 {@code getColumns()} 的键迭代顺序（{@code columns} 为插入序 Map）。</p>
+     *
+     * <p><b>这是一处【已修正的接缝缺陷】：</b>本方法此前返回 {@code Set<String>}，
+     * 与旧实现签名不符，会让 EOVA 自己的两处调用编译失败 ——
+     * {@code DbUtil:388}（{@code String[] names = r.getColumnNames();}）与
+     * {@code WidgetManager:831}（{@code String[] cols = e.getColumnNames();}）。
+     * 该缺陷此前被 {@code RecordSemanticsGoldenTest} 的
+     * {@code accessor|getColumnNames} <b>排除项掩盖</b>：那条排除的正当理由只是
+     * <b>键序不稳定</b>，却把<b>返回类型</b>这个真实契约一并排除了
+     * （与"过度排除 {@code json|toJson*} 导致 {@code toJson} 从未被比对"同类）。
+     * 现排除项已收窄到只排除顺序、保留类型比对。</p>
+     *
+     * @return 列名数组
      */
-    public Set<String> getColumnNames() {
-        return columns.keySet();
+    public String[] getColumnNames() {
+        Set<String> set = columns.keySet();
+        return set.toArray(new String[set.size()]);
     }
 
     /**

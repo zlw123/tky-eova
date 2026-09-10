@@ -7,6 +7,8 @@ package cn.eova.db;
 
 import java.util.List;
 
+import javax.sql.DataSource;
+
 /**
  * EOVA 数据访问网关（DES-002-R4 §4：唯一允许接触 MyBatis/数据源/事务的边界）。
  *
@@ -27,6 +29,22 @@ public interface EovaDbGateway {
         /** 在事务中执行 */
         T run() throws Throwable;
     }
+
+    /**
+     * 取本网关底层的 {@link DataSource}。
+     *
+     * <p><b>存在理由（DES-DB-OWNERSHIP-R2 §4）：</b>绝大多数调用方应走网关的高层语义
+     * （{@code find}/{@code update}/{@code tx}），但<b>表结构自省</b>需要原始
+     * {@code Connection} 才能取 {@code DatabaseMetaData}（表名、列、注释），
+     * 这是元数据模块自动生成 {@code eova_field} 的基础。
+     * 旧实现经 jfinal {@code DbKit.getConfig(ds).getDataSource()} 取得同一能力。</p>
+     *
+     * <p><b>边界（须由判据固定）：</b>业务代码<b>不得</b>用本方法绕开网关语义；
+     * 仅 {@code DsUtil} 这类自省路径使用。</p>
+     *
+     * @return 底层数据源
+     */
+    DataSource dataSource();
 
     /**
      * 查询多行
@@ -145,6 +163,64 @@ public interface EovaDbGateway {
      * @return 第 1 列的所有行值
      */
     <T> List<T> query(String sql, Object... paras);
+
+    /**
+     * 查询<b>单列</b>并取<b>首行</b>值（对应 jfinal {@code DbPro.queryColumn}）。
+     *
+     * <p><b>语义逐条取自旧字节码</b>（jfinal 5.2.6 {@code DbPro.queryColumn(String, Object[])}）：
+     * <pre>
+     * List&lt;T&gt; list = query(sql, paras);
+     * if (list.size() &gt; 0) {
+     *     T t = list.get(0);
+     *     if (t instanceof Object[]) throw new ActiveRecordException("Only ONE COLUMN can be queried.");
+     *     return t;
+     * }
+     * return null;
+     * </pre>
+     * 注意两点（均属既有语义，不得"顺手修正"）：
+     * <ol>
+     *   <li>抛错分支是 {@code t instanceof Object[]} —— 因为 {@code query} 在<b>列数 &gt; 1</b> 时
+     *       每行给的是<b>整行 {@code Object[]}</b>；故多列 SQL 会在此处抛错。</li>
+     *   <li>{@code "Only ONE COLUMN can be queried."} 这条消息属 <b>本方法</b>，
+     *       <b>不在</b> {@code query} 里（{@code query} 是<b>按列数分支</b>，不抛错）。</li>
+     * </ol>
+     *
+     * <p><b>为什么用 default 方法：</b>本方法完全由 {@link #query} 派生，
+     * 在接口上给唯一实现可保证<b>所有实现行为一致</b>，且不必让每个实现重复这段分支逻辑。</p>
+     *
+     * @param sql   查询语句
+     * @param paras 参数
+     * @param <T>   列值类型
+     * @return 首行首列值；无命中返回 {@code null}
+     */
+    @SuppressWarnings("unchecked")
+    default <T> T queryColumn(String sql, Object... paras) {
+        List<T> list = query(sql, paras);
+        if (!list.isEmpty()) {
+            T t = list.get(0);
+            if (t instanceof Object[]) {
+                throw new EovaActiveRecordException("Only ONE COLUMN can be queried.");
+            }
+            return t;
+        }
+        return null;
+    }
+
+    /**
+     * 查询<b>单列首行</b>并转成字符串（对应 jfinal {@code DbPro.queryStr}）。
+     *
+     * <p><b>旧字节码语义：</b>{@code T t = queryColumn(sql, paras); return t != null ? t.toString() : null;}
+     * —— 经 {@code toString()} 转换（<b>不是</b>强制类型转换），故日期/数值等类型会带上其
+     * {@code toString} 形态。该行为属既有语义，不得改为按类型格式化。</p>
+     *
+     * @param sql   查询语句
+     * @param paras 参数
+     * @return 首行首列的字符串形态；无命中返回 {@code null}
+     */
+    default String queryStr(String sql, Object... paras) {
+        Object t = queryColumn(sql, paras);
+        return t != null ? t.toString() : null;
+    }
 
     /**
      * 执行更新/DDL 语句

@@ -61,6 +61,21 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
 
     // ---------------- 查询 ----------------
 
+    /**
+     * 取底层数据源（供 {@code DsUtil} 的表结构自省使用）。
+     *
+     * <p>本类即数据源的所有者（构造期注入），故直接返回字段；不做任何包装或延迟解析 ——
+     * 若在此处"顺手"包一层，自省拿到的将不是真正的连接池。</p>
+     *
+     * @return 构造期注入的数据源
+     */
+    @Override
+    public DataSource dataSource() {
+        return dataSource;
+    }
+
+    // ---------------- 查询 ----------------
+
     /** 查询多行；列名小写化 */
     @Override
     public List<EovaRecord> find(String sql, Object... paras) {

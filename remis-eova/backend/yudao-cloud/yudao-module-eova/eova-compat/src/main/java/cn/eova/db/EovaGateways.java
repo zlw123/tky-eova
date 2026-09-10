@@ -71,6 +71,38 @@ public final class EovaGateways {
     }
 
     /**
+     * 按数据源名<b>精确查找</b>网关；未注册返回 {@code null}（<b>不回落</b>默认网关）。
+     *
+     * <p><b>为什么必须与 {@link #get(String)} 并存（DES-DB-OWNERSHIP-R2 §5）：</b>
+     * 两者语义不同且都不可少 ——
+     * <ul>
+     *   <li>{@code get(ds)}：业务代码用，未注册时<b>回落</b>默认网关
+     *       （单数据源场景友好，且与旧 {@code Db.use(ds)} 的可用性方向一致）；</li>
+     *   <li>{@code find(ds)}：<b>需要"未注册"这一事实本身</b>的调用方用。
+     *       典型是 {@code DsUtil.getConnection(ds)} —— 旧实现是
+     *       {@code DbKit.getConfig(ds)}，jfinal 的实现就是 {@code configMap.get(name)}
+     *       （<b>无任何回落</b>），取不到即抛
+     *       {@code SQLException(ds + " datasrouce can not get config")}。
+     *       若此处用 {@code get(ds)}，未注册的数据源会静默去连<b>默认库</b> ——
+     *       表结构自省会读错库，且错得很安静。</li>
+     * </ul>
+     *
+     * <p>语义对齐：{@code find(null)} 返回 {@code null}（与 jfinal
+     * {@code DbKit.getConfig(null)} 的查表结果一致）。</p>
+     *
+     * @param configName 数据源名
+     * @return 该数据源的网关；未注册返回 {@code null}
+     */
+    public static EovaDbGateway find(String configName) {
+        if (configName == null) {
+            return null;
+        }
+        synchronized (BY_CONFIG) {
+            return BY_CONFIG.get(configName);
+        }
+    }
+
+    /**
      * 按数据源名取网关；未注册该数据源时回落到默认网关
      *
      * @param configName 数据源名，可为 null（此时直接用默认网关）
@@ -129,6 +161,29 @@ public final class EovaGateways {
      */
     public static int update(String sql) {
         return get(null).update(sql);
+    }
+
+    /**
+     * 查询单列首行并转字符串（对应 jfinal 静态 {@code Db.queryStr}，走默认数据源）
+     *
+     * @param sql   查询语句
+     * @param paras 参数
+     * @return 字符串；无命中返回 {@code null}
+     */
+    public static String queryStr(String sql, Object... paras) {
+        return get(null).queryStr(sql, paras);
+    }
+
+    /**
+     * 查询单列首行（对应 jfinal 静态 {@code Db.queryColumn}，走默认数据源）
+     *
+     * @param sql   查询语句
+     * @param paras 参数
+     * @param <T>   列值类型
+     * @return 首行首列值；无命中返回 {@code null}
+     */
+    public static <T> T queryColumn(String sql, Object... paras) {
+        return get(null).queryColumn(sql, paras);
     }
 
     public static void clear() {
