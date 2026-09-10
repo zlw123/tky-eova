@@ -1,0 +1,206 @@
+/**
+ * Copyright (c) 2015-2026 EOVA.CN. All rights reserved.
+ * Licensed under the LGPL-3.0 license
+ * For authorization, please contact: admin@eova.cn
+ */
+package cn.eova.compat.jfinal.captcha;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
+import cn.eova.testkit.OldImplementationLoader;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * {@code LegacyCaptcha} / {@code LegacyCaptchaCache} 的<b>跨实现</b>等价判据。
+ *
+ * <p><b>为什么要对照旧制品：</b>本轮实现 {@code LegacyCaptcha} 时，我凭直觉把
+ * {@code toString()} 写成 {@code key + "-" + value}，而<b>旧字节码是</b>
+ * {@code key + " :" + value}（空格 + 冒号）。该类文本会出现在日志与诊断输出中，
+ * 属可观测输出。这说明"看着显然"的地方恰恰要靠判据兜住 —— 故此处逐项与旧制品比对，
+ * 而不是由我断言"应该是这样"。</p>
+ *
+ * <p><b>比对项：</b>{@code serialVersionUID}、{@code DEFAULT_EXPIRE_TIME}、
+ * {@code toString()}、{@code isExpired()}/{@code notExpired()}（含边界）、
+ * 以及三参构造器的 {@code expireAt} 公式与 null 校验消息。</p>
+ *
+ * <p>acceptanceProfile: golden-captcha-seam</p>
+ */
+class LegacyCaptchaGoldenTest {
+
+    /**
+     * 常量与序列化标识：{@code serialVersionUID} 与 {@code DEFAULT_EXPIRE_TIME} 逐值比对。
+     *
+     * @throws Exception 反射失败
+     */
+    @Test
+    @DisplayName("serialVersionUID 与 DEFAULT_EXPIRE_TIME 逐值对照旧 Captcha")
+    void constantsMatchOld() throws Exception {
+        Class<?> oldCls = oldCaptchaClass();
+
+        Field oldUid = oldCls.getDeclaredField("serialVersionUID");
+        oldUid.setAccessible(true);
+        Field newUid = LegacyCaptcha.class.getDeclaredField("serialVersionUID");
+        newUid.setAccessible(true);
+        assertEquals(oldUid.getLong(null), newUid.getLong(null),
+                "serialVersionUID 必须逐值一致（序列化契约）");
+
+        Field oldDef = oldCls.getField("DEFAULT_EXPIRE_TIME");
+        assertEquals(oldDef.getInt(null), LegacyCaptcha.DEFAULT_EXPIRE_TIME,
+                "DEFAULT_EXPIRE_TIME 必须一致");
+    }
+
+    /**
+     * {@code toString()} 的分隔符逐字比对（我在此处猜错过一次）。
+     *
+     * @throws Exception 反射失败
+     */
+    @Test
+    @DisplayName("toString() 逐字对照旧 Captcha（分隔符为 \" : \"，连错两次后由本判据定值）")
+    void toStringMatchesOld() throws Exception {
+        Class<?> oldCls = oldCaptchaClass();
+        Constructor<?> oldCtor = oldCls.getConstructor(String.class, String.class);
+        Object oldObj = oldCtor.newInstance("k1", "v1");
+        Object newObj = new LegacyCaptcha("k1", "v1");
+
+        String oldS = String.valueOf(oldObj);
+        assertEquals(oldS, String.valueOf(newObj), "toString 必须逐字一致");
+        assertEquals("k1 : v1", oldS, "旧实现的分隔符为 \" : \"（空格+冒号+空格）—— 供后人核对");
+    }
+
+    /**
+     * {@code expireAt} 公式：{@code expireTime * 1000L + 当前毫秒}。
+     *
+     * @throws Exception 反射失败
+     */
+    @Test
+    @DisplayName("三参构造器的 expireAt 公式与旧 Captcha 一致（expireTime*1000L + now）")
+    void expireAtFormulaMatchesOld() throws Exception {
+        Class<?> oldCls = oldCaptchaClass();
+        Constructor<?> oldCtor = oldCls.getConstructor(String.class, String.class, int.class);
+        Method oldGetExpireAt = oldCls.getMethod("getExpireAt");
+
+        int seconds = 37;
+        long before = System.currentTimeMillis();
+        Object oldObj = oldCtor.newInstance("k", "v", seconds);
+        LegacyCaptcha newObj = new LegacyCaptcha("k", "v", seconds);
+        long after = System.currentTimeMillis();
+
+        long oldExpireAt = (Long) oldGetExpireAt.invoke(oldObj);
+        long newExpireAt = newObj.getExpireAt();
+
+        assertEquals(oldExpireAt - before, newExpireAt - before,
+                "两侧的 expireAt 相对同一基准的偏移必须一致（容差内）");
+        assertTrue(newExpireAt >= before + seconds * 1000L
+                        && newExpireAt <= after + seconds * 1000L,
+                "expireAt 必须落在 [before+" + seconds + "000, after+" + seconds + "000] 区间内");
+    }
+
+    /**
+     * {@code isExpired()} 的<b>严格小于</b>边界：{@code expireAt == now} 时尚未过期。
+     *
+     * <p>边界用"{@code expireAt} 设为很久以后/很久以前"来稳定判定，
+     * 并额外比对旧实现同一时刻的结论。</p>
+     *
+     * @throws Exception 反射失败
+     */
+    @Test
+    @DisplayName("isExpired/notExpired 与旧 Captcha 一致（含未过期与已过期两侧）")
+    void isExpiredMatchesOld() throws Exception {
+        Class<?> oldCls = oldCaptchaClass();
+        Constructor<?> oldCtor = oldCls.getConstructor();
+        Method oldSetExpireAt = oldCls.getMethod("setExpireAt", long.class);
+        Method oldIsExpired = oldCls.getMethod("isExpired");
+        Method oldNotExpired = oldCls.getMethod("notExpired");
+
+        long now = System.currentTimeMillis();
+        long[] samples = {
+                now + 60_000L,      // 未过期
+                now - 60_000L,      // 已过期
+                now + 1L,           // 极近未过期
+                now - 1L,           // 极近已过期
+        };
+
+        for (long at : samples) {
+            Object oldObj = oldCtor.newInstance();
+            oldSetExpireAt.invoke(oldObj, at);
+            LegacyCaptcha newObj = new LegacyCaptcha();
+            newObj.setExpireAt(at);
+
+            boolean oldExpired = (Boolean) oldIsExpired.invoke(oldObj);
+            assertEquals(oldExpired, newObj.isExpired(),
+                    "expireAt=" + at + " 时 isExpired 必须与旧实现一致");
+            assertEquals((Boolean) oldNotExpired.invoke(oldObj), newObj.notExpired(),
+                    "expireAt=" + at + " 时 notExpired 必须与旧实现一致");
+        }
+
+        // 钉死"严格小于"这一边界性质：设为远期必未过期
+        LegacyCaptcha future = new LegacyCaptcha();
+        future.setExpireAt(System.currentTimeMillis() + 3_600_000L);
+        assertFalse(future.isExpired(), "远期 expireAt 不得判为已过期");
+        assertTrue(future.notExpired(), "远期 expireAt 应判未过期");
+    }
+
+    /**
+     * 三参构造器的 null 校验消息逐字比对。
+     *
+     * @throws Exception 反射失败
+     */
+    @Test
+    @DisplayName("三参构造器 null 校验：消息逐字与旧 Captcha 一致")
+    void nullCheckMessageMatchesOld() throws Exception {
+        Class<?> oldCls = oldCaptchaClass();
+        Constructor<?> oldCtor = oldCls.getConstructor(String.class, String.class, int.class);
+
+        IllegalArgumentException oldEx = assertThrows(IllegalArgumentException.class,
+                () -> {
+                    try {
+                        oldCtor.newInstance(null, "v", 10);
+                    } catch (InvocationTargetException e) {
+                        throw (RuntimeException) e.getCause();
+                    }
+                }, "旧实现 key 为 null 时应抛 IllegalArgumentException");
+
+        IllegalArgumentException newEx = assertThrows(IllegalArgumentException.class,
+                () -> new LegacyCaptcha(null, "v", 10),
+                "新实现 key 为 null 时应抛 IllegalArgumentException");
+
+        assertEquals(oldEx.getMessage(), newEx.getMessage(), "校验消息必须逐字一致");
+
+        // value 为 null 同样
+        IllegalArgumentException oldEx2 = assertThrows(IllegalArgumentException.class,
+                () -> {
+                    try {
+                        oldCtor.newInstance("k", null, 10);
+                    } catch (InvocationTargetException e) {
+                        throw (RuntimeException) e.getCause();
+                    }
+                });
+        IllegalArgumentException newEx2 = assertThrows(IllegalArgumentException.class,
+                () -> new LegacyCaptcha("k", null, 10));
+        assertEquals(oldEx2.getMessage(), newEx2.getMessage());
+    }
+
+    /**
+     * 取旧 {@code com.jfinal.captcha.Captcha} 类，并做非空洞性自检。
+     *
+     * @return 旧类
+     * @throws Exception 反射/IO 失败
+     */
+    private static Class<?> oldCaptchaClass() throws Exception {
+        ClassLoader jf = OldImplementationLoader.createForJFinalOnly();
+        Class<?> oldCls = Class.forName("com.jfinal.captcha.Captcha", true, jf);
+        OldImplementationLoader.assertFromJar(oldCls, OldImplementationLoader.oldJFinalJar());
+        assertTrue(oldCls != LegacyCaptcha.class, "旧侧不得就是新接缝本身");
+        return oldCls;
+    }
+
+}
