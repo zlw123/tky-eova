@@ -98,6 +98,15 @@ public interface EovaDbGateway {
     boolean deleteById(String table, Object id);
 
     /**
+     * 执行 insert 并取回自增生成的主键（旧 {@code Model.save()} 依赖此能力把主键写回模型）
+     *
+     * @param sql   insert 语句
+     * @param paras 参数
+     * @return 生成的主键值；无则 null
+     */
+    Object insertReturningKey(String sql, Object[] paras);
+
+    /**
      * 执行更新/DDL 语句
      *
      * @return 受影响行数

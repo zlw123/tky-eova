@@ -251,6 +251,33 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
     }
 
     /** 绑定参数 */
+    /**
+     * 执行 insert 并取回自增生成的主键（对应旧实现
+     * {@code prepareStatement(sql, RETURN_GENERATED_KEYS)} + {@code Dialect.getModelGeneratedKey}）。
+     *
+     * <p>旧 {@code Model.save()} 在插入后会把生成的主键写回模型，因此"插入后模型的 pk 被填充"
+     * 是可观测行为，必须保留。无生成键时返回 null。
+     *
+     * @param sql   insert 语句
+     * @param paras 参数
+     * @return 生成的主键值；无则 null
+     */
+    @Override
+    public Object insertReturningKey(String sql, Object[] paras) {
+        return withConnection(conn -> {
+            try (PreparedStatement ps =
+                         conn.prepareStatement(sql, java.sql.Statement.RETURN_GENERATED_KEYS)) {
+                for (int i = 0; i < paras.length; i++) {
+                    ps.setObject(i + 1, paras[i]);
+                }
+                ps.executeUpdate();
+                try (ResultSet rs = ps.getGeneratedKeys()) {
+                    return rs != null && rs.next() ? rs.getObject(1) : null;
+                }
+            }
+        }, "插入失败: " + sql);
+    }
+
     private static PreparedStatement bind(Connection conn, String sql, Object... paras) throws SQLException {
         PreparedStatement ps = conn.prepareStatement(sql);
         for (int i = 0; i < paras.length; i++) {

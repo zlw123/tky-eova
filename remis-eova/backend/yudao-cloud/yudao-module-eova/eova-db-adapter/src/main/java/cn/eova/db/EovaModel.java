@@ -570,6 +570,70 @@ public abstract class EovaModel<M extends EovaModel<M>> implements Serializable 
         return findFirstByCache(cacheName, key, sql, new Object[0]);
     }
 
+    // ———————————————————————— 保存 / 更新 ————————————————————————
+
+    /**
+     * 插入当前记录。
+     *
+     * <p>与旧 {@code Model.save()} 同构：
+     * <ol>
+     *   <li>{@code filter(FILTER_BY_SAVE)} —— 旧 {@code Model.filter(int)} 是<b>空方法</b>，
+     *       故本实现不调用任何过滤钩子（{@code BaseModel} 也未覆写）；</li>
+     *   <li>SQL 由 {@link ModelSqlBuilder#forModelSave} 按 MysqlDialect 规则生成
+     *       （只取已有属性、跳过非表列、null 照常写入、反引号引用）；</li>
+     *   <li>取回自增主键并写回模型（可观测行为）；</li>
+     *   <li>清空 modifyFlag。</li>
+     * </ol>
+     */
+    @SuppressWarnings("unchecked")
+    public boolean save() {
+        TableMetadata table = _getTable();
+        if (table == null) {
+            throw new IllegalStateException("模型未注册映射：" + _getUsefulClass().getName());
+        }
+        ModelSqlBuilder.Sql sql = ModelSqlBuilder.forModelSave(table, attrs.getColumns());
+        Object key = gw().insertReturningKey(sql.sql(), sql.paras());
+        String[] pks = table.primaryKeys();
+        if (key != null && pks.length > 0) {
+            attrs.set(pks[0], key);
+        }
+        attrs.getModifyFlag().clear();
+        return true;
+    }
+
+    /**
+     * 更新当前记录。
+     *
+     * <p>与旧 {@code Model.update()} 同构：
+     * <ol>
+     *   <li>{@code filter(FILTER_BY_UPDATE)} —— 旧实现为空方法，故不调用；</li>
+     *   <li><b>modifyFlag 为空时直接返回 false</b>（不执行任何 SQL）；</li>
+     *   <li>主键值为 null 时抛 {@link EovaActiveRecordException}，消息与旧实现逐字一致：
+     *       {@code You can't update model without Primary Key, <pk> can not be null.}；</li>
+     *   <li>只更新 modifyFlag 中的列，跳过主键与非表列。</li>
+     * </ol>
+     */
+    public boolean update() {
+        TableMetadata table = _getTable();
+        if (table == null) {
+            throw new IllegalStateException("模型未注册映射：" + _getUsefulClass().getName());
+        }
+        if (attrs.getModifyFlag().isEmpty()) {
+            return false;
+        }
+        String[] pks = table.primaryKeys();
+        Object idValue = attrs.getObject(pks[0]);
+        if (idValue == null) {
+            throw new EovaActiveRecordException("You can't update model without Primary Key, "
+                    + pks[0] + " can not be null.");
+        }
+        ModelSqlBuilder.Sql sql = ModelSqlBuilder.forModelUpdate(
+                table, attrs.getColumns(), attrs.getModifyFlag(), idValue);
+        boolean ok = gw().update(sql.sql(), sql.paras()) > 0;
+        attrs.getModifyFlag().clear();
+        return ok;
+    }
+
     // ———————————————————————— 删除 ————————————————————————
 
     /**
