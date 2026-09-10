@@ -65,7 +65,14 @@ class BFacePortSurfaceGoldenTest {
             // 第三轮：MetaField 链（xx -> EovaExpBuilder -> MetaField）
             "cn.eova.common.utils.xx",
             "cn.eova.engine.EovaExpBuilder",
-            "cn.eova.model.MetaField");
+            "cn.eova.model.MetaField",
+            // 第四轮：零决策、零新接缝的 6 个单元（宿主依赖全在已有能力内）
+            "cn.eova.sql.dql.dialect.QueryDialect",
+            "cn.eova.core.object.config.MetaObjectConfig",
+            "cn.eova.mod.EovaModClassLoader",
+            "cn.eova.core.meta.MetaEngine",
+            "cn.eova.service.FileService",
+            "cn.eova.plugin.cron4j.DemoTask");
 
     /**
      * 已声明适配：允许在【新实现侧】出现的差异。
@@ -199,9 +206,9 @@ class BFacePortSurfaceGoldenTest {
             // ---- 声明的方法 ----
             Set<String> oldMethods = methodSet(oldCls);
             Set<String> newMethods = methodSet(newCls);
-            // 非空洞性护栏：两侧都空会让"集合相等"退化为恒真
-            assertTrue(!oldMethods.isEmpty(), fqcn + "：旧侧声明方法为空，判据会退化为空洞");
-            assertTrue(!newMethods.isEmpty(), fqcn + "：新侧声明方法为空，判据会退化为空洞");
+            // 注意：此处【不】做逐单元"方法非空"断言 —— FileService 这类叶子类
+            // （裸 extends BaseService，18 行）本身不声明任何方法，逐单元非空会误报。
+            // 空洞风险改由下方的【聚合下界】统一兜住。
             totalOldMethods += oldMethods.size();
             if (!oldMethods.equals(newMethods)) {
                 Set<String> onlyOld = new TreeSet<>(oldMethods);
@@ -215,9 +222,9 @@ class BFacePortSurfaceGoldenTest {
         assertTrue(problems.isEmpty(), "声明面差异必须为 0，实际：\n" + String.join("\n", problems));
         // 非空洞性护栏：8 个单元合计声明方法数必须达到已知下界（实测 40+，取下界 30）。
         // 若旧侧装载失败被误判成"两侧都空"，或 UNITS 被改小，这里会先报错。
-        // 实测 16 个单元合计 135，下界取 120（随单元增加而上调，防止误判空洞）
-        assertTrue(totalOldMethods >= 120,
-                "旧侧声明方法合计 " + totalOldMethods + " 少于下界 120，判据可能已空洞");
+        // 实测 22 个单元合计 150+，下界取 135（随单元增加而上调，防止误判空洞）
+        assertTrue(totalOldMethods >= 135,
+                "旧侧声明方法合计 " + totalOldMethods + " 少于下界 135，判据可能已空洞");
         // 字段护栏用【聚合下界】而非"逐单元非空"：RequestUtil / ExceUtil 这类纯静态工具类
         // 本就没有声明字段，要求"每单元都有字段"会误报（该误报本次已被护栏自己抓到）。
         assertTrue(totalOldFields >= 15,
