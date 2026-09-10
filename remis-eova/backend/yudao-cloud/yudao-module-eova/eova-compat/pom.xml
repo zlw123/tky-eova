@@ -50,6 +50,13 @@
             <groupId>com.alibaba</groupId>
             <artifactId>fastjson</artifactId>
         </dependency>
+        <!-- druid 提供的纯工具（util.Base64 / util.JdbcUtils / DbType）：
+             EncryptUtil 逐字节 port 依赖 druid 的 Base64（不换成 java.util.Base64 ——
+             后者在换行/填充等边界上行为可能不同，会破坏逐字节等价） -->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>druid</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
