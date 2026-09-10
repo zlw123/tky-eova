@@ -17,6 +17,29 @@
     <description>EOVA 框架无关内核（LC-011 逐文件 port）</description>
 
     <dependencies>
+        <!-- 非业务兼容适配层：模板接缝、旧工具、序列化语义（DES-002-R4 §4：
+             eova-core 需要旧能力时依赖 eova-compat） -->
+        <dependency>
+            <groupId>cn.eova</groupId>
+            <artifactId>eova-compat</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- eova-compat 的 test-jar：跨实现行为等价验证基建（OldImplementationLoader） -->
+        <dependency>
+            <groupId>cn.eova</groupId>
+            <artifactId>eova-compat</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+        <!-- EOVA 官方工具库（门面 x 及其工具类）。
+             替代原先手写的 cn.eova.tools.x compile-stub —— 该 stub 的 API 面与真实类不符
+             （虚构了嵌套类 x.XLog / x.XStr，真实类型为 LogTool / StringTool），
+             且缺少 BaseController 所需的 x.conf 字段。详见 DES-002-R4 §3.5。 -->
+        <dependency>
+            <groupId>cn.eova</groupId>
+            <artifactId>eova-tools</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.alibaba</groupId>
             <artifactId>druid</artifactId>
