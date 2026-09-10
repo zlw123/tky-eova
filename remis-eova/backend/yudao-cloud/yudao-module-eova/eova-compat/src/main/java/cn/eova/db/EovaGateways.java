@@ -5,7 +5,10 @@
  */
 package cn.eova.db;
 
+import cn.eova.compat.cache.CacheServices;
+
 import java.util.Collections;
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -94,6 +97,40 @@ public final class EovaGateways {
     /**
      * 清空注册（仅供测试隔离）
      */
+    /**
+     * 带缓存的查询（对应 jfinal 静态 {@code Db.findByCache}）。
+     *
+     * <p>语义与旧实现一致：先按 {@code (cacheName, key)} 取缓存；未命中则查库并回填
+     * （旧 {@code Db.findByCache} 同样用 service 缓存）。
+     *
+     * @param cacheName 缓存名
+     * @param key       缓存键
+     * @param sql       查询语句
+     * @param paras     参数
+     * @return 记录列表（未命中时是刚查出的列表，命中时是缓存中的实例）
+     */
+    @SuppressWarnings("unchecked")
+    public static List<EovaRecord> findByCache(String cacheName, Object key, String sql,
+                                               Object... paras) {
+        Object cached = CacheServices.get().get(cacheName, key);
+        if (cached != null) {
+            return (List<EovaRecord>) cached;
+        }
+        List<EovaRecord> list = get(null).find(sql, paras);
+        CacheServices.get().put(cacheName, key, list);
+        return list;
+    }
+
+    /**
+     * 执行更新/DDL（对应静态 {@code Db.update(sql)}，走默认数据源）
+     *
+     * @param sql 语句
+     * @return 受影响行数
+     */
+    public static int update(String sql) {
+        return get(null).update(sql);
+    }
+
     public static void clear() {
         synchronized (BY_CONFIG) {
             BY_CONFIG.clear();

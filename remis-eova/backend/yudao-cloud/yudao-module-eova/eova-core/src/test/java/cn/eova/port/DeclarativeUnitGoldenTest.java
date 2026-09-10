@@ -83,8 +83,9 @@ class DeclarativeUnitGoldenTest {
      */
     private static final Map<String, Set<String>> DECLARED_ADDITIONS = Map.of(
             // 宿主替换：com.jfinal.plugin.ehcache.CacheKit -> CacheService 接缝
-            "cn.eova.common.base.BaseCache|fields", Set.of(
-                    "private static volatile cn.eova.compat.cache.CacheService cacheService"),
+            // 注：原声明的字段 cacheService 已上移到 cn.eova.compat.cache.CacheServices
+            //（单一事实源，因为 compat 层的 EovaGateways.findByCache 也需要取缓存），
+            // 故此处不再声明该字段 —— 该声明过期由本判据的"声明过期"检测报出过。
             "cn.eova.common.base.BaseCache|methods", Set.of(
                     "private static cn.eova.compat.cache.CacheService service()",
                     "public static void setCacheService(cn.eova.compat.cache.CacheService)"));

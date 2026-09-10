@@ -6,7 +6,7 @@
 package cn.eova.common.base;
 
 import cn.eova.compat.cache.CacheService;
-import cn.eova.compat.cache.EhCacheService;
+import cn.eova.compat.cache.CacheServices;
 
 /**
  * <p>ported from: cn.eova.common.base.BaseCache
@@ -47,8 +47,8 @@ public class BaseCache {
     /** 404 WAF 软封禁（按 IP，TTL 到期自动解封） **/
     public static final String WAF_BAN = "waf_ban";
 
-    /** 缓存接缝实现；未显式设置时惰性取 classpath 的 ehcache.xml */
-    private static volatile CacheService cacheService;
+    // 缓存实现的持有者已上移到 cn.eova.compat.cache.CacheServices（单一事实源），
+    // 因为 compat 层的 EovaGateways.findByCache 也需要取缓存，而 compat 不能依赖 core。
 
     /**
      * 设置缓存实现（容器启动时注入；阶段 3 换成 Redis 实现即可，业务代码不变）
@@ -56,22 +56,12 @@ public class BaseCache {
      * @param service 缓存实现
      */
     public static void setCacheService(CacheService service) {
-        cacheService = service;
+        CacheServices.set(service);
     }
 
-    /** 取缓存实现；未设置时按默认实现惰性初始化 */
+    /** 取缓存实现（委托 CacheServices，单一事实源） */
     private static CacheService service() {
-        CacheService s = cacheService;
-        if (s == null) {
-            synchronized (BaseCache.class) {
-                s = cacheService;
-                if (s == null) {
-                    s = EhCacheService.fromClasspath();
-                    cacheService = s;
-                }
-            }
-        }
-        return s;
+        return CacheServices.get();
     }
 
     private static Object getCache(String cacheName, String key) {
