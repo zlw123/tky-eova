@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>cn.eova</groupId>
+        <artifactId>yudao-module-eova</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>eova-compat</artifactId>
+    <packaging>jar</packaging>
+    <name>eova-compat</name>
+    <description>EOVA 非业务兼容适配层（模板接缝、旧工具、序列化语义）</description>
+
+    <dependencies>
+        <!-- 模板引擎：旧系统使用 JFinal 5.2.6 内嵌 Enjoy。
+             独立制品 enjoy 5.3.0 是下限 —— 只有它同时提供
+             RenderOrElseDirective（首页模板使用）与 com.jfinal.kit.PathKit。
+             SP2 实测：以 enjoy 5.3.0 渲染 login.html / index.html，
+             输出与旧系统 golden 逐字节相同。详见 DES-002-R4 §2.1。 -->
+        <dependency>
+            <groupId>com.jfinal</groupId>
+            <artifactId>enjoy</artifactId>
+            <version>5.3.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <!-- EOVA 官方工具库：旧工具层（如 AESUtil 读 x.conf）依赖其门面 x -->
+        <dependency>
+            <groupId>cn.eova</groupId>
+            <artifactId>eova-tools</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- 产出 test-jar：把跨实现验证基建（OldImplementationLoader）共享给 eova-core 等模块的测试 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.1</version>
+                <executions>
+                    <execution>
+                        <id>test-jar</id>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

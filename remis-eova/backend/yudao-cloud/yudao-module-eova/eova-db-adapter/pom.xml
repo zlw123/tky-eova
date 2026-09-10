@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>cn.eova</groupId>
+        <artifactId>yudao-module-eova</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>eova-db-adapter</artifactId>
+    <packaging>jar</packaging>
+    <name>eova-db-adapter</name>
+    <description>EOVA 数据访问适配层（DES-002-R4 §4：唯一允许接触数据源与事务的边界）</description>
+
+    <dependencies>
+        <!-- 依赖 eova-compat：复用其 enjoy 依赖提供的 com.jfinal.kit.TypeKit（类型转换语义） -->
+        <dependency>
+            <groupId>cn.eova</groupId>
+            <artifactId>eova-compat</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- eova-compat 的 test-jar：跨实现验证基建 -->
+        <dependency>
+            <groupId>cn.eova</groupId>
+            <artifactId>eova-compat</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- 测试用：与旧系统同源的 MySQL 驱动 -->
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>8.0.30</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

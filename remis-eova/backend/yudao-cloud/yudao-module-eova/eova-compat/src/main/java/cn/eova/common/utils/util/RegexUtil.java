@@ -1,0 +1,136 @@
+/**
+ * Copyright (c) 2015-2026 EOVA.CN. All rights reserved.
+ * Licensed under the LGPL-3.0 license
+ * For authorization, please contact: admin@eova.cn
+ */
+package cn.eova.common.utils.util;
+
+import java.util.HashSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * 正则工具。
+ *
+ * <p>ported from: cn.eova.common.utils.util.RegexUtil
+ * <br>source revision: meta-eova/eova 1b1d39e7350f7e031b216aad0399fc8cc55dce08
+ * <br>本单元为逐行等价 port，未做语义改写。
+ *
+ * <p><b>刻意保留的既有语义：</b>
+ * <ol>
+ *   <li>{@code replaceAll(regex, ment, str)} 的参数顺序是
+ *       <b>(正则, 替换内容, 目标串)</b> —— 与 {@code String.replaceAll(目标, 正则, 替换)} 相反，
+ *       属对外契约，不得"顺手"调序；</li>
+ *   <li>{@code flags == -1} 表示不带任何匹配模式编译（而非默认忽略大小写）；</li>
+ *   <li>{@code getMatcherValue} 未匹配时返回 {@code null}，
+ *       匹配时返回长度 {@code groupCount()} 的数组（<b>不含 group(0) 整体匹配</b>）。</li>
+ * </ol>
+ */
+public class RegexUtil {
+
+    /**
+     * 是否匹配到结果
+     * @param regex 正则表达式
+     * @param str 目标字符串
+     * @return
+     */
+    public static boolean isExist(String regex, String str) {
+        Pattern pat = Pattern.compile(regex);
+        Matcher mat = pat.matcher(str);
+        return mat.find();
+    }
+
+    /**
+     * 正则替换(默认不区分大小写)
+     * @param regex 正则表达式
+     * @param ment 替换内容
+     * @param str 目标字符串
+     * @return 替换后字符串
+     */
+    public static String replaceAll(String regex, String ment, String str) {
+        return replaceAll(regex, ment, str, Pattern.CASE_INSENSITIVE);
+    }
+
+    /**
+     * 正则替换
+     * @param regex 正则表达式
+     * @param ment 替换内容
+     * @param str 目标字符串
+     * @param flags 匹配模式
+     * Pattern.CASE_INSENSITIVE忽略大小写
+     * @return 替换后字符串
+     */
+    public static String replaceAll(String regex, String ment, String str, int flags) {
+        Pattern pat = null;
+        if (flags == -1) {
+            pat = Pattern.compile(regex);
+        } else {
+            pat = Pattern.compile(regex, flags);
+        }
+        Matcher mat = pat.matcher(str);
+        return mat.replaceAll(ment);
+    }
+
+    /**
+     * 获取匹配参数值 eg: regex=(.*)[b](.*)[/b],str=A[b]B[/b],return [1]=A,[2]=B
+     * @param regex 正则表达式
+     * @param str 目标字符串
+     * @return 匹配参数值
+     */
+    public static String[] getMatcherValue(String regex, String str) {
+        return getMatcherValue(regex, str, Pattern.CASE_INSENSITIVE);
+    }
+
+    /**
+     * 获取匹配参数值
+     * @param regex 正则表达式
+     * @param str 目标字符串
+     * @param flags 匹配模式
+     * Pattern.CASE_INSENSITIVE忽略大小写
+     * @return
+     */
+    public static String[] getMatcherValue(String regex, String str, int flags) {
+        Pattern pat = null;
+        if (flags == -1) {
+            pat = Pattern.compile(regex);
+        } else {
+            pat = Pattern.compile(regex, flags);
+        }
+        Matcher mat = pat.matcher(str);
+        if (mat.find()) {
+            String[] param = new String[mat.groupCount()];
+            for (int i = 0; i < mat.groupCount(); i++) {
+                param[i] = mat.group(i + 1);
+            }
+            return param;
+        }
+        return null;
+    }
+
+    /**
+     * 是否符合正则判定
+     * @param regex
+     * @param str
+     * @return
+     */
+    public static boolean isTrue(String regex, String str) {
+        Pattern pattern = Pattern.compile(regex);
+        Matcher match = pattern.matcher(str);
+        return match.matches();
+    }
+
+    /**
+     * 正则提取中文
+     * @param str
+     * @return
+     */
+    public static HashSet<String> getChinese(String str) {
+        HashSet<String> cns = new HashSet<>();
+        String regex = "([\u4e00-\u9fa5]+)";
+        Matcher matcher = Pattern.compile(regex).matcher(str);
+        while (matcher.find()) {
+            cns.add(matcher.group(0));
+        }
+        return cns;
+    }
+}

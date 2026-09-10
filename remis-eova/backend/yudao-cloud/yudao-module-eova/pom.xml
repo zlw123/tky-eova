@@ -14,9 +14,13 @@
     <artifactId>yudao-module-eova</artifactId>
     <packaging>pom</packaging>
     <name>yudao-module-eova</name>
-    <description>EOVA 模块聚合（eova-core 先行；biz/api 见 LC-001 Deferred）</description>
+    <description>EOVA 模块聚合（eova-compat / eova-core 先行；biz/api 见 LC-001 Deferred）</description>
 
     <modules>
+        <!-- 非业务兼容适配层：模板接缝、旧工具、序列化语义等宿主适配（DES-002-R4 §4） -->
+        <module>eova-compat</module>
+        <!-- 数据访问适配层：唯一允许接触数据源与事务的边界（DES-002-R4 §4） -->
+        <module>eova-db-adapter</module>
         <module>eova-core</module>
     </modules>
 </project>

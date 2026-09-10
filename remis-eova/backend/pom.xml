@@ -22,6 +22,8 @@
         <spring-boot.version>3.4.5</spring-boot.version>
         <!-- 与 meta-eova/core 同源，避免 SQL 解析语义漂移 -->
         <druid.version>1.2.20</druid.version>
+        <!-- EOVA 官方工具库：零 JFinal 耦合（实测 0 处 com/jfinal 引用），Java 17 下可直接使用（SP4 已验证） -->
+        <eova.tools.version>1.1.5</eova.tools.version>
     </properties>
 
     <dependencyManagement>
@@ -37,6 +39,11 @@
                 <groupId>com.alibaba</groupId>
                 <artifactId>druid</artifactId>
                 <version>${druid.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.eova</groupId>
+                <artifactId>eova-tools</artifactId>
+                <version>${eova.tools.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
