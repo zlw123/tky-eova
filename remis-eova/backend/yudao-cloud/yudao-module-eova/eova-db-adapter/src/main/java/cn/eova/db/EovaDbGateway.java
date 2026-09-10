@@ -113,7 +113,38 @@ public interface EovaDbGateway {
      * @param paras 参数
      * @return 数值；无结果时 null
      */
-    Number queryNumber(String sql, Object[] paras);
+    Number queryNumber(String sql, Object... paras);
+
+    /**
+     * 查询单个 Long（对应 jfinal {@code DbPro.queryLong}）：
+     * 即 {@code queryNumber} 非 null 时取 {@code longValue()}，null 时返回 null
+     *
+     * @param sql   查询语句
+     * @param paras 参数
+     * @return Long；无结果时 null
+     */
+    Long queryLong(String sql, Object... paras);
+
+    /**
+     * 查询<b>单列</b>并返回该列所有行的值（对应 jfinal {@code DbPro.query}）。
+     *
+     * <p><b>实测旧行为：按列数分支（据 {@code DbPro.query} 完整方法体）：</b>
+     * <ul>
+     *   <li>列数 &gt; 1 → 每行一个 {@code Object[]}（<b>整行</b>）</li>
+     *   <li>列数 = 1 → 每行的第 1 列<b>标量</b></li>
+     *   <li>列数 = 0 → 空列表</li>
+     * </ul>
+     * 注意 {@code "Only ONE COLUMN can be queried."} 属 {@code DbPro.queryColumn}，
+     * <b>不在</b> {@code DbPro.query} 里 —— 两者不可混同（我最初据片段误归因，已由判据纠正）。
+     * 调用方 {@code Button} 用的是<b>单列</b> SQL，取标量后自行转 Integer
+     * （源码注释："为了兼容Oracle 返回的List&lt;BigDecimal&gt;"）。
+     *
+     * @param sql   查询语句（必须只 select 一列）
+     * @param paras 参数
+     * @param <T>   列值类型
+     * @return 第 1 列的所有行值
+     */
+    <T> List<T> query(String sql, Object... paras);
 
     /**
      * 执行更新/DDL 语句

@@ -64,13 +64,13 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
     /** 查询多行；列名小写化 */
     @Override
     public List<EovaRecord> find(String sql, Object... paras) {
-        return query(sql, paras);
+        return queryRecords(sql, paras);
     }
 
     /** 查询首行；无命中返回 null */
     @Override
     public EovaRecord findFirst(String sql, Object... paras) {
-        List<EovaRecord> list = query(sql, paras);
+        List<EovaRecord> list = queryRecords(sql, paras);
         return list.isEmpty() ? null : list.get(0);
     }
 
@@ -88,12 +88,13 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
         int totalRow = cnt == null ? 0 : cnt.getInt("cnt");
         int offset = (pageNumber - 1) * pageSize;
         List<EovaRecord> list = offset < 0 ? new ArrayList<>()
-                : query(select + " " + sqlExceptSelect + " limit ? offset ?", append(paras, pageSize, offset));
+                : queryRecords(select + " " + sqlExceptSelect + " limit ? offset ?", append(paras, pageSize, offset));
         return new EovaPage<>(pageNumber, pageSize, totalRow, list);
     }
 
     /** 执行查询并装配为 EovaRecord 列表 */
-    private List<EovaRecord> query(String sql, Object... paras) {
+    /** 记录级查询（私有辅助；与接口的"单列查询"query 区分，故另起名） */
+    private List<EovaRecord> queryRecords(String sql, Object... paras) {
         return withConnection(conn -> {
             List<EovaRecord> out = new ArrayList<>();
             try (PreparedStatement ps = bind(conn, sql, paras);
@@ -263,7 +264,46 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
      * @return 生成的主键值；无则 null
      */
     @Override
-    public Number queryNumber(String sql, Object[] paras) {
+    public Long queryLong(String sql, Object... paras) {
+        Number n = queryNumber(sql, paras);
+        // 与 jfinal DbPro.queryLong 同构：非 null 才拆箱
+        return n == null ? null : n.longValue();
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <T> List<T> query(String sql, Object... paras) {
+        return withConnection(conn -> {
+            try (PreparedStatement ps = bind(conn, sql, paras);
+                 ResultSet rs = ps.executeQuery()) {
+                // 与 jfinal DbPro.query 逐分支同构（据【完整方法体】，非片段推断）：
+                //   列数 > 1 → 每行一个 Object[]（整行）
+                //   列数 = 1 → 每行的第 1 列值（标量）
+                //   列数 = 0 → 空列表
+                // 注意此处【不抛】"Only ONE COLUMN can be queried."——那条属 queryColumn。
+                // （我先后猜过"多列抛异常"和"总是取首列"，两次都被判据纠正。）
+                List<T> out = new java.util.ArrayList<>();
+                int columnsCount = rs.getMetaData().getColumnCount();
+                if (columnsCount > 1) {
+                    while (rs.next()) {
+                        Object[] row = new Object[columnsCount];
+                        for (int i = 0; i < columnsCount; i++) {
+                            row[i] = rs.getObject(i + 1);
+                        }
+                        out.add((T) row);
+                    }
+                } else if (columnsCount == 1) {
+                    while (rs.next()) {
+                        out.add((T) rs.getObject(1));
+                    }
+                }
+                return out;
+            }
+        }, "查询失败: " + sql);
+    }
+
+    @Override
+    public Number queryNumber(String sql, Object... paras) {
         return withConnection(conn -> {
             try (PreparedStatement ps = bind(conn, sql, paras);
                  ResultSet rs = ps.executeQuery()) {

@@ -15,8 +15,7 @@ import cn.eova.tools.x;
  * <br>本单元为逐行等价 port：文件体与旧实现逐字节一致，仅新增本追溯头。
  * <br><b>刻意保留的既有语义：</b>
  * <ol>
- *   <li>i18nMap 是 HashMap；ThreadLocal local 承载当前语言码 —— 原样保留</li>
- *   <li>get(txt) 在无语言/无词条/空译文时一律回落到原文 txt</li>
+ *   <li>I18N 覆写了 get：无词条或译文为空时返回【键本身】而非 null —— 与 Map 约定不同，属既有行为</li>
  * </ol>
  */
 public class I18N extends HashMap<String, String> {

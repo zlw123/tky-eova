@@ -209,9 +209,33 @@ public abstract class EovaModel<M extends EovaModel<M>> implements Serializable 
     // ———————————————————————— 属性容器 ————————————————————————
 
     /**
-     * 取属性容器（可变视图）
+     * 取属性 Map（对应 jfinal {@code Model._getAttrs()}）。
+     *
+     * <p><b>可见性与返回类型都必须与 jfinal 一致</b>：jfinal 是
+     * {@code protected Map<String, Object>}，而 EOVA 代码会在它上面直接调 Map 方法 ——
+     * 例如 {@code Button.queryButtons} 里的
+     * {@code list.get(0)._getAttrs().containsKey("btnset")}。
+     * 本方法最初写成 {@code public EovaRecord}（返回自定义容器），
+     * 结果逐字节 port 的 {@code Button} <b>编译失败</b>。
+     * 同 R25 的教训：等价物的<b>名字、可见性、返回类型</b>都是契约的一部分。
+     *
+     * <p>返回的是<b>可变视图</b>（与 jfinal 一致，不做防御性拷贝）。
      */
-    public EovaRecord _getAttrs() {
+    protected Map<String, Object> _getAttrs() {
+        return attrs.getColumns();
+    }
+
+    /**
+     * 取属性条目集（对应 jfinal {@code Model._getAttrsEntrySet()}）
+     */
+    public Set<Map.Entry<String, Object>> _getAttrsEntrySet() {
+        return attrs.getColumns().entrySet();
+    }
+
+    /**
+     * 取属性容器（本实现内部使用的强类型视图；与 {@link #_getAttrs()} 返回同一份数据）
+     */
+    public EovaRecord attrs() {
         return attrs;
     }
 

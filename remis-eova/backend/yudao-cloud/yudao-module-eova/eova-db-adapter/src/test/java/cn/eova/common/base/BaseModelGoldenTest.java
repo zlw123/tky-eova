@@ -278,6 +278,51 @@ class BaseModelGoldenTest {
     }
 
     @Test
+    @DisplayName("query / queryLong：与真实 jfinal Db.query / Db.queryLong 一致（含单列约束）")
+    void queryPrimitivesMatchJFinal() {
+        // 造两行数据
+        EvProbe a = new EvProbe();
+        a.put("name", "q1").save();
+        EvProbe b = new EvProbe();
+        b.put("name", "q2").save();
+
+        cn.eova.db.JdbcEovaDbGateway gw = new cn.eova.db.JdbcEovaDbGateway(ds);
+
+        // —— queryLong：与 Db.queryLong 一致 ——
+        String cntSql = "select count(*) from " + TABLE;
+        assertEquals(Db.queryLong(cntSql), gw.queryLong(cntSql), "queryLong 应与 Db.queryLong 一致");
+
+        // —— query：单列，与 Db.query 一致（元素级比较，注意可能是 BigDecimal） ——
+        String colSql = "select name from " + TABLE + " order by id";
+        List<Object> expected = Db.query(colSql);
+        List<Object> actual = gw.query(colSql);
+        assertEquals(expected.size(), actual.size(), "query 行数应与 Db.query 一致");
+        for (int i = 0; i < expected.size(); i++) {
+            assertEquals(String.valueOf(expected.get(i)), String.valueOf(actual.get(i)),
+                    "第 " + i + " 个元素应一致（两侧都按原始类型返回，不做转换）");
+        }
+
+        // —— 多列：按列数分支，每行是【整行 Object[]】（不是首列！）——
+        String multiSql = "select id, name from " + TABLE + " order by id";
+        List<Object> expMulti = Db.query(multiSql);
+        List<Object> actMulti = gw.query(multiSql);
+        assertEquals(expMulti.size(), actMulti.size(), "多列时 query 行数应与 Db.query 一致");
+        assertFalse(expMulti.isEmpty(), "测试数据应非空");
+        for (int i = 0; i < expMulti.size(); i++) {
+            Object expRow = expMulti.get(i);
+            Object actRow = actMulti.get(i);
+            assertTrue(expRow instanceof Object[] && actRow instanceof Object[],
+                    "多列时两侧每个元素都应是 Object[]（整行）：旧=" + expRow.getClass()
+                            + " 新=" + actRow.getClass());
+            assertEquals(Arrays.toString((Object[]) expRow), Arrays.toString((Object[]) actRow),
+                    "多列时整行内容应一致（第 " + i + " 行）");
+        }
+
+        System.out.println("[BaseModel 比对] query/queryLong 与 jfinal 原语一致（"
+                + expected.size() + " 行；单列取标量、多列取整行 Object[]，两者均与旧实现一致）");
+    }
+
+    @Test
     @DisplayName("表元数据 API：getColumnNameSet / getPrimaryKey 与真实 jfinal Table 一致")
     void tableMetadataApiMatchesJFinalTable() {
         // jfinal 侧：真实 com.jfinal.plugin.activerecord.Table
@@ -342,6 +387,16 @@ class BaseModelGoldenTest {
     }
 
     // ———————————————————————— 辅助 ————————————————————————
+
+    /** 执行并返回异常消息；未抛异常返回 null */
+    private static String messageOf(Runnable action) {
+        try {
+            action.run();
+            return null;
+        } catch (RuntimeException e) {
+            return e.getMessage();
+        }
+    }
 
     private static String nameOf(Object id) throws Exception {
         try (Connection c = ds.getConnection();

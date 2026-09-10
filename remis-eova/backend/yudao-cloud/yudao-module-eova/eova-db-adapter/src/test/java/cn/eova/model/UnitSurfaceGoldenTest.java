@@ -61,7 +61,10 @@ class UnitSurfaceGoldenTest {
             "cn.eova.i18n.I18N",
             "cn.eova.i18n.I18NBuilder",
             "cn.eova.core.menu.config.ChartConfig",
-            "cn.eova.core.menu.config.TreeConfig");
+            "cn.eova.core.menu.config.TreeConfig",
+            // 第四批：Button（适配 Db.use(Ds.EOVA)）+ MenuConfig
+            "cn.eova.model.Button",
+            "cn.eova.core.menu.config.MenuConfig");
 
     @Test
     @DisplayName("模型层声明面：字段/方法签名/常量值/父类与旧实现逐项一致")

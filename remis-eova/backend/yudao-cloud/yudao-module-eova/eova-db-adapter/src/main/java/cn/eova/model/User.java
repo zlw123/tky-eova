@@ -15,11 +15,7 @@ import cn.eova.db.EovaRecord;
 /**
  * <p>ported from: cn.eova.model.User
  * <br>source revision: meta-eova/eova 1b1d39e7350f7e031b216aad0399fc8cc55dce08
- * <br><b>本单元为逐行对应 port（非逐字节）</b>：仅做下列底座必需替换，其余行原样保留。
- * <br><b>底座替换（逐条）：</b>
- * <ol>
- *   <li>jfinal <code>com.jfinal.plugin.activerecord.Record</code> → <code>EovaRecord</code>（记录容器等价物）。出现于 <code>data</code> 字段与 getData/setData；旧实现中该字段承载「登录源用户数据」</li>
- * </ol>
+ * <br>本单元为逐行等价 port：文件体与旧实现逐字节一致，仅新增本追溯头。
  * <br><b>刻意保留的既有语义：</b>
  * <ol>
  *   <li>getRid 优先取临时切换角色 su_rid，缺失时回落 rid —— 顺序即语义</li>

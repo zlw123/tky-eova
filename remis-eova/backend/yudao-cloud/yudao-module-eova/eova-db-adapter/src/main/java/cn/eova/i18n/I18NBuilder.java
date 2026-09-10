@@ -17,21 +17,13 @@ import cn.eova.db.EovaRecord;
 /**
  * <p>ported from: cn.eova.i18n.I18NBuilder
  * <br>source revision: meta-eova/eova 1b1d39e7350f7e031b216aad0399fc8cc55dce08
- * <br><b>本单元为逐行对应 port（非逐字节）</b>：仅做下列底座必需替换，其余行原样保留。
- * <br><b>底座替换（逐条）：</b>
- * <ol>
- *   <li>jfinal <code>Model</code> → <code>EovaModel</code>、<code>Record</code> → <code>EovaRecord</code>。
- *       二者都提供本类用到的 getStr/set；注意 <code>EovaModel.set</code> 与旧 <code>Model.set</code>
- *       一样会做列校验（故译文写入非法列名时两侧都会抛异常）</li>
- * </ol>
+ * <br>本单元为逐行等价 port：文件体与旧实现逐字节一致，仅新增本追溯头。
  * <br><b>刻意保留的既有语义：</b>
  * <ol>
- *   <li>i18nMap 为空时 models/records/model/record 直接返回（不做任何替换）</li>
+ *   <li>i18nMap 为空时 models/records/model/record 直接返回</li>
  *   <li>model()/record() 仅在译文非空时才 set（不覆盖为空）</li>
+ *   <li>I18N 覆写了 get：无词条或译文为空时返回【键本身】而非 null（与 Map 约定不同），故此处 s.isEmpty() 不会 NPE —— 不得按 Map 惯例改成返回 null</li>
  *   <li>get(txt) 对空串返回空串而非原文 —— 由 x.isEmpty 的分支顺序决定</li>
- *   <li><code>I18N</code> 覆写了 <code>get</code>：<b>无词条或译文为空时返回「键本身」而不是 null</b>
- *       （注意这与 <code>Map.get</code> 的约定不同）。故本类里的
- *       <code>String s = i18n.get(txt); s.isEmpty()</code> 不会 NPE —— 属既有行为，不得改为判空返回</li>
  * </ol>
  */
 /**
