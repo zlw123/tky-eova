@@ -32,6 +32,17 @@
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
+        <!-- Servlet API：cn.eova.common.render.* 直接使用 response / render 出口
+             （旧实现继承 jfinal Render 拿到 protected HttpServletResponse），
+             故本模块自身需要 jakarta.servlet。
+             注意 eova-compat 的该依赖是 provided，【不传递】，必须在此重复声明 ——
+             漏声明会表现为"无法访问 jakarta.servlet.http.HttpServletResponse"。
+             scope=provided：由 Servlet 容器提供。见 DES-002-R4 §B 面决策 1。 -->
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
         <!-- EOVA 官方工具库（门面 x 及其工具类）。
              替代原先手写的 cn.eova.tools.x compile-stub —— 该 stub 的 API 面与真实类不符
              （虚构了嵌套类 x.XLog / x.XStr，真实类型为 LogTool / StringTool），
@@ -66,6 +77,19 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- 旧侧 Servlet API（javax 命名空间，4.0.1）—— 仅测试用。
+             BFacePortSurfaceGoldenTest 要把旧产物里的
+             cn.eova.common.utils.HttpUtils / web.RequestUtil 加载上场，
+             其方法签名的形参类型是 javax.servlet.http.*；对这些类做
+             getDeclaredMethods() 时必须能解析这些类型，否则
+             NoClassDefFoundError: javax/servlet/http/HttpServletRequest。
+             主代码【不得】出现 javax.servlet（见本模块 jakarta.servlet-api 的 provided 依赖）。 -->
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <version>4.0.1</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

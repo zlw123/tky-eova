@@ -31,6 +31,17 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
         </dependency>
+        <!-- Servlet API：旧 demo 运行在 javax.servlet（jfinal-undertow 3.0 / Servlet 3.x），
+             新栈为 Spring Boot 3.4.5 -> Tomcat 10 / Servlet 6.0，命名空间为 jakarta.servlet。
+             javax.servlet 【根本不在】新栈 classpath 上，故 cn.eova.common.render.* /
+             cn.eova.common.utils.* 的 servlet 依赖必须逐处替换为 jakarta（已声明适配，逐单元登记）；
+             这不是可选项。见 DES-002-R4 §B 面决策 1。
+             scope=provided：由 Servlet 容器提供，模块自身不打进产物。 -->
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
         <!-- EOVA 官方工具库：旧工具层（如 AESUtil 读 x.conf）依赖其门面 x -->
         <dependency>
             <groupId>cn.eova</groupId>
@@ -60,6 +71,21 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- 旧侧 Servlet API（javax 命名空间，4.0.1）—— 仅测试用。
+             用途：RenderSeamGoldenTest 需要在【同一个 JVM】里同时持有
+             旧 jfinal 5.2.6 的 com.jfinal.render.TextRender（形参类型为
+             javax.servlet.http.HttpServletResponse）与新的
+             cn.eova.compat.render.LegacyTextRender（形参类型为 jakarta 版），
+             并用一个同时实现两个接口的 java.lang.reflect.Proxy 作为响应替身，
+             从而逐条比对两侧的"响应调用序列 + 写出字节"。
+             这是"跨实现等价"的硬证据，不是可选项。
+             注意：该依赖【只在测试作用域】，主代码不得出现 javax.servlet。 -->
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <version>4.0.1</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
