@@ -24,6 +24,8 @@
         <druid.version>1.2.20</druid.version>
         <!-- EOVA 官方工具库：零 JFinal 耦合（实测 0 处 com/jfinal 引用），Java 17 下可直接使用（SP4 已验证） -->
         <eova.tools.version>1.1.5</eova.tools.version>
+        <!-- 与 meta-eova/core 同源：旧栈缓存实现，阶段 1 保持同一版本以按构造等价（SP7 实测 Java 17 可用） -->
+        <ehcache.version>2.6.11</ehcache.version>
     </properties>
 
     <dependencyManagement>
@@ -44,6 +46,11 @@
                 <groupId>cn.eova</groupId>
                 <artifactId>eova-tools</artifactId>
                 <version>${eova.tools.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.sf.ehcache</groupId>
+                <artifactId>ehcache-core</artifactId>
+                <version>${ehcache.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

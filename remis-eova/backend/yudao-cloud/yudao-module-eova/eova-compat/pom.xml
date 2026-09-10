@@ -36,6 +36,14 @@
             <groupId>cn.eova</groupId>
             <artifactId>eova-tools</artifactId>
         </dependency>
+        <!-- 缓存宿主能力：旧栈用 JFinal 的 EhCachePlugin + net.sf.ehcache。
+             阶段 1 保持同一实现（SP7 实测 ehcache-core 2.6.11 在 Java 17 上可正常运行），
+             使缓存语义【按构造】等价；替换（Redis）属 LC-005，经 CacheService 接缝进行。
+             ehcache.xml 为旧制品逐字节 port（见 CacheSeamGoldenTest 的字节一致性断言）。 -->
+        <dependency>
+            <groupId>net.sf.ehcache</groupId>
+            <artifactId>ehcache-core</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
