@@ -55,7 +55,8 @@ import java.util.function.Function;
  *   <li>底层是 {@code HashMap}，键序为哈希序。</li>
  * </ol>
  */
-public class LegacyRet extends HashMap<String, Object> {
+@SuppressWarnings("rawtypes")
+public class LegacyRet extends HashMap {
 
     private static final long serialVersionUID = -5295942856783918425L;
 

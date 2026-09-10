@@ -51,7 +51,8 @@ import java.util.function.Function;
  *       {@code Json.getJson().toJson(this)}）。</li>
  * </ol>
  */
-public class LegacyKv extends HashMap<String, Object> {
+@SuppressWarnings("rawtypes")
+public class LegacyKv extends HashMap {
 
     private static final long serialVersionUID = -3001700934716894073L;
 
@@ -123,7 +124,7 @@ public class LegacyKv extends HashMap<String, Object> {
      * 批量并入另一个 Kv
      */
     public LegacyKv set(LegacyKv kv) {
-        super.putAll(kv);
+        ((Map) this).putAll((Map) kv);
         return this;
     }
 
@@ -394,11 +395,11 @@ public class LegacyKv extends HashMap<String, Object> {
             LegacyKv kv = create();
             for (String key : keys) {
                 if (containsKey(key)) {
-                    kv.put(key, get(key));
+                    ((Map) kv).put(key, get(key));
                 }
             }
             clear();
-            putAll(kv);
+            ((Map) this).putAll((Map) kv);
         } else {
             clear();
         }
