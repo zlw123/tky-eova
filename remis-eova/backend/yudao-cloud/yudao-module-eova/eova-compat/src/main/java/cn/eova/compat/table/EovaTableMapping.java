@@ -5,7 +5,6 @@
  */
 package cn.eova.compat.table;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -13,7 +12,7 @@ import java.util.Map;
 /**
  * 表映射等价物：替代 jfinal 5.2.6 的
  * {@code com.jfinal.plugin.activerecord.TableMapping} + {@code Table}，
- * 供 EOVA 的 {@code BaseModel} 使用（阶段 1 `D-MODEL` 前置 3）。
+ * 供 EOVA 的 {@code BaseModel}/{@code EovaModel} 使用（阶段 1 `D-MODEL` 前置 3）。
  *
  * <p><b>为什么是"等价物"而不是"port"：</b>JFinal 的 {@code TableMapping} 存的是
  * {@code Map<Class<? extends Model<?>>, Table>}，而 {@code Model} 类型在新栈不存在。
@@ -30,8 +29,8 @@ import java.util.Map;
  *       {@code BaseModel.save()} 时会在 {@code table.getPrimaryKey()[0]} 处抛
  *       {@code NullPointerException}。<b>本实现保留该行为（返回 null）</b>，
  *       不改成"抛更友好的异常" —— 那属行为变更。</li>
- *   <li>映射在{@code addMapping} 时<b>立即</b>解析主键（旧实现经 {@code TableBuilder}
- *       读 JDBC 元数据），之后缓存；本实现同构，经 {@link PrimaryKeySource} 接缝解析。</li>
+ *   <li>映射在 {@code addMapping} 时<b>立即</b>解析列与主键（旧实现经 {@code TableBuilder}
+ *       读 JDBC 元数据），之后缓存；本实现同构，经 {@link TableMetadataSource} 接缝解析。</li>
  *   <li>重复注册同一张表名会抛 {@code IllegalStateException}
  *       （旧实现消息形如 {@code Model mapping already exists : ...}）。</li>
  * </ol>
@@ -49,13 +48,13 @@ public final class EovaTableMapping {
     private static final EovaTableMapping ME = new EovaTableMapping();
 
     /** 模型类 → 表信息 */
-    private final Map<Class<?>, TableInfo> modelToTable = new HashMap<>();
+    private final Map<Class<?>, TableMetadata> modelToTable = new HashMap<>();
 
     /** 表名 → 模型类（用于重复注册检测，与旧实现同构） */
     private final Map<String, Class<?>> tableToModel = new HashMap<>();
 
-    /** 主键来源接缝；未设置时调用 {@link #addMapping} 会明确报错（避免静默得到无主键的表） */
-    private static volatile PrimaryKeySource primaryKeySource;
+    /** 表元数据来源接缝；未设置时调用 {@link #addMapping} 会明确报错（避免静默得到空表） */
+    private static volatile TableMetadataSource metadataSource;
 
     private EovaTableMapping() {
     }
@@ -68,12 +67,12 @@ public final class EovaTableMapping {
     }
 
     /**
-     * 设置主键来源（启动时由 eova-db-adapter 注入 JDBC 实现）
+     * 设置表元数据来源（启动时由 eova-db-adapter 注入 JDBC 实现）
      *
-     * @param source 主键来源
+     * @param source 元数据来源
      */
-    public static void setPrimaryKeySource(PrimaryKeySource source) {
-        primaryKeySource = source;
+    public static void setMetadataSource(TableMetadataSource source) {
+        metadataSource = source;
     }
 
     /**
@@ -83,33 +82,33 @@ public final class EovaTableMapping {
      * @param modelClass 模型类
      */
     public void addMapping(String tableName, Class<?> modelClass) {
-        PrimaryKeySource source = primaryKeySource;
+        TableMetadataSource source = metadataSource;
         if (source == null) {
             throw new IllegalStateException(
-                    "未设置 PrimaryKeySource —— 注册 [" + tableName + "] 时无法解析主键。"
+                    "未设置 TableMetadataSource —— 注册 [" + tableName + "] 时无法解析列与主键。"
                             + "请由 eova-db-adapter 在启动时注入 JDBC 实现");
         }
-        String[] pk = source.primaryKeys(tableName);
-        if (pk == null) {
+        TableMetadata meta = source.metadata(tableName);
+        if (meta == null) {
             throw new IllegalStateException(
-                    "PrimaryKeySource 返回 null（约定：无主键时返回空数组）：" + tableName);
+                    "TableMetadataSource 返回 null（约定：表不存在时返回空元数据）：" + tableName);
         }
-        addMapping(tableName, modelClass, pk);
+        addMapping(modelClass, meta);
     }
 
     /**
-     * 注册映射：显式给出主键（供可离线运行的场景与验证判据使用）
+     * 注册映射：显式给出元数据（供可离线运行的场景与验证判据使用）
      *
-     * @param tableName  表名
      * @param modelClass 模型类
-     * @param primaryKey 主键列
+     * @param meta       表元数据
      */
-    public void addMapping(String tableName, Class<?> modelClass, String[] primaryKey) {
+    public void addMapping(Class<?> modelClass, TableMetadata meta) {
+        String tableName = meta.getName();
         if (tableToModel.containsKey(tableName)) {
             throw new IllegalStateException("Model mapping already exists : " + tableName);
         }
         tableToModel.put(tableName, modelClass);
-        modelToTable.put(modelClass, new TableInfo(tableName, primaryKey));
+        modelToTable.put(modelClass, meta);
     }
 
     /**
@@ -118,7 +117,7 @@ public final class EovaTableMapping {
      * @param modelClass 模型类
      * @return 表信息或 null
      */
-    public TableInfo getTable(Class<?> modelClass) {
+    public TableMetadata getTable(Class<?> modelClass) {
         return modelToTable.get(modelClass);
     }
 
@@ -128,42 +127,6 @@ public final class EovaTableMapping {
     public void clear() {
         modelToTable.clear();
         tableToModel.clear();
-    }
-
-    /**
-     * 表信息等价物：对应旧实现的 {@code com.jfinal.plugin.activerecord.Table}
-     * 在 EOVA 使用范围内的可观测面（表名 + 主键）。
-     */
-    public static final class TableInfo {
-
-        private final String name;
-        private final String[] primaryKey;
-
-        TableInfo(String name, String[] primaryKey) {
-            this.name = name;
-            this.primaryKey = primaryKey == null ? new String[0] : primaryKey.clone();
-        }
-
-        /** 表名 */
-        public String getName() {
-            return name;
-        }
-
-        /**
-         * 主键列名数组（返回副本，防止调用方改动内部状态）
-         *
-         * <p>注意：{@code BaseModel.save()} 取的是 {@code getPrimaryKey()[0]} ——
-         * 若表无主键则此处为空数组，取下标 0 会抛 {@code ArrayIndexOutOfBoundsException}，
-         * 与旧实现一致。
-         */
-        public String[] getPrimaryKey() {
-            return primaryKey.clone();
-        }
-
-        @Override
-        public String toString() {
-            return name + " pk=" + Arrays.toString(primaryKey);
-        }
     }
 
     /** 供验证判据读取当前已注册的表名集合（不参与运行时逻辑） */

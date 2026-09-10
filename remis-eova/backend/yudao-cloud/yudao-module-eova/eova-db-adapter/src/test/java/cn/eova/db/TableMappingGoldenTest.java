@@ -6,7 +6,8 @@
 package cn.eova.db;
 
 import cn.eova.compat.table.EovaTableMapping;
-import cn.eova.compat.table.PrimaryKeySource;
+import cn.eova.compat.table.TableMetadata;
+import cn.eova.compat.table.TableMetadataSource;
 import cn.eova.testkit.OldImplementationLoader;
 import com.mysql.cj.jdbc.MysqlDataSource;
 import org.junit.jupiter.api.Assumptions;
@@ -31,13 +32,14 @@ import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * {@link EovaTableMapping} + {@link JdbcPrimaryKeySource} 的等价判据
+ * {@link EovaTableMapping} + {@link JdbcTableMetadataSource} 的等价判据
  * （阶段 1 `D-MODEL` 前置 3）。
  *
  * <p><b>驱动源是契约制品，不是我誊抄的常量表：</b>
@@ -79,7 +81,7 @@ class TableMappingGoldenTest {
             Pattern.compile("addMapping\\(\"([^\"]+)\",\\s*(\\w+)\\.class\\)");
 
     private EovaTableMapping mapping;
-    private JdbcPrimaryKeySource pkSource;
+    private JdbcTableMetadataSource metaSource;
 
     @BeforeEach
     void setUp() {
@@ -87,8 +89,8 @@ class TableMappingGoldenTest {
                 "旧产物缺失，无法解析 EovaConfig");
         mapping = EovaTableMapping.me();
         mapping.clear();
-        pkSource = new JdbcPrimaryKeySource(dataSource());
-        EovaTableMapping.setPrimaryKeySource(pkSource);
+        metaSource = new JdbcTableMetadataSource(dataSource());
+        EovaTableMapping.setMetadataSource(metaSource);
     }
 
     private static MysqlDataSource dataSource() {
@@ -120,7 +122,7 @@ class TableMappingGoldenTest {
             String[] pk = directMetadataPk(table);
             assertTrue(pk.length > 0,
                     "映射表 [" + table + "] 在库中应有主键 —— 空表示表名写错或表不存在");
-            assertArrayEquals(pk, pkSource.primaryKeys(table),
+            assertArrayEquals(pk, metaSource.metadata(table).primaryKeys(),
                     "表 [" + table + "] 经接缝解析的主键应与元数据直查一致");
         }
         System.out.println("[表映射] EovaConfig 声明 " + declared.size() + " 条映射（"
@@ -133,17 +135,17 @@ class TableMappingGoldenTest {
         // 经接缝解析的路径必须用【真实存在的表】，否则主键为空是正确行为而非缺陷
         String realTable = parseEovaConfigMappings().get(0)[0];
         mapping.addMapping(realTable, ModelA.class);
-        mapping.addMapping("t_b", ModelB.class, new String[]{"id"});
+        mapping.addMapping(ModelB.class, new TableMetadata("t_b", new String[]{"id"}, new String[]{"id"}));
 
-        EovaTableMapping.TableInfo a = mapping.getTable(ModelA.class);
+        TableMetadata a = mapping.getTable(ModelA.class);
         assertNotNull(a);
         assertEquals(realTable, a.getName());
-        assertArrayEquals(directMetadataPk(realTable), a.getPrimaryKey(),
+        assertArrayEquals(directMetadataPk(realTable), a.primaryKeys(),
                 "经接缝解析的主键应与元数据直查一致");
 
-        EovaTableMapping.TableInfo b = mapping.getTable(ModelB.class);
+        TableMetadata b = mapping.getTable(ModelB.class);
         assertEquals("t_b", b.getName());
-        assertArrayEquals(new String[]{"id"}, b.getPrimaryKey());
+        assertArrayEquals(new String[]{"id"}, b.primaryKeys());
 
         // 未映射 → null（与旧实现一致，后续 save() 会 NPE）
         assertNull(mapping.getTable(UnmappedModel.class),
@@ -151,47 +153,77 @@ class TableMappingGoldenTest {
 
         // 重复注册同一张表名 → 报错，消息与旧实现同构
         IllegalStateException e = assertThrows(IllegalStateException.class,
-                () -> mapping.addMapping(realTable, ModelB.class, new String[]{"id"}));
+                () -> mapping.addMapping(ModelB.class, new TableMetadata(realTable, new String[]{"id"}, new String[]{"id"})));
         assertTrue(e.getMessage().startsWith("Model mapping already exists :"),
                 "异常消息应与旧实现同构，实际：" + e.getMessage());
 
         // 防御性拷贝：入参与返回值都不应能改到内部状态
         String[] pk = {"id"};
-        mapping.addMapping("t_c", ModelC.class, pk);
+        mapping.addMapping(ModelC.class, new TableMetadata("t_c", pk, pk));
         pk[0] = "hacked";
-        assertArrayEquals(new String[]{"id"}, mapping.getTable(ModelC.class).getPrimaryKey(),
+        assertArrayEquals(new String[]{"id"}, mapping.getTable(ModelC.class).primaryKeys(),
                 "构造后改动入参不应影响内部状态");
-        String[] out = mapping.getTable(ModelC.class).getPrimaryKey();
+        String[] out = mapping.getTable(ModelC.class).primaryKeys();
         out[0] = "hacked2";
-        assertArrayEquals(new String[]{"id"}, mapping.getTable(ModelC.class).getPrimaryKey(),
+        assertArrayEquals(new String[]{"id"}, mapping.getTable(ModelC.class).primaryKeys(),
                 "取出的数组应是副本");
 
         System.out.println("[表映射] 机制断言全通过（含未映射返回 null 与重复注册报错）");
     }
 
     @Test
-    @DisplayName("配置错误必须响亮失败：未注入或违约的 PrimaryKeySource 不得静默产出无主键的表")
+    @DisplayName("列集与数据库元数据一致：Model.set 的列校验依赖它")
+    void columnsComeFromMetadata() throws Exception {
+        List<String[]> declared = parseEovaConfigMappings();
+        for (String[] pair : declared) {
+            String table = pair[0];
+            String[] fromSource = metaSource.metadata(table).columns();
+            String[] fromDirect = directMetadataColumns(table);
+            assertArrayEquals(fromDirect, fromSource,
+                    "表 [" + table + "] 的列集应与元数据直查一致（含 ORDINAL_POSITION 顺序）");
+        }
+
+        // hasColumn：Model.set 的列校验依赖它 —— 不存在的列必须为 false，否则 set 会放行非法列
+        TableMetadata user = metaSource.metadata("eova_user");
+        assertTrue(user.hasColumn("id"), "eova_user 应有 id 列");
+        assertTrue(user.hasColumn("ID"), "列判定应大小写不敏感");
+        assertTrue(user.hasColumn("login_id"), "eova_user 应有 login_id 列");
+        assertFalse(user.hasColumn("no_such_column"), "不存在的列必须返回 false");
+        assertFalse(user.hasColumn(null), "null 列名必须返回 false，不得抛异常");
+
+        // 表不存在 → 空元数据（非 null），由调用方决定如何应对
+        TableMetadata absent = metaSource.metadata("no_such_table_xyz");
+        assertNotNull(absent, "表不存在时应返回空元数据而非 null");
+        assertTrue(absent.isEmpty(), "不存在的表应返回空元数据");
+        assertFalse(absent.hasColumn("id"), "空元数据的 hasColumn 应为 false");
+
+        System.out.println("[表映射] " + declared.size()
+                + " 张表的列集与元数据直查一致；hasColumn 边界（大小写/null/不存在列）已确认");
+    }
+
+    @Test
+    @DisplayName("配置错误必须响亮失败：未注入或违约的 TableMetadataSource 不得静默产出空表")
     void misconfigurationFailsLoudly() {
-        EovaTableMapping.setPrimaryKeySource(null);
+        EovaTableMapping.setMetadataSource(null);
         try {
             IllegalStateException e = assertThrows(IllegalStateException.class,
                     () -> mapping.addMapping("t_no_source", NoSourceModel.class));
-            assertTrue(e.getMessage().contains("PrimaryKeySource"),
-                    "报错应指出缺少 PrimaryKeySource，实际：" + e.getMessage());
+            assertTrue(e.getMessage().contains("TableMetadataSource"),
+                    "报错应指出缺少 TableMetadataSource，实际：" + e.getMessage());
         } finally {
-            EovaTableMapping.setPrimaryKeySource(pkSource);
+            EovaTableMapping.setMetadataSource(metaSource);
         }
 
-        PrimaryKeySource broken = t -> null;
-        EovaTableMapping.setPrimaryKeySource(broken);
+        TableMetadataSource broken = t -> null;
+        EovaTableMapping.setMetadataSource(broken);
         try {
             IllegalStateException e = assertThrows(IllegalStateException.class,
                     () -> mapping.addMapping("t_broken", BrokenSourceModel.class));
             assertTrue(e.getMessage().contains("返回 null"), "应报出违约，实际：" + e.getMessage());
         } finally {
-            EovaTableMapping.setPrimaryKeySource(pkSource);
+            EovaTableMapping.setMetadataSource(metaSource);
         }
-        System.out.println("[表映射] 未注入/违约的 PrimaryKeySource 均响亮失败，无静默降级");
+        System.out.println("[表映射] 未注入/违约的 TableMetadataSource 均响亮失败，无静默降级");
     }
 
     @Test
@@ -245,6 +277,26 @@ class TableMappingGoldenTest {
         List<String> out = new ArrayList<>();
         for (Short s : seqs) {
             out.add(bySeq.get(s));
+        }
+        return out.toArray(new String[0]);
+    }
+
+    /** 独立于被测实现，直接查元数据取列集（按 ORDINAL_POSITION 排序） */
+    private static String[] directMetadataColumns(String table) throws Exception {
+        Map<Integer, String> byPos = new LinkedHashMap<>();
+        try (Connection conn = dataSource().getConnection()) {
+            DatabaseMetaData meta = conn.getMetaData();
+            try (ResultSet rs = meta.getColumns(conn.getCatalog(), null, table, null)) {
+                while (rs.next()) {
+                    byPos.put(rs.getInt("ORDINAL_POSITION"), rs.getString("COLUMN_NAME"));
+                }
+            }
+        }
+        List<Integer> keys = new ArrayList<>(byPos.keySet());
+        keys.sort(null);
+        List<String> out = new ArrayList<>();
+        for (Integer k : keys) {
+            out.add(byPos.get(k));
         }
         return out.toArray(new String[0]);
     }
