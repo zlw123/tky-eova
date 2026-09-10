@@ -53,7 +53,19 @@ class BFacePortSurfaceGoldenTest {
             "cn.eova.common.render.XmlRender",
             "cn.eova.common.render.DownloadRender",
             "cn.eova.common.render.ZipRender",
-            "cn.eova.common.render.ResourceRender");
+            "cn.eova.common.render.ResourceRender",
+            // 第二轮：Excel 导出链 + HTML/Office 渲染（同样是逐行对应 port）
+            "cn.eova.common.render.Html2DocRender",
+            "cn.eova.common.render.Html2PdfRender",
+            "cn.eova.common.render.Html2XlsRender",
+            "cn.eova.common.render.OfficeRender",
+            "cn.eova.common.render.CsvRender",
+            "cn.eova.common.render.XlsxRender",
+            "cn.eova.common.utils.excel.ExceUtil",
+            // 第三轮：MetaField 链（xx -> EovaExpBuilder -> MetaField）
+            "cn.eova.common.utils.xx",
+            "cn.eova.engine.EovaExpBuilder",
+            "cn.eova.model.MetaField");
 
     /**
      * 已声明适配：允许在【新实现侧】出现的差异。
@@ -69,7 +81,38 @@ class BFacePortSurfaceGoldenTest {
             "cn.eova.common.render.XmlRender",
             "cn.eova.common.render.DownloadRender",
             "cn.eova.common.render.ZipRender",
-            "cn.eova.common.render.ResourceRender");
+            "cn.eova.common.render.ResourceRender",
+            "cn.eova.common.render.Html2DocRender",
+            "cn.eova.common.render.Html2PdfRender",
+            "cn.eova.common.render.Html2XlsRender",
+            "cn.eova.common.render.OfficeRender",
+            "cn.eova.common.render.CsvRender",
+            "cn.eova.common.render.XlsxRender");
+
+    /**
+     * {@link #renderUnitsExtendSeam} 覆盖的渲染类集合。</p>
+     *
+     * <p>它与 {@link #DECLARED_SUPER_CHANGE} 当前<b>内容相同但语义不同</b>：
+     * 前者问"这些类的父类是否真的换成了接缝"，后者是"允许父类差异"的白名单。
+     * 二者都只应收录 render 包内的类 ——
+     * {@code ExceUtil} / {@code xx} / {@code EovaExpBuilder} / {@code MetaField}
+     * <b>不在其中</b>（它们父类未变，既不需要声明差异、也不该被要求继承 Render）。
+     *
+     * <p>本常量之所以独立存在：曾用同一集合兼任两职，结果非渲染类被卷进
+     * "必须继承 LegacyRender"的断言而误报 —— 拆开后该错误不可再犯。</p>
+     */
+    private static final List<String> SEAM_RENDER_UNITS = List.of(
+            "cn.eova.common.render.LogRender",
+            "cn.eova.common.render.XmlRender",
+            "cn.eova.common.render.DownloadRender",
+            "cn.eova.common.render.ZipRender",
+            "cn.eova.common.render.ResourceRender",
+            "cn.eova.common.render.Html2DocRender",
+            "cn.eova.common.render.Html2PdfRender",
+            "cn.eova.common.render.Html2XlsRender",
+            "cn.eova.common.render.OfficeRender",
+            "cn.eova.common.render.CsvRender",
+            "cn.eova.common.render.XlsxRender");
 
     /**
      * 类型改名归一表：旧类型全名 → 新类型全名。
@@ -104,6 +147,7 @@ class BFacePortSurfaceGoldenTest {
 
         List<String> problems = new ArrayList<>();
         int totalOldMethods = 0;
+        int totalOldFields = 0;
 
         for (String fqcn : UNITS) {
             Class<?> oldCls;
@@ -138,6 +182,20 @@ class BFacePortSurfaceGoldenTest {
                 problems.add(fqcn + "：构造器差异\n    旧=" + oldCtors + "\n    新=" + newCtors);
             }
 
+            // ---- 声明的字段（含静态常量【取值】）----
+            // 为什么必须比字段：MetaField 有 TYPE_JSON 等对外常量，EovaConfig 有 EOVA_DBTYPE 等，
+            // 它们都是契约；只比方法会漏掉"常量被改值"这类漂移。
+            Set<String> oldFields = fieldSet(oldCls);
+            Set<String> newFields = fieldSet(newCls);
+            if (!oldFields.equals(newFields)) {
+                Set<String> onlyOldF = new TreeSet<>(oldFields);
+                onlyOldF.removeAll(newFields);
+                Set<String> onlyNewF = new TreeSet<>(newFields);
+                onlyNewF.removeAll(oldFields);
+                problems.add(fqcn + "：字段差异\n    仅旧有=" + onlyOldF + "\n    仅新有=" + onlyNewF);
+            }
+            totalOldFields += oldFields.size();
+
             // ---- 声明的方法 ----
             Set<String> oldMethods = methodSet(oldCls);
             Set<String> newMethods = methodSet(newCls);
@@ -157,8 +215,13 @@ class BFacePortSurfaceGoldenTest {
         assertTrue(problems.isEmpty(), "声明面差异必须为 0，实际：\n" + String.join("\n", problems));
         // 非空洞性护栏：8 个单元合计声明方法数必须达到已知下界（实测 40+，取下界 30）。
         // 若旧侧装载失败被误判成"两侧都空"，或 UNITS 被改小，这里会先报错。
-        assertTrue(totalOldMethods >= 30,
-                "旧侧声明方法合计 " + totalOldMethods + " 少于下界 30，判据可能已空洞");
+        // 实测 16 个单元合计 135，下界取 120（随单元增加而上调，防止误判空洞）
+        assertTrue(totalOldMethods >= 120,
+                "旧侧声明方法合计 " + totalOldMethods + " 少于下界 120，判据可能已空洞");
+        // 字段护栏用【聚合下界】而非"逐单元非空"：RequestUtil / ExceUtil 这类纯静态工具类
+        // 本就没有声明字段，要求"每单元都有字段"会误报（该误报本次已被护栏自己抓到）。
+        assertTrue(totalOldFields >= 15,
+                "旧侧声明字段合计 " + totalOldFields + " 少于下界 15，字段判据可能已空洞");
     }
 
     /**
@@ -168,7 +231,7 @@ class BFacePortSurfaceGoldenTest {
     @DisplayName("5 个 render 单元的父类是新接缝 LegacyRender/LegacyHtmlRender")
     void renderUnitsExtendSeam() throws Exception {
         Class<?> legacy = Class.forName("cn.eova.compat.render.LegacyRender");
-        for (String fqcn : DECLARED_SUPER_CHANGE) {
+        for (String fqcn : SEAM_RENDER_UNITS) {
             Class<?> c = Class.forName(fqcn, false,
                     BFacePortSurfaceGoldenTest.class.getClassLoader());
             assertTrue(legacy.isAssignableFrom(c),
@@ -230,6 +293,34 @@ class BFacePortSurfaceGoldenTest {
     }
 
     /**
+     * 对<b>泛型类型名字符串</b>施加已声明改名（{@link #TYPE_RENAMES}）。
+     *
+     * <p>与 {@link #normalize(Class)} 的差别：本方法处理的是
+     * {@code java.util.List<cn.eova.db.EovaRecord>} 这类含泛型参数与数组维度的文本，
+     * 故用带尾部边界的正则做全名替换 —— 边界 {@code (?!\w|\$)} 保证
+     * {@code com.jfinal.render.Render} <b>不会</b>误伤
+     * {@code com.jfinal.render.RenderException}。</p>
+     *
+     * @param typeName 泛型类型名
+     * @return 归一后的文本
+     */
+    private static String normalizeTypeName(String typeName) {
+        String s = typeName;
+        for (String[] r : TYPE_RENAMES) {
+            // 尾部边界只在【键以词字符结尾】时才加：键是类全名（如 com.jfinal.render.Render）
+            // 时必须防误伤同前缀类（RenderException）；
+            // 但键是【包前缀】（如 javax.servlet.）时它本身以 '.' 结尾，
+            // 再加 (?!\w) 会让 javax.servlet.http.* 永远匹配不上（实测正是这个坑）。
+            char last = r[0].charAt(r[0].length() - 1);
+            String tail = (Character.isLetterOrDigit(last) || last == '_' || last == '$')
+                    ? "(?!\\w|\\$)" : "";
+            s = s.replaceAll(java.util.regex.Pattern.quote(r[0]) + tail,
+                    java.util.regex.Matcher.quoteReplacement(r[1]));
+        }
+        return s;
+    }
+
+    /**
      * 渲染声明的方法集合：{@code 修饰符 返回类型 名称(参数类型)}。
      *
      * @param c 类
@@ -243,16 +334,54 @@ class BFacePortSurfaceGoldenTest {
             }
             StringBuilder sb = new StringBuilder();
             sb.append(Modifier.toString(m.getModifiers() & Modifier.methodModifiers())).append(' ');
-            sb.append(normalize(m.getReturnType())).append(' ');
+            // 用【泛型】签名而非擦除后的 Class：getReturnType() 会把 List<EovaRecord>
+            // 与裸 List 都擦成 java.util.List，导致"泛型参数被悄悄抹掉"这类漂移静默通过。
+            // 实测该漏洞由变异测试发现（把 buildFixedItem 的 List<EovaRecord> 改成裸 List 竟然为绿）。
+            sb.append(normalizeTypeName(m.getGenericReturnType().getTypeName())).append(' ');
             sb.append(m.getName()).append('(');
-            Class<?>[] ps = m.getParameterTypes();
+            java.lang.reflect.Type[] ps = m.getGenericParameterTypes();
             for (int i = 0; i < ps.length; i++) {
                 if (i > 0) {
                     sb.append(", ");
                 }
-                sb.append(normalize(ps[i]));
+                sb.append(normalizeTypeName(ps[i].getTypeName()));
             }
             sb.append(')');
+            out.add(sb.toString());
+        }
+        return out;
+    }
+
+    /**
+     * 渲染声明的字段集合：{@code 修饰符 类型 名称[=常量值]}。
+     *
+     * <p>静态常量的<b>取值</b>参与比对 —— 常量值属对外契约，
+     * "只比名字不比值"会漏掉静默改值。</p>
+     *
+     * @param c 类
+     * @return 集合
+     */
+    private static Set<String> fieldSet(Class<?> c) {
+        Set<String> out = new TreeSet<>();
+        for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+            if (f.isSynthetic()) {
+                continue;
+            }
+            StringBuilder sb = new StringBuilder();
+            sb.append(Modifier.toString(f.getModifiers() & Modifier.fieldModifiers())).append(' ');
+            sb.append(normalize(f.getType())).append(' ').append(f.getName());
+            if (Modifier.isStatic(f.getModifiers()) && Modifier.isFinal(f.getModifiers())) {
+                try {
+                    f.setAccessible(true);
+                    Object v = f.get(null);
+                    if (v != null && (v instanceof String || v instanceof Number
+                            || v instanceof Boolean || v instanceof Character)) {
+                        sb.append(" = ").append(v);
+                    }
+                } catch (Throwable ignored) {
+                    // 取值不可达（如静态初始化依赖宿主）时只比签名，不报错
+                }
+            }
             out.add(sb.toString());
         }
         return out;
@@ -273,12 +402,12 @@ class BFacePortSurfaceGoldenTest {
             StringBuilder sb = new StringBuilder();
             sb.append(Modifier.toString(k.getModifiers() & Modifier.constructorModifiers())).append(' ');
             sb.append("<init>(");
-            Class<?>[] ps = k.getParameterTypes();
+            java.lang.reflect.Type[] ps = k.getGenericParameterTypes();
             for (int i = 0; i < ps.length; i++) {
                 if (i > 0) {
                     sb.append(", ");
                 }
-                sb.append(normalize(ps[i]));
+                sb.append(normalizeTypeName(ps[i].getTypeName()));
             }
             sb.append(')');
             out.add(sb.toString());

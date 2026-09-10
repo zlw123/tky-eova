@@ -35,6 +35,8 @@
              hutool 由 eova-web 传递引入，本地仓库版本 5.8.35） -->
         <cron4j.version>2.2.5</cron4j.version>
         <hutool.version>5.8.35</hutool.version>
+        <!-- 旧 demo 运行期 classpath 实录版本：eec-0.5.24.jar -->
+        <eec.version>0.5.24</eec.version>
     </properties>
 
     <dependencyManagement>
@@ -75,6 +77,22 @@
                 <groupId>cn.hutool</groupId>
                 <artifactId>hutool-all</artifactId>
                 <version>${hutool.version}</version>
+            </dependency>
+            <!-- Excel 导出（org.ttzero:eec）—— 版本取自【旧 demo 运行期 classpath】实录
+                 （meta-eova/eova/core/target/surefire-reports 的 surefire.test.class.path：
+                 org/ttzero/eec/0.5.24/eec-0.5.24.jar），不是猜的。
+                 原声明见 meta-eova/eova/core/pom.xml:83，同样排除了 eec 自带的 slf4j-api，
+                 以免与 Spring Boot 的日志绑定冲突（此处保持与旧工程一致）。 -->
+            <dependency>
+                <groupId>org.ttzero</groupId>
+                <artifactId>eec</artifactId>
+                <version>${eec.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
         </dependencies>
     </dependencyManagement>

@@ -70,6 +70,13 @@
             <groupId>com.alibaba</groupId>
             <artifactId>druid</artifactId>
         </dependency>
+        <!-- Excel 导出：cn.eova.common.utils.excel.ExceUtil 使用 org.ttzero.excel
+             （Workbook / SimpleSheet / Column / style.Fill / PatternType / Styles）。
+             版本由父 pom 的 dependencyManagement 统一管理（0.5.24，取自旧运行期 classpath 实录）。 -->
+        <dependency>
+            <groupId>org.ttzero</groupId>
+            <artifactId>eec</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
