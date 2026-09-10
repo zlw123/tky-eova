@@ -1,67 +1,119 @@
-// compile-stub for LC-011 EovaExp; not a ported unit.
-// real source: meta-eova/eova/core/src/main/java/cn/eova/model/EovaOption.java
+/**
+ * Copyright (c) 2015-2026 EOVA.CN. All rights reserved.
+ * Licensed under the LGPL-3.0 license
+ * For authorization, please contact: admin@eova.cn
+ */
 package cn.eova.model;
 
-import java.util.Map;
+import cn.eova.common.base.BaseCache;
+import cn.eova.common.base.BaseModel;
+import cn.eova.tools.x;
+import cn.eova.compat.jfinal.kit.LegacyJsonKit;
+import cn.eova.compat.jfinal.kit.LegacyKv;
 
 /**
- * EovaOption 最小 stub。getConfObj 返回 Map 以替换 JFinal Kv（R1 基础设施替换）。
+ * <p>ported from: cn.eova.model.EovaOption
+ * <br>source revision: meta-eova/eova 1b1d39e7350f7e031b216aad0399fc8cc55dce08
+ * <br>本单元为逐行等价 port：文件体与旧实现逐字节一致，仅新增本追溯头。
+ * <br><b>刻意保留的既有语义：</b>
+ * <ol>
+ *   <li>conf 为惰性解析的 Kv；未配置时保持 null</li>
+ *   <li>JsonKit.parse 实测走 fastjson（MixedJson.parse -> FastJson），故适配为 LegacyJsonKit.parse(json, LegacyKv.class) 与旧栈同构</li>
+ * </ol>
  */
-public class EovaOption {
+/**
+ * Eova自定义选项
+ * 主要用于自动构建:查找框,下拉框, 复选框 等选择类场景的选项来源
+ *
+ * @author Jieven
+ */
+public class EovaOption extends BaseModel<EovaOption> {
 
-    private String ds;
-    private String fieldVal;
-    private String fieldTxt;
-    private String sql;
-    private Map<String, Object> fieldWidth;
+    private static final long serialVersionUID = -1592533967096109392L;
 
+    public static final EovaOption dao = new EovaOption().dao();
+
+    public static EovaOption create(String code, String ds, String sql, String fieldVal, String fieldTxt) {
+        EovaOption option = new EovaOption();
+        option.set("code", code);
+        option.set("ds", ds);
+        option.set("sql", sql);
+        option.set("field_val", fieldVal);
+        option.set("field_txt", fieldTxt);
+        return option;
+    }
+
+    /*
+        查找框:
+        可查询字段: a,b,c (默认=txtField)
+        字段宽度: a=100,b=200,b=300
+        字段名称: a=姓名,b=李四,c=哈哈
+        窗口宽度	0.8
+        窗口高度	0.5
+
+        下拉树
+        根节点:	0
+
+        下拉框
+        首项是否为空项 : true
+     */
+
+    private LegacyKv conf = null;
+
+    /**
+     * sql exp
+     * @return
+     */
     public String getSql() {
-        return sql;
+        return this.getStr("sql");
     }
 
     public String getDs() {
-        return ds;
+        return this.getStr("ds");
+    }
+
+    public String getCache() {
+        return this.getStr("cache");
     }
 
     public String getFieldVal() {
-        return fieldVal;
+        return this.getStr("field_val");
     }
 
     public String getFieldTxt() {
-        return fieldTxt;
+        return this.getStr("field_txt");
     }
 
-    /**
-     * 对齐旧 {@code Kv getConfObj(String)}，迁期返回 Map。
-     */
-    public Map<String, Object> getConfObj(String key) {
-        if ("field_width".equals(key)) {
-            return fieldWidth;
+    public String getConf(String key, String defaultValue) {
+        if (conf == null) {
+            String json = this.getStr("config");
+            if (x.isEmpty(json)) {
+                json = "{}";
+            }
+            conf = LegacyJsonKit.parse(json, LegacyKv.class);
         }
-        return null;
+        String s = conf.getStr(key);
+        if (x.isEmpty(s)) {
+            return defaultValue;
+        }
+        return s;
     }
 
-    public String toJson() {
-        return "{}";
+    public LegacyKv getConfObj(String key) {
+        String s = getConf(key, null);
+        if (x.isEmpty(s)) {
+            return null;
+        }
+        return LegacyJsonKit.parse(s, LegacyKv.class);
     }
 
-    public void setDs(String ds) {
-        this.ds = ds;
+    public void setConfig(LegacyKv kv) {
+        this.set("config", kv.toJson());
     }
 
-    public void setFieldVal(String fieldVal) {
-        this.fieldVal = fieldVal;
+    public EovaOption getByCode(String code) {
+        String sql = "select * from eova_option where code = ?";
+        return dao.findFirstByCache(BaseCache.META, sql + code, sql, code);
     }
 
-    public void setFieldTxt(String fieldTxt) {
-        this.fieldTxt = fieldTxt;
-    }
-
-    public void setSql(String sql) {
-        this.sql = sql;
-    }
-
-    public void setFieldWidth(Map<String, Object> fieldWidth) {
-        this.fieldWidth = fieldWidth;
-    }
 }

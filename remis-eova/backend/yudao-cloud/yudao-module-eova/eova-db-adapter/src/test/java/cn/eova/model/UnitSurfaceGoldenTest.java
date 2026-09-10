@@ -67,7 +67,12 @@ class UnitSurfaceGoldenTest {
             "cn.eova.core.menu.config.MenuConfig",
             // 第五批：打通 菜单-按钮-角色权限 链
             "cn.eova.model.RoleBtn",
-            "cn.eova.model.Menu");
+            "cn.eova.model.Menu",
+            // 第六批：清掉 model 层仅需 Db 适配的四个
+            "cn.eova.model.MetaFieldDiy",
+            "cn.eova.model.Task",
+            "cn.eova.model.Msg",
+            "cn.eova.model.EovaOption");
 
     @Test
     @DisplayName("模型层声明面：字段/方法签名/常量值/父类与旧实现逐项一致")

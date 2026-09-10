@@ -38,10 +38,16 @@ public class EovaExpGoldenTest {
 
     @Test
     public void buildItem_fieldWidthFromOptionMap() {
+        // 注意：本用例原先调用 option.setFieldWidth(Map) —— 而【新旧 EovaOption 都没有这个方法】：
+        // 它是 compile-stub 时期为了让 EovaExp 编译而虚构出来的 API，测试因此测的是不存在的东西。
+        // 现改用真实生产路径：config 是一个 JSON 对象，其【值本身是 JSON 字符串】，
+        // 由 getConfObj("field_width") 二次解析（见 EovaOption.getConf/getConfObj）。
         EovaOption option = new EovaOption();
-        Map<String, Object> width = new HashMap<>();
-        width.put("name", 240);
-        option.setFieldWidth(width);
+        cn.eova.compat.jfinal.kit.LegacyKv widths = cn.eova.compat.jfinal.kit.LegacyKv.create();
+        widths.set("name", 240);
+        cn.eova.compat.jfinal.kit.LegacyKv conf = cn.eova.compat.jfinal.kit.LegacyKv.create();
+        conf.set("field_width", widths.toJson());
+        option.setConfig(conf);
 
         MetaField field = EovaExp.buildItem(1, "name", "name", false, option);
         Assertions.assertEquals(240, field.get("width"));
