@@ -263,6 +263,26 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
      * @return 生成的主键值；无则 null
      */
     @Override
+    public Number queryNumber(String sql, Object[] paras) {
+        return withConnection(conn -> {
+            try (PreparedStatement ps = bind(conn, sql, paras);
+                 ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return null;
+                }
+                Object v = rs.getObject(1);
+                if (v == null) {
+                    return null;
+                }
+                if (v instanceof Number) {
+                    return (Number) v;
+                }
+                return new java.math.BigDecimal(v.toString());
+            }
+        }, "查询数值失败: " + sql);
+    }
+
+    @Override
     public Object insertReturningKey(String sql, Object[] paras) {
         return withConnection(conn -> {
             try (PreparedStatement ps =

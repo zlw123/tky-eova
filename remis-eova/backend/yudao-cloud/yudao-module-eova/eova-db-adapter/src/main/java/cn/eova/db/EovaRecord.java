@@ -43,7 +43,20 @@ import java.util.Set;
  * <p>ported from: com.jfinal.plugin.activerecord.Record（语义等价重实现，非逐行 port）
  * <br>source revision: meta-eova/eova 1b1d39e7350f7e031b216aad0399fc8cc55dce08
  */
-public class EovaRecord implements LegacyJsonKit.JsonColumns {
+public class EovaRecord implements LegacyJsonKit.JsonColumns, java.io.Serializable {
+
+    /**
+     * 序列化版本号。
+     *
+     * <p><b>为什么必须 Serializable：</b>实测 ehcache 的 {@code service}（{@code BaseCache.SER}）
+     * 与 {@code sys} 等 cache 开启了 {@code copyOnWrite}/{@code copyOnRead}，
+     * EhCache 对这类 cache 的取值要求<b>必须可序列化</b>（否则抛
+     * {@code CacheException: ... a Store will only accept Serializable values}）。
+     * EOVA 的 {@code BaseModel.queryByCache} 正是往 {@code service} 缓存里放
+     * {@code List<Model>}，故模型与其属性容器都必须可序列化 ——
+     * 旧栈的 {@code Model}/{@code Record} 同样实现 {@code Serializable}。
+     */
+    private static final long serialVersionUID = -4217436621260204480L;
 
     /** 列数据；键统一小写（对应 CaseInsensitiveContainerFactory(true)） */
     private final Map<String, Object> columns = new LinkedHashMap<>();

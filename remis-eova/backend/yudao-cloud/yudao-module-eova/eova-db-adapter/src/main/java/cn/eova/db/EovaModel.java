@@ -75,8 +75,15 @@ public abstract class EovaModel<M extends EovaModel<M>> implements Serializable 
     /** 是否经 dao() 标记为 DAO 实例 */
     private boolean daoFlag;
 
-    /** 持久化网关；启动时注入 */
+    /** 默认持久化网关（单数据源场景）；启动时注入 */
     private static volatile EovaDbGateway gateway;
+
+    /**
+     * 按数据源名注册的网关：EOVA 是双数据源（eova / 用户业务库），
+     * 而 {@code BaseModel} 的 {@code execute}/{@code isExist} 等都按
+     * {@code _getConfigName()} 决定操作哪个库，故网关必须能按数据源名解析。
+     */
+    private static final Map<String, EovaDbGateway> gateways = new java.util.LinkedHashMap<>();
 
     /** 缓存实现；启动时注入（未注入时缓存方法明确报错） */
     private static volatile CacheService cacheService;
@@ -89,16 +96,52 @@ public abstract class EovaModel<M extends EovaModel<M>> implements Serializable 
     }
 
     /**
+     * 按数据源名注册网关（启动时由容器对每个数据源各注入一个）
+     *
+     * @param configName 数据源名（与 {@code EovaTableMapping} 注册时一致）
+     * @param gw         该数据源的网关
+     */
+    public static void setGateway(String configName, EovaDbGateway gw) {
+        synchronized (gateways) {
+            gateways.put(configName, gw);
+        }
+    }
+
+    /**
+     * 清空数据源网关注册（仅供测试隔离）
+     */
+    public static void clearGateways() {
+        synchronized (gateways) {
+            gateways.clear();
+        }
+        gateway = null;
+    }
+
+    /**
      * 注入缓存实现（启动时由容器调用）
      */
     public static void setCacheService(CacheService cs) {
         cacheService = cs;
     }
 
-    private static EovaDbGateway gw() {
+    /**
+     * 取本模型应用哪个网关：优先按 {@code _getConfigName()}（本模型绑定的数据源）解析，
+     * 未注册该数据源时回落到默认网关。
+     */
+    protected EovaDbGateway gw() {
+        String ds = _getConfigName();
+        if (ds != null) {
+            synchronized (gateways) {
+                EovaDbGateway byDs = gateways.get(ds);
+                if (byDs != null) {
+                    return byDs;
+                }
+            }
+        }
         EovaDbGateway g = gateway;
         if (g == null) {
-            throw new IllegalStateException("EovaModel 未注入 EovaDbGateway");
+            throw new IllegalStateException(
+                    "EovaModel 未注入 EovaDbGateway（数据源=" + ds + "）");
         }
         return g;
     }
@@ -568,6 +611,30 @@ public abstract class EovaModel<M extends EovaModel<M>> implements Serializable 
      */
     public M findFirstByCache(String cacheName, Object key, String sql) {
         return findFirstByCache(cacheName, key, sql, new Object[0]);
+    }
+
+    /**
+     * 带缓存的分页查询（缓存未命中则分页查库并回填）
+     */
+    @SuppressWarnings("unchecked")
+    public EovaPage<M> paginateByCache(String cacheName, Object key, int pageNumber, int pageSize,
+                                       String select, String sqlExceptSelect, Object... paras) {
+        Object cached = cache().get(cacheName, key);
+        if (cached != null) {
+            return (EovaPage<M>) cached;
+        }
+        EovaPage<M> page = paginate(pageNumber, pageSize, select, sqlExceptSelect, paras);
+        cache().put(cacheName, key, page);
+        return page;
+    }
+
+    /**
+     * 带缓存的分页查询（无参）
+     */
+    public EovaPage<M> paginateByCache(String cacheName, Object key, int pageNumber, int pageSize,
+                                       String select, String sqlExceptSelect) {
+        return paginateByCache(cacheName, key, pageNumber, pageSize, select, sqlExceptSelect,
+                new Object[0]);
     }
 
     // ———————————————————————— 保存 / 更新 ————————————————————————

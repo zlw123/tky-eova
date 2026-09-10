@@ -31,6 +31,20 @@
             <version>5.2.6</version>
             <scope>test</scope>
         </dependency>
+        <!-- 数据访问层依赖内核：BaseModel 需要 EovaDataSource（数据源注册表/方言族）
+             与 SqlUtil（Oracle 序列表达式）。方向为 compat -> core -> db-adapter，无环。 -->
+        <dependency>
+            <groupId>cn.eova</groupId>
+            <artifactId>eova-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.eova</groupId>
+            <artifactId>eova-core</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>cn.eova</groupId>
             <artifactId>eova-compat</artifactId>

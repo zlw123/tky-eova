@@ -107,6 +107,15 @@ public interface EovaDbGateway {
     Object insertReturningKey(String sql, Object[] paras);
 
     /**
+     * 查询单值数值（对应 jfinal {@code DbPro.queryNumber}），供 {@code BaseModel.isExist} 使用
+     *
+     * @param sql   查询语句（如 {@code select count(*) from ...}）
+     * @param paras 参数
+     * @return 数值；无结果时 null
+     */
+    Number queryNumber(String sql, Object[] paras);
+
+    /**
      * 执行更新/DDL 语句
      *
      * @return 受影响行数

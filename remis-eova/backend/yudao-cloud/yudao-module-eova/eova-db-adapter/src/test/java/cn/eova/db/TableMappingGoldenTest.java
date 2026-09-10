@@ -231,17 +231,31 @@ class TableMappingGoldenTest {
     void classSideBindingDeferred() throws Exception {
         List<String[]> declared = parseEovaConfigMappings();
         List<String> notYetPorted = new ArrayList<>();
+        List<String> loadableButStub = new ArrayList<>();
         for (String[] pair : declared) {
+            Class<?> c = null;
             try {
-                Class.forName("cn.eova.model." + pair[1]);
-            } catch (ClassNotFoundException e) {
-                notYetPorted.add(pair[1]);
+                c = Class.forName("cn.eova.model." + pair[1]);
+            } catch (ClassNotFoundException ignored) {
+                // 未 port
             }
+            // 判"已 port"必须要求它真的是 BaseModel 子类 —— 不能用"能加载"当判据：
+            // 仓库里还有 stub 占位类，且本轮给 db-adapter 加了 eova-core 依赖后
+            // 这些 stub 变得可加载，"可加载"与"已 port"就不再等价了。
+            if (c != null && cn.eova.common.base.BaseModel.class.isAssignableFrom(c)) {
+                continue;
+            }
+            if (c != null) {
+                loadableButStub.add(pair[1] + "(stub)");
+            }
+            notYetPorted.add(pair[1]);
         }
         // 当模型类全部落地后，本断言会失败 —— 那正是要求补做类身份绑定的信号
         assertEquals(declared.size(), notYetPorted.size(),
                 "仍有模型类未 port，故【类身份绑定】尚不能验证；"
-                        + "待全部落地后必须补做（已 port 的：" + (declared.size() - notYetPorted.size()) + "）");
+                        + "待全部落地后必须补做。"
+                        + "已 port（真为 BaseModel 子类）的：" + (declared.size() - notYetPorted.size())
+                        + "；其中可加载但仍是 stub 的：" + loadableButStub);
         System.out.println("[表映射] 已知缺口已记录：类身份绑定待 " + notYetPorted.size()
                 + " 个模型类 port 后验证（当前为显式断言，非静默跳过）");
     }

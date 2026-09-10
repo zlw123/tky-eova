@@ -24,7 +24,10 @@ import java.util.List;
  *
  * @param <T> 行类型
  */
-public class EovaPage<T> {
+public class EovaPage<T> implements java.io.Serializable {
+
+    /** 序列化版本号；理由同 {@link EovaRecord#serialVersionUID}（copyOnWrite cache 要求可序列化） */
+    private static final long serialVersionUID = -2567745357790107139L;
 
     private int pageNumber;
     private int pageSize;
