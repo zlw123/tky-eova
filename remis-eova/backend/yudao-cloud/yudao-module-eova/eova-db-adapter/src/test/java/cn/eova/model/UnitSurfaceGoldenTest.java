@@ -23,13 +23,12 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 模型层的<b>声明面</b>等价判据（阶段 1 `D-MODEL` 第一批 6 个模型类）。
+ * <b>声明面</b>等价判据：覆盖模型层与 i18n/menu-config 等待审单元的类。
  *
- * <p><b>为什么这批用"声明面"判据：</b>这 6 个类（{@code Widget}/{@code EovaProps}/
- * {@code EovaTemplate}/{@code Mod}/{@code Session}/{@code MetaFieldConfig}）都是
- * `BaseModel` 子类，其内容主要是<b>字段与访问器</b>：契约就是"有哪些字段/方法、
- * 签名如何、常量取值多少"。对这些类，"读一遍源码确认长得一样"不构成证据，
- * 逐项反射比对才是；且它们的<b>行为</b>大多落在已单独验证过的底座上
+ * <p><b>为什么这些类用"声明面"判据：</b>它们的内容主要是<b>字段、访问器与静态工具方法</b>：
+ * 契约就是"有哪些字段/方法、签名如何、常量取值多少"。对这类单元，
+ * "读一遍源码确认长得一样"不构成证据，逐项反射比对才是；
+ * 而其<b>行为</b>大多落在已单独验证过的底座上
  * （{@code EovaModel}/{@code BaseModel}/{@code EovaRecord}）。
  *
  * <p><b>为什么必须挂 jfinal 才能加载旧类：</b>旧模型类的继承链是
@@ -44,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>acceptanceProfile: golden-model-surface
  */
-class ModelLayerGoldenTest {
+class UnitSurfaceGoldenTest {
 
     /** 本批覆盖的模型类（新旧同 FQCN） */
     private static final List<String> UNITS = List.of(
@@ -57,7 +56,12 @@ class ModelLayerGoldenTest {
             // 第二批：Role（逐字节）；User / MenuObject（含已声明的底座替换）
             "cn.eova.model.Role",
             "cn.eova.model.User",
-            "cn.eova.model.MenuObject");
+            "cn.eova.model.MenuObject",
+            // i18n 簇（解锁 Button）与菜单配置（解锁 MenuConfig）
+            "cn.eova.i18n.I18N",
+            "cn.eova.i18n.I18NBuilder",
+            "cn.eova.core.menu.config.ChartConfig",
+            "cn.eova.core.menu.config.TreeConfig");
 
     @Test
     @DisplayName("模型层声明面：字段/方法签名/常量值/父类与旧实现逐项一致")
