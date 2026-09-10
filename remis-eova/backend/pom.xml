@@ -31,6 +31,10 @@
              JFinalJsonKit 是两条不同路径 —— 后者的 bean 分支在 Java 17 上不可用（R42），
              故 bean 场景必须继续用 fastjson 才与旧栈等价。 -->
         <fastjson.version>1.2.83</fastjson.version>
+        <!-- 与旧工程同版本（旧 core/pom.xml 显式声明 cron4j 2.2.5；
+             hutool 由 eova-web 传递引入，本地仓库版本 5.8.35） -->
+        <cron4j.version>2.2.5</cron4j.version>
+        <hutool.version>5.8.35</hutool.version>
     </properties>
 
     <dependencyManagement>
@@ -61,6 +65,16 @@
                 <groupId>com.alibaba</groupId>
                 <artifactId>fastjson</artifactId>
                 <version>${fastjson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>it.sauronsoftware.cron4j</groupId>
+                <artifactId>cron4j</artifactId>
+                <version>${cron4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.hutool</groupId>
+                <artifactId>hutool-all</artifactId>
+                <version>${hutool.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
