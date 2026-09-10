@@ -154,6 +154,15 @@ public interface EovaDbGateway {
     int update(String sql, Object... paras);
 
     /**
+     * 执行删除语句（对应 jfinal {@code DbPro.delete}）
+     *
+     * @param sql   删除语句
+     * @param paras 参数
+     * @return 受影响行数
+     */
+    int delete(String sql, Object... paras);
+
+    /**
      * 事务执行；抛出异常则回滚，正常返回则提交
      */
     <T> T tx(Atom<T> atom);

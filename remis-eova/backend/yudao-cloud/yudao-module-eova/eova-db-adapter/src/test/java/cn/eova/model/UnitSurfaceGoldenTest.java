@@ -64,7 +64,10 @@ class UnitSurfaceGoldenTest {
             "cn.eova.core.menu.config.TreeConfig",
             // 第四批：Button（适配 Db.use(Ds.EOVA)）+ MenuConfig
             "cn.eova.model.Button",
-            "cn.eova.core.menu.config.MenuConfig");
+            "cn.eova.core.menu.config.MenuConfig",
+            // 第五批：打通 菜单-按钮-角色权限 链
+            "cn.eova.model.RoleBtn",
+            "cn.eova.model.Menu");
 
     @Test
     @DisplayName("模型层声明面：字段/方法签名/常量值/父类与旧实现逐项一致")
@@ -152,6 +155,11 @@ class UnitSurfaceGoldenTest {
         // 已声明的底座替换：jfinal Record -> EovaRecord（见 User 的追溯头）
         if ("Record".equals(simpleName)) {
             return "EovaRecord";
+        }
+        // 已声明的底座替换：jfinal Kv -> LegacyKv（见 Menu 的追溯头；
+        // enjoy 版 Kv 是 API 子集且移除了 toJson，故必须固化，见 R40）
+        if ("Kv".equals(simpleName)) {
+            return "LegacyKv";
         }
         return simpleName;
     }

@@ -44,6 +44,12 @@
             <groupId>net.sf.ehcache</groupId>
             <artifactId>ehcache-core</artifactId>
         </dependency>
+        <!-- JSON 反序列化：实测 jfinal 的 Json.getJson().parse 走 MixedJson -> FastJson
+             -> JSON.parseObject（与 toJson 走的 JFinalJson 是两条不同路径），故此处必须用 fastjson -->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>

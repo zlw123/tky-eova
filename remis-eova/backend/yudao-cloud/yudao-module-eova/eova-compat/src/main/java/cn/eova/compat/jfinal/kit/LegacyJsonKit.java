@@ -107,6 +107,32 @@ public final class LegacyJsonKit {
         return sb.toString();
     }
 
+    /**
+     * JSON 字符串 → 对象（等价于 jfinal {@code JsonKit.parse(String, Class)}）。
+     *
+     * <p><b>为什么用 fastjson 是忠实的、而非"降级"：</b>
+     * 实测 jfinal 的 {@code Json.getJson()} 返回 {@code MixedJson}，而
+     * <b>{@code MixedJson.parse} 与 {@code MixedJson.toJson} 走的是两条不同路径</b>：
+     * <ul>
+     *   <li>{@code toJson} → <b>JFinalJson</b>（手写序列化器，本类已逐处理器固化）</li>
+     *   <li>{@code parse} → <b>{@code FastJson.parse}</b> → {@code JSON.parseObject(json, type)}</li>
+     * </ul>
+     * 故反序列化侧直接用 fastjson 与旧栈<b>同构</b>。这条不对称（写用手写器、读用 fastjson）
+     * 是旧实现的既有形态，不应"统一"成同一套。
+     *
+     * <p><b>本方法是刻意延后补上的：</b>{@code S-JSON} 切片首版<b>不声明</b>它，
+     * 以便 port 消费者时在<b>编译期</b>报错、强制补做，而不是运行期静默失败。
+     * 消费者（{@code Menu.getMenuConfig}）现已到位，故补齐。
+     *
+     * @param json JSON 字符串
+     * @param type 目标类型
+     * @param <T>  目标类型
+     * @return 反序列化结果
+     */
+    public static <T> T parse(String json, Class<T> type) {
+        return com.alibaba.fastjson.JSON.parseObject(json, type);
+    }
+
     /** 按 JFinalJsonKit 的注册顺序分派并写出 */
     private static void write(StringBuilder sb, Object value) {
         if (value == null) {

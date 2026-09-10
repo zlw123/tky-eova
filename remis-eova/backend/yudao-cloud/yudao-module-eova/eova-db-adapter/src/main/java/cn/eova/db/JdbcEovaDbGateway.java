@@ -264,6 +264,12 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
      * @return 生成的主键值；无则 null
      */
     @Override
+    public int delete(String sql, Object... paras) {
+        // 与 DbPro.delete 同构：就是 update 的执行路径（删除也是 update 语句）
+        return update(sql, paras);
+    }
+
+    @Override
     public Long queryLong(String sql, Object... paras) {
         Number n = queryNumber(sql, paras);
         // 与 jfinal DbPro.queryLong 同构：非 null 才拆箱

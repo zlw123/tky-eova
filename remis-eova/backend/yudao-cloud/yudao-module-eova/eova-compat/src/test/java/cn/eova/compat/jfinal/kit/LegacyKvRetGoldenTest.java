@@ -29,6 +29,7 @@ import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -301,6 +302,50 @@ class LegacyKvRetGoldenTest {
                 "未设 state 时 isFail() 的异常类型与消息应与旧实现一致");
 
         System.out.println("[LegacyKv/Ret 比对] 容器语义断言全部通过（keep 原地修改 / toMap 同一性 / equals 类型限制 / isOk 异常消息）");
+    }
+
+    @Test
+    @DisplayName("LegacyJsonKit.parse 与真实 jfinal Json.getJson().parse 同构（内容一致）")
+    void parseMatchesOldJson() throws Exception {
+        Assumptions.assumeTrue(OldImplementationLoader.oldJFinalJarAvailable(),
+                "旧 jfinal 制品缺失");
+        ClassLoader loader = OldImplementationLoader.createForJFinalOnly();
+        Class<?> oldJsonClass = loader.loadClass("com.jfinal.json.Json");
+        OldImplementationLoader.assertFromJar(oldJsonClass, OldImplementationLoader.oldJFinalJar());
+
+        // 关键：生产里 EovaConfig 装的是 MixedJsonFactory（MixedJson.parse -> fastjson）。
+        // 不装它时 Json.getJson() 返回 JFinalJson，走的是另一条 parse 路径 ——
+        // 那样比对的就不是生产行为了。该 setter 包内可见，故用反射装入。
+        // （反向对照已验证：不装时下面这条断言会红，说明本守卫不是摆设。）
+        Class<?> factoryClass = loader.loadClass("com.jfinal.json.MixedJsonFactory");
+        java.lang.reflect.Field f = oldJsonClass.getDeclaredField("defaultJsonFactory");
+        f.setAccessible(true);
+        f.set(null, factoryClass.getDeclaredConstructor().newInstance());
+
+        Object oldJson = oldJsonClass.getMethod("getJson").invoke(null);
+        assertEquals("MixedJson", oldJson.getClass().getSimpleName(),
+                "装入 MixedJsonFactory 后应得到 MixedJson（与生产一致）");
+        Class<?> oldKvClass = loader.loadClass("com.jfinal.kit.Kv");
+
+        String[] samples = {
+                "{\"a\":1,\"b\":\"x\"}",
+                "{\"n\":null,\"f\":1.5,\"t\":true}",
+                "{\"中文\":\"值\",\"nested\":{\"k\":\"v\"}}",
+                "{}",
+        };
+        int compared = 0;
+        for (String json : samples) {
+            Object oldKv = oldJsonClass.getMethod("parse", String.class, Class.class)
+                    .invoke(oldJson, json, oldKvClass);
+            LegacyKv newKv = LegacyJsonKit.parse(json, LegacyKv.class);
+            assertNotNull(oldKv, "旧侧解析不应为 null：" + json);
+            assertNotNull(newKv, "新侧解析不应为 null：" + json);
+            assertEquals(String.valueOf(oldKv), String.valueOf(newKv),
+                    "解析结果内容应一致：" + json);
+            compared++;
+        }
+        System.out.println("[LegacyJsonKit] parse 与真实 jfinal Json.getJson().parse 同构（"
+                + compared + " 个样例）");
     }
 
     // ———————————————————————— 辅助 ————————————————————————
