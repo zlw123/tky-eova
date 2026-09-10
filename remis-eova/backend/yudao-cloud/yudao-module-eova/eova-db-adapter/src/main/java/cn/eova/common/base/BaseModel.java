@@ -233,7 +233,7 @@ public class BaseModel<M extends EovaModel<M>> extends EovaModel<M> {
     @Override
     public boolean save() {
         TableMetadata table = _getTable();
-        String pk = table.primaryKeys()[0];
+        String pk = table.getPrimaryKey()[0];
         // Class<?> pkType = table.getColumnType(pk);
 
         String ds = _getConfigName();

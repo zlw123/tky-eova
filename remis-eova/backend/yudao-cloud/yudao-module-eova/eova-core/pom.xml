@@ -40,6 +40,11 @@
             <groupId>cn.eova</groupId>
             <artifactId>eova-tools</artifactId>
         </dependency>
+        <!-- bean 级 JSON 往返（MenuObject.config 等）—— 与旧工程同版本 -->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.alibaba</groupId>
             <artifactId>druid</artifactId>

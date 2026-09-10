@@ -122,7 +122,7 @@ class TableMappingGoldenTest {
             String[] pk = directMetadataPk(table);
             assertTrue(pk.length > 0,
                     "映射表 [" + table + "] 在库中应有主键 —— 空表示表名写错或表不存在");
-            assertArrayEquals(pk, metaSource.metadata(table).primaryKeys(),
+            assertArrayEquals(pk, metaSource.metadata(table).getPrimaryKey(),
                     "表 [" + table + "] 经接缝解析的主键应与元数据直查一致");
         }
         System.out.println("[表映射] EovaConfig 声明 " + declared.size() + " 条映射（"
@@ -140,12 +140,12 @@ class TableMappingGoldenTest {
         TableMetadata a = mapping.getTable(ModelA.class);
         assertNotNull(a);
         assertEquals(realTable, a.getName());
-        assertArrayEquals(directMetadataPk(realTable), a.primaryKeys(),
+        assertArrayEquals(directMetadataPk(realTable), a.getPrimaryKey(),
                 "经接缝解析的主键应与元数据直查一致");
 
         TableMetadata b = mapping.getTable(ModelB.class);
         assertEquals("t_b", b.getName());
-        assertArrayEquals(new String[]{"id"}, b.primaryKeys());
+        assertArrayEquals(new String[]{"id"}, b.getPrimaryKey());
 
         // 未映射 → null（与旧实现一致，后续 save() 会 NPE）
         assertNull(mapping.getTable(UnmappedModel.class),
@@ -161,18 +161,18 @@ class TableMappingGoldenTest {
         String[] pk = {"id"};
         mapping.addMapping(ModelC.class, new TableMetadata("t_c", pk, pk));
         pk[0] = "hacked";
-        assertArrayEquals(new String[]{"id"}, mapping.getTable(ModelC.class).primaryKeys(),
+        assertArrayEquals(new String[]{"id"}, mapping.getTable(ModelC.class).getPrimaryKey(),
                 "构造后改动入参不应影响内部状态");
-        String[] out = mapping.getTable(ModelC.class).primaryKeys();
+        String[] out = mapping.getTable(ModelC.class).getPrimaryKey();
         out[0] = "hacked2";
-        assertArrayEquals(new String[]{"id"}, mapping.getTable(ModelC.class).primaryKeys(),
+        assertArrayEquals(new String[]{"id"}, mapping.getTable(ModelC.class).getPrimaryKey(),
                 "取出的数组应是副本");
 
         System.out.println("[表映射] 机制断言全通过（含未映射返回 null 与重复注册报错）");
     }
 
     @Test
-    @DisplayName("列集与数据库元数据一致：Model.set 的列校验依赖它")
+    @DisplayName("列集与数据库元数据一致：Model.set 的列校验依赖它（含大小写敏感）")
     void columnsComeFromMetadata() throws Exception {
         List<String[]> declared = parseEovaConfigMappings();
         for (String[] pair : declared) {
@@ -183,22 +183,25 @@ class TableMappingGoldenTest {
                     "表 [" + table + "] 的列集应与元数据直查一致（含 ORDINAL_POSITION 顺序）");
         }
 
-        // hasColumn：Model.set 的列校验依赖它 —— 不存在的列必须为 false，否则 set 会放行非法列
+        // hasColumnLabel：Model.set 的列校验依赖它 —— 不存在的列必须为 false，否则 set 会放行非法列。
+        // 大小写：实测 jfinal Table.hasColumnLabel 区分大小写（见 BaseModelGoldenTest 的比对），
+        // 故此处断言大写形式为 false —— 这属契约，不是实现细节：写错大小写时旧实现会抛异常。
         TableMetadata user = metaSource.metadata("eova_user");
-        assertTrue(user.hasColumn("id"), "eova_user 应有 id 列");
-        assertTrue(user.hasColumn("ID"), "列判定应大小写不敏感");
-        assertTrue(user.hasColumn("login_id"), "eova_user 应有 login_id 列");
-        assertFalse(user.hasColumn("no_such_column"), "不存在的列必须返回 false");
-        assertFalse(user.hasColumn(null), "null 列名必须返回 false，不得抛异常");
+        assertTrue(user.hasColumnLabel("id"), "eova_user 应有 id 列");
+        assertFalse(user.hasColumnLabel("ID"),
+                "列判定区分大小写（与 jfinal Table.hasColumnLabel 一致）—— 大写形式必须为 false");
+        assertTrue(user.hasColumnLabel("login_id"), "eova_user 应有 login_id 列");
+        assertFalse(user.hasColumnLabel("no_such_column"), "不存在的列必须返回 false");
+        assertFalse(user.hasColumnLabel(null), "null 列名必须返回 false，不得抛异常");
 
         // 表不存在 → 空元数据（非 null），由调用方决定如何应对
         TableMetadata absent = metaSource.metadata("no_such_table_xyz");
         assertNotNull(absent, "表不存在时应返回空元数据而非 null");
         assertTrue(absent.isEmpty(), "不存在的表应返回空元数据");
-        assertFalse(absent.hasColumn("id"), "空元数据的 hasColumn 应为 false");
+        assertFalse(absent.hasColumnLabel("id"), "空元数据的 hasColumn 应为 false");
 
         System.out.println("[表映射] " + declared.size()
-                + " 张表的列集与元数据直查一致；hasColumn 边界（大小写/null/不存在列）已确认");
+                + " 张表的列集与元数据直查一致；hasColumnLabel 边界（大小写敏感/null/不存在列）已确认");
     }
 
     @Test
@@ -259,7 +262,7 @@ class TableMappingGoldenTest {
                     "EovaConfig 声明的表名应能通过模型类取回：" + pair[1]);
             assertEquals("eova", mapping.getConfigName(c),
                     "模型应绑定到 eova 数据源：" + pair[1]);
-            assertNotNull(mapping.getTable(c).primaryKeys(),
+            assertNotNull(mapping.getTable(c).getPrimaryKey(),
                     "应能取到主键（经元数据解析）：" + pair[1]);
             verified.add(pair[1]);
         }

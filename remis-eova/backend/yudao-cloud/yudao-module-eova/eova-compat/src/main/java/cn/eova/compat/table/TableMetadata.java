@@ -45,29 +45,38 @@ public final class TableMetadata {
     }
 
     /** 主键列名（按 JDBC KEY_SEQ 顺序；返回副本） */
-    public String[] primaryKeys() {
+    public String[] getPrimaryKey() {
         return primaryKeys.clone();
     }
 
     /**
-     * 是否存在该列（对应旧实现 {@code Table.hasColumnLabel(String)}）。
+     * 是否存在该列（对应 jfinal {@code Table.hasColumnLabel(String)}）。
      *
-     * <p>大小写不敏感 —— 与 JDBC 在 MySQL 上的列名大小写行为一致，
-     * 且与 EOVA 的 {@code islowercase} 容器语义相容。
+     * <p><b>区分大小写</b> —— 实测 jfinal 的 {@code hasColumnLabel("NAME")} 对列 {@code name}
+     * 返回 {@code false}。这一点是契约的一部分：{@code Model.set(k, v)} 用它做列校验，
+     * 故 EOVA 代码传错大小写时，旧实现会抛
+     * {@code The attribute name does not exist: "NAME"}，而<b>不会</b>静默接受。
+     * （本类最初写成大小写不敏感，是据"EOVA 的 islowercase 容器语义"做的推断，
+     * 缺证据；已由 {@code BaseModelGoldenTest} 对着真实 jfinal {@code Table} 的比对纠正。）
+     *
+     * <p>列名集合本身也区分大小写（同 {@link #getColumnNameSet()}）。
      */
-    public boolean hasColumn(String column) {
-        if (column == null) {
-            return false;
-        }
-        if (columnSet.contains(column)) {
-            return true;
-        }
-        for (String c : columns) {
-            if (c.equalsIgnoreCase(column)) {
-                return true;
-            }
-        }
-        return false;
+    public boolean hasColumnLabel(String column) {
+        return column != null && columnSet.contains(column);
+    }
+
+    /**
+     * 列名集合（对应 jfinal {@code Table.getColumnNameSet()}）。
+     *
+     * <p>EOVA 有代码直接调用它做"该企业字段是否存在"的判断
+     * （{@code Role.findSubRole} 里的
+     * {@code this._getTable().getColumnNameSet().contains(companyField)}），
+     * 故方法名必须与 jfinal 一致，否则逐字节 port 的代码无法编译。
+     *
+     * <p>返回不可变集合；大小写敏感（与列名原文一致）。
+     */
+    public Set<String> getColumnNameSet() {
+        return columnSet;
     }
 
     /** 是否为空元数据（表不存在时由来源返回） */

@@ -98,7 +98,7 @@ public final class ModelSqlBuilder {
         List<Object> paras = new ArrayList<>();
         for (Map.Entry<String, Object> e : attrs.entrySet()) {
             String col = e.getKey();
-            if (!table.hasColumn(col)) {
+            if (!table.hasColumnLabel(col)) {
                 // 非表列直接跳过（旧实现如此），不抛异常
                 continue;
             }
@@ -125,7 +125,7 @@ public final class ModelSqlBuilder {
      */
     public static Sql forModelUpdate(TableMetadata table, Map<String, Object> attrs,
                                      Set<String> modifyFlag, Object idValue) {
-        String[] pks = table.primaryKeys();
+        String[] pks = table.getPrimaryKey();
         if (pks.length == 0) {
             throw new IllegalStateException("表 [" + table.getName() + "] 无主键，无法生成 update");
         }
@@ -140,7 +140,7 @@ public final class ModelSqlBuilder {
             if (isPrimaryKey(col, pks)) {
                 continue;
             }
-            if (!table.hasColumn(col)) {
+            if (!table.hasColumnLabel(col)) {
                 continue;
             }
             if (!paras.isEmpty()) {
@@ -167,7 +167,7 @@ public final class ModelSqlBuilder {
      * @return SQL 与参数
      */
     public static Sql forModelDeleteById(TableMetadata table, Object idValue) {
-        String[] pks = table.primaryKeys();
+        String[] pks = table.getPrimaryKey();
         if (pks.length == 0) {
             throw new IllegalStateException("表 [" + table.getName() + "] 无主键，无法按主键删除");
         }

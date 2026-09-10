@@ -53,7 +53,11 @@ class ModelLayerGoldenTest {
             "cn.eova.model.EovaTemplate",
             "cn.eova.model.Mod",
             "cn.eova.model.Session",
-            "cn.eova.model.MetaFieldConfig");
+            "cn.eova.model.MetaFieldConfig",
+            // 第二批：Role（逐字节）；User / MenuObject（含已声明的底座替换）
+            "cn.eova.model.Role",
+            "cn.eova.model.User",
+            "cn.eova.model.MenuObject");
 
     @Test
     @DisplayName("模型层声明面：字段/方法签名/常量值/父类与旧实现逐项一致")
@@ -137,6 +141,10 @@ class ModelLayerGoldenTest {
         }
         if ("Model".equals(simpleName)) {
             return "EovaModel";
+        }
+        // 已声明的底座替换：jfinal Record -> EovaRecord（见 User 的追溯头）
+        if ("Record".equals(simpleName)) {
+            return "EovaRecord";
         }
         return simpleName;
     }

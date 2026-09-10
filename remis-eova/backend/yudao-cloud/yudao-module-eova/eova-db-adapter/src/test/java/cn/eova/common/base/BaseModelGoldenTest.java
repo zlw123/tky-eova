@@ -278,6 +278,40 @@ class BaseModelGoldenTest {
     }
 
     @Test
+    @DisplayName("表元数据 API：getColumnNameSet / getPrimaryKey 与真实 jfinal Table 一致")
+    void tableMetadataApiMatchesJFinalTable() {
+        // jfinal 侧：真实 com.jfinal.plugin.activerecord.Table
+        com.jfinal.plugin.activerecord.Table jfTable =
+                com.jfinal.plugin.activerecord.TableMapping.me().getTable(JfProbe.class);
+        // 新侧：TableMetadata 等价物
+        cn.eova.compat.table.TableMetadata evTable = EvProbe.dao._getTable();
+
+        assertEquals(new TreeSet<>(jfTable.getColumnNameSet()),
+                new TreeSet<>(evTable.getColumnNameSet()),
+                "getColumnNameSet 应与 jfinal Table 一致（EOVA 用它对字段存在性做判断）");
+        assertEquals(new TreeSet<>(Arrays.asList(jfTable.getPrimaryKey())),
+                new TreeSet<>(Arrays.asList(evTable.getPrimaryKey())),
+                "getPrimaryKey 应与 jfinal Table 一致");
+        assertEquals(jfTable.getName(), evTable.getName(), "表名应一致");
+
+        // hasColumnLabel：Model.set 的列校验依赖它
+        for (String col : jfTable.getColumnNameSet()) {
+            assertEquals(jfTable.hasColumnLabel(col), evTable.hasColumnLabel(col),
+                    "hasColumnLabel 应一致：" + col);
+            // 大小写行为也是契约的一部分：实测 jfinal 区分大小写，故大写形式两侧都应为 false
+            assertEquals(jfTable.hasColumnLabel(col.toUpperCase()),
+                    evTable.hasColumnLabel(col.toUpperCase()),
+                    "hasColumnLabel 对大写形式应一致：" + col);
+            assertFalse(evTable.hasColumnLabel(col.toUpperCase()),
+                    "大写形式必须为 false（jfinal 的 hasColumnLabel 区分大小写）：" + col);
+        }
+
+        System.out.println("[BaseModel 比对] 表元数据 API 与 jfinal Table 一致：列集="
+                + new TreeSet<>(evTable.getColumnNameSet()) + "，主键="
+                + Arrays.toString(evTable.getPrimaryKey()));
+    }
+
+    @Test
     @DisplayName("Oracle 序列分支：仅在 dbType=oracle 且主键为 null 时补序列值")
     void oracleSequenceBranch() {
         // "or" 数据源被注册为 oracle 类型 → 触发 BaseModel.save() 的序列分支

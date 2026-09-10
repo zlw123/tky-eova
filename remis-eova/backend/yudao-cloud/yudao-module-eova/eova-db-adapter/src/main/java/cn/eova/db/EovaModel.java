@@ -128,6 +128,26 @@ public abstract class EovaModel<M extends EovaModel<M>> implements Serializable 
      * 取本模型应用哪个网关：优先按 {@code _getConfigName()}（本模型绑定的数据源）解析，
      * 未注册该数据源时回落到默认网关。
      */
+    /**
+     * 按【数据源名】显式取网关。
+     *
+     * <p>用于旧代码里 {@code Db.use(<ds>).xxx(...)} 这种<b>显式指定数据源</b>的写法 ——
+     * 它不依赖模型自身的映射归属，故不能简单用 {@link #gw()}（后者按 {@code _getConfigName()} 解析）。
+     * 若该数据源未注册，回落到默认网关并保持旧实现的"用错数据源就会出错"的可见性。
+     *
+     * @param configName 数据源名
+     * @return 该数据源的网关
+     */
+    protected EovaDbGateway gw(String configName) {
+        synchronized (gateways) {
+            EovaDbGateway byDs = gateways.get(configName);
+            if (byDs != null) {
+                return byDs;
+            }
+        }
+        return gw();
+    }
+
     protected EovaDbGateway gw() {
         String ds = _getConfigName();
         if (ds != null) {
@@ -399,7 +419,7 @@ public abstract class EovaModel<M extends EovaModel<M>> implements Serializable 
     @SuppressWarnings("unchecked")
     public M set(String column, Object value) {
         TableMetadata table = _getTable();
-        if (table != null && !table.hasColumn(column)) {
+        if (table != null && !table.hasColumnLabel(column)) {
             throw new EovaActiveRecordException(
                     "The attribute name does not exist: \"" + column + "\"");
         }
@@ -660,7 +680,7 @@ public abstract class EovaModel<M extends EovaModel<M>> implements Serializable 
         }
         ModelSqlBuilder.Sql sql = ModelSqlBuilder.forModelSave(table, attrs.getColumns());
         Object key = gw().insertReturningKey(sql.sql(), sql.paras());
-        String[] pks = table.primaryKeys();
+        String[] pks = table.getPrimaryKey();
         if (key != null && pks.length > 0) {
             attrs.set(pks[0], key);
         }
@@ -688,7 +708,7 @@ public abstract class EovaModel<M extends EovaModel<M>> implements Serializable 
         if (attrs.getModifyFlag().isEmpty()) {
             return false;
         }
-        String[] pks = table.primaryKeys();
+        String[] pks = table.getPrimaryKey();
         Object idValue = attrs.getObject(pks[0]);
         if (idValue == null) {
             throw new EovaActiveRecordException("You can't update model without Primary Key, "
@@ -711,7 +731,7 @@ public abstract class EovaModel<M extends EovaModel<M>> implements Serializable 
      */
     public boolean delete() {
         TableMetadata table = _getTable();
-        String[] pk = table.primaryKeys();
+        String[] pk = table.getPrimaryKey();
         Object idValue = attrs.getObject(pk[0]);
         if (idValue == null) {
             throw new EovaActiveRecordException("Primary key " + pk[0] + " can not be null");

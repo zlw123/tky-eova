@@ -26,6 +26,11 @@
         <eova.tools.version>1.1.5</eova.tools.version>
         <!-- 与 meta-eova/core 同源：旧栈缓存实现，阶段 1 保持同一版本以按构造等价（SP7 实测 Java 17 可用） -->
         <ehcache.version>2.6.11</ehcache.version>
+        <!-- 与旧工程 meta-eova/core 同版本：EOVA 用它对【bean】做 JSON 往返
+             （如 MenuObject.config <-> MetaFieldConfig）。注意这与 envelope 用的
+             JFinalJsonKit 是两条不同路径 —— 后者的 bean 分支在 Java 17 上不可用（R42），
+             故 bean 场景必须继续用 fastjson 才与旧栈等价。 -->
+        <fastjson.version>1.2.83</fastjson.version>
     </properties>
 
     <dependencyManagement>
@@ -51,6 +56,11 @@
                 <groupId>net.sf.ehcache</groupId>
                 <artifactId>ehcache-core</artifactId>
                 <version>${ehcache.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba</groupId>
+                <artifactId>fastjson</artifactId>
+                <version>${fastjson.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
