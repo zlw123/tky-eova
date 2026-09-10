@@ -5,6 +5,7 @@
  */
 package cn.eova.db;
 
+import cn.eova.compat.jfinal.kit.LegacyJsonKit;
 import cn.eova.compat.jfinal.kit.LegacyTypeKit;
 
 import java.math.BigDecimal;
@@ -42,7 +43,7 @@ import java.util.Set;
  * <p>ported from: com.jfinal.plugin.activerecord.Record（语义等价重实现，非逐行 port）
  * <br>source revision: meta-eova/eova 1b1d39e7350f7e031b216aad0399fc8cc55dce08
  */
-public class EovaRecord {
+public class EovaRecord implements LegacyJsonKit.JsonColumns {
 
     /** 列数据；键统一小写（对应 CaseInsensitiveContainerFactory(true)） */
     private final Map<String, Object> columns = new LinkedHashMap<>();
@@ -302,30 +303,29 @@ public class EovaRecord {
     }
 
     /**
-     * 输出为 JSON 字符串；键序不承诺（SP6 实测旧实现亦不保证）
+     * 输出为 JSON 字符串；与旧实现等价 —— 旧实现是 {@code JsonKit.toJson(getColumns())}，
+     * 即把<b>列 Map</b>交给序列化器，故此处同样委托 {@link LegacyJsonKit}。
+     *
+     * <p><b>注意：</b>本方法<b>不得</b>手写 JSON 拼接。实测手写版本在 12 处与旧实现不一致，
+     * 其中多条是<b>真 bug</b>：控制字符不转义会产出<b>非法 JSON</b>（裸换行）、
+     * 日期走 {@code toString()} 而非 {@code yyyy-MM-dd HH:mm:ss}、
+     * 嵌套 Map/List 被倒成带引号的字符串而丢失结构。
+     *
+     * <p>键序不承诺（§3.8 第 3 条：SP6 实测旧实现键序非插入序，故键序非契约）。
      */
     public String toJson() {
-        StringBuilder sb = new StringBuilder("{");
-        boolean first = true;
-        for (Map.Entry<String, Object> e : columns.entrySet()) {
-            if (!first) {
-                sb.append(',');
-            }
-            first = false;
-            sb.append('"').append(e.getKey()).append("\":").append(jsonValue(e.getValue()));
-        }
-        return sb.append('}').toString();
+        return LegacyJsonKit.toJson(columns);
     }
 
-    /** 值 → JSON 片段 */
-    private static String jsonValue(Object v) {
-        if (v == null) {
-            return "null";
-        }
-        if (v instanceof Number || v instanceof Boolean) {
-            return v.toString();
-        }
-        return '"' + v.toString().replace("\\", "\\\\").replace("\"", "\\\"") + '"';
+    /**
+     * 供 JSON 序列化器按"记录容器"处理（对应 jfinal 的 {@code RecordToJson}）。
+     *
+     * <p>存在理由：使<b>嵌套在 Kv/Map 里</b>的记录也能按结构展开，
+     * 而非被序列化器的兜底分支倒成字符串。
+     */
+    @Override
+    public Map<String, Object> jsonColumns() {
+        return columns;
     }
 
     @Override

@@ -51,7 +51,12 @@ class RecordSemanticsGoldenTest {
      *   <li>{@code env|*} —— 探针环境描述（制品版本 / 容器工厂名），非行为契约；</li>
      *   <li>键序类（{@code accessor|getColumns.keySet}、{@code getColumnNames}、
      *       {@code json|toJson*}、{@code null|toJson}）—— SP6 实测旧实现
-     *       {@code toJson} 键序<b>非插入序</b>，即旧系统自身也不稳定，故键序不可作契约（§3.8 第 3 条）；</li>
+     *       {@code toJson} 键序<b>非插入序</b>，即旧系统自身也不稳定，故键序不可作契约（§3.8 第 3 条）。
+     *       <b>注意：</b>此处排除的【只是键序】，不是 {@code toJson} 的值语义。
+     *       原先把整个 {@code toJson} 比较一并排除属过度排除，会让
+     *       {@code EovaRecord.toJson()} 处于<b>从未被比对</b>的状态（而它已在契约路径上被使用）。
+     *       值语义（转义 / 数字 / 日期格式 / null / 嵌套结构）已由
+     *       {@code RecordJsonGoldenTest} 覆盖：43 个值、0 差异（不计键序）；</li>
      *   <li>实现内部类型名（{@code find|record.class}、{@code json|getColumns 类型}）
      *       与 {@code 诊断|*} —— 属实现细节，非对外行为。</li>
      * </ol>

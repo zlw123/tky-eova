@@ -204,16 +204,47 @@ public final class OldImplementationLoader {
         throw new IllegalStateException("未能定位仓库根（找不到 meta-eova/eova）");
     }
 
+    /**
+     * 创建<b>只加载旧 jfinal 制品</b>的加载器：子优先前缀为 {@code com.jfinal.}，
+     * 且<b>不挂载旧 EOVA 产物目录</b>。
+     *
+     * <p><b>存在理由：</b>验证宿主类语义（`Record.toJson`、`Kv`、`Ret`、`JsonKit`）
+     * 时，只需要旧 jfinal 制品上场，不需要旧 EOVA 类。做成"纯 jfinal"加载器可
+     * <b>结构性避开 R38 的陷阱</b> —— 该陷阱的成因是"旧 EOVA 类 + 新挂的 jfinal jar"
+     * 组合改变了旧 EOVA 类缺失依赖的失败形态。这里根本不加载 EOVA 类，故无此风险。
+     *
+     * <p>实测可行性：{@code com.jfinal.json.Json} 的静态初始化即
+     * {@code defaultJsonFactory = new JFinalJsonFactory()}，
+     * 故 {@code JsonKit.toJson} / {@code Record.toJson} <b>无需 JFinal 启动</b>即可执行。
+     *
+     * @return 可加载旧 jfinal 制品的类加载器
+     */
+    public static ClassLoader createForJFinalOnly() throws IOException {
+        Path jfinal = oldJFinalJar();
+        if (!Files.isRegularFile(jfinal)) {
+            throw new IOException("旧 jfinal 制品不存在：" + jfinal);
+        }
+        return new ChildFirstLoader(new URL[]{jfinal.toUri().toURL()},
+                OldImplementationLoader.class.getClassLoader(), List.of("com.jfinal."));
+    }
+
     /** 对指定包前缀做子优先加载，其余委派父加载器 */
     private static final class ChildFirstLoader extends URLClassLoader {
 
+        private final List<String> childFirst;
+
         ChildFirstLoader(URL[] urls, ClassLoader parent) {
+            this(urls, parent, CHILD_FIRST_PREFIXES);
+        }
+
+        ChildFirstLoader(URL[] urls, ClassLoader parent, List<String> childFirst) {
             super(urls, parent);
+            this.childFirst = childFirst;
         }
 
         @Override
         protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
-            if (CHILD_FIRST_PREFIXES.stream().anyMatch(name::startsWith)
+            if (childFirst.stream().anyMatch(name::startsWith)
                     || CHILD_FIRST_EXACT.contains(name)) {
                 synchronized (getClassLoadingLock(name)) {
                     Class<?> c = findLoadedClass(name);
