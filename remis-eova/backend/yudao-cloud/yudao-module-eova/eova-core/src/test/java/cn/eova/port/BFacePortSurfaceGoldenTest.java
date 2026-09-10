@@ -76,7 +76,11 @@ class BFacePortSurfaceGoldenTest {
             // 第五轮：依赖【已声明 stub】EovaConfig 的薄边单元
             "cn.eova.common.utils.io.ClassUtil",
             "cn.eova.auth.AuthUri",
-            "cn.eova.mod.emi.EMILoader");
+            "cn.eova.mod.emi.EMILoader",
+            // 第六轮：机械接缝解锁的单元（LegacyStrKit / LegacyCacheKit）
+            "cn.eova.core.meta.MetaDataTest",
+            "cn.eova.sql.dql.dialect.MysqlQueryDialect",
+            "cn.eova.service.LoginService");
 
     /**
      * 已声明适配：允许在【新实现侧】出现的差异。
@@ -138,6 +142,10 @@ class BFacePortSurfaceGoldenTest {
             new String[]{"com.jfinal.render.HtmlRender", "cn.eova.compat.render.LegacyHtmlRender"},
             new String[]{"com.jfinal.render.Render", "cn.eova.compat.render.LegacyRender"},
             new String[]{"com.jfinal.kit.Kv", "cn.eova.compat.jfinal.kit.LegacyKv"},
+            new String[]{"com.jfinal.kit.Ret", "cn.eova.compat.jfinal.kit.LegacyRet"},
+            new String[]{"com.jfinal.kit.StrKit", "cn.eova.compat.jfinal.kit.LegacyStrKit"},
+            new String[]{"com.jfinal.json.Json", "cn.eova.compat.jfinal.kit.LegacyJsonKit"},
+            new String[]{"com.jfinal.plugin.ehcache.CacheKit", "cn.eova.compat.cache.LegacyCacheKit"},
             new String[]{"com.jfinal.kit.LogKit", "cn.eova.compat.jfinal.kit.LegacyLogKit"},
             new String[]{"com.jfinal.plugin.activerecord.Record", "cn.eova.db.EovaRecord"},
             new String[]{"com.jfinal.plugin.activerecord.Model", "cn.eova.db.EovaModel"});
@@ -227,8 +235,8 @@ class BFacePortSurfaceGoldenTest {
         // 非空洞性护栏：8 个单元合计声明方法数必须达到已知下界（实测 40+，取下界 30）。
         // 若旧侧装载失败被误判成"两侧都空"，或 UNITS 被改小，这里会先报错。
         // 实测 25 个单元合计 160+，下界取 150（随单元增加而上调，防止误判空洞）
-        assertTrue(totalOldMethods >= 150,
-                "旧侧声明方法合计 " + totalOldMethods + " 少于下界 150，判据可能已空洞");
+        assertTrue(totalOldMethods >= 165,
+                "旧侧声明方法合计 " + totalOldMethods + " 少于下界 165，判据可能已空洞");
         // 字段护栏用【聚合下界】而非"逐单元非空"：RequestUtil / ExceUtil 这类纯静态工具类
         // 本就没有声明字段，要求"每单元都有字段"会误报（该误报本次已被护栏自己抓到）。
         assertTrue(totalOldFields >= 15,
