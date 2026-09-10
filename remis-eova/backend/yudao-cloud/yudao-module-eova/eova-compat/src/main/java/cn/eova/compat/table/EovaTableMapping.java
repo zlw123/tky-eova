@@ -53,6 +53,9 @@ public final class EovaTableMapping {
     /** 表名 → 模型类（用于重复注册检测，与旧实现同构） */
     private final Map<String, Class<?>> tableToModel = new HashMap<>();
 
+    /** 模型类 → 数据源名（对应旧实现 model→Config 的绑定） */
+    private final Map<Class<?>, String> modelToConfig = new HashMap<>();
+
     /** 表元数据来源接缝；未设置时调用 {@link #addMapping} 会明确报错（避免静默得到空表） */
     private static volatile TableMetadataSource metadataSource;
 
@@ -82,6 +85,27 @@ public final class EovaTableMapping {
      * @param modelClass 模型类
      */
     public void addMapping(String tableName, Class<?> modelClass) {
+        addMapping(DEFAULT_CONFIG, tableName, modelClass);
+    }
+
+    /** 未显式指定数据源时使用的名字（EOVA 的 eova 数据源） */
+    public static final String DEFAULT_CONFIG = "eova";
+
+    /**
+     * 注册映射：显式指定数据源名。
+     *
+     * <p><b>为什么必须有数据源维度：</b>实测 jfinal 的
+     * {@code Model._getConfig().getName()} 返回的是<b>该模型注册时所属的 Config 名</b>，
+     * 而 EOVA 是双数据源（{@code mappingEova} 把 15 个模型挂在 eova 数据源，
+     * 另有 Diy 数据源）。{@code BaseModel.execute()} 正是用
+     * {@code Db.use(this._getConfig().getName())} 决定操作哪个库 ——
+     * 丢掉这一维度会导致跨库写错数据。
+     *
+     * @param configName 数据源名
+     * @param tableName  表名
+     * @param modelClass 模型类
+     */
+    public void addMapping(String configName, String tableName, Class<?> modelClass) {
         TableMetadataSource source = metadataSource;
         if (source == null) {
             throw new IllegalStateException(
@@ -93,7 +117,7 @@ public final class EovaTableMapping {
             throw new IllegalStateException(
                     "TableMetadataSource 返回 null（约定：表不存在时返回空元数据）：" + tableName);
         }
-        addMapping(modelClass, meta);
+        addMapping(configName, modelClass, meta);
     }
 
     /**
@@ -103,12 +127,34 @@ public final class EovaTableMapping {
      * @param meta       表元数据
      */
     public void addMapping(Class<?> modelClass, TableMetadata meta) {
+        addMapping(DEFAULT_CONFIG, modelClass, meta);
+    }
+
+    /**
+     * 注册映射：显式给出数据源名与元数据
+     *
+     * @param configName 数据源名
+     * @param modelClass 模型类
+     * @param meta       表元数据
+     */
+    public void addMapping(String configName, Class<?> modelClass, TableMetadata meta) {
         String tableName = meta.getName();
         if (tableToModel.containsKey(tableName)) {
             throw new IllegalStateException("Model mapping already exists : " + tableName);
         }
         tableToModel.put(tableName, modelClass);
         modelToTable.put(modelClass, meta);
+        modelToConfig.put(modelClass, configName);
+    }
+
+    /**
+     * 取模型类绑定的数据源名；未注册的类返回 null（与 {@link #getTable} 的 null 语义一致）
+     *
+     * @param modelClass 模型类
+     * @return 数据源名或 null
+     */
+    public String getConfigName(Class<?> modelClass) {
+        return modelToConfig.get(modelClass);
     }
 
     /**
@@ -127,6 +173,7 @@ public final class EovaTableMapping {
     public void clear() {
         modelToTable.clear();
         tableToModel.clear();
+        modelToConfig.clear();
     }
 
     /** 供验证判据读取当前已注册的表名集合（不参与运行时逻辑） */

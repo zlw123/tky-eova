@@ -67,6 +67,22 @@ public class EovaRecord implements LegacyJsonKit.JsonColumns {
     }
 
     /**
+     * 设置列值但<b>不记入 modifyFlag</b>（对应 jfinal {@code Model.put(k, v)} 语义）。
+     *
+     * <p>与 {@link #set(String, Object)} 的区别是契约性的，不是实现细节：
+     * 实测 jfinal 5.2.6 中 {@code Model.set} 会记 modifyFlag（决定 update 提交哪些列），
+     * 而 {@code Model.put} 只做 attrs.put。此外 {@code Model.set} 还会先在
+     * {@code Table} 上校验列是否存在，`put` 不校验 —— 该校验在 {@code EovaModel} 一侧完成。
+     *
+     * @param column 列名（键会归一化为小写）
+     * @param value  值
+     */
+    public EovaRecord put(String column, Object value) {
+        columns.put(norm(column), value);
+        return this;
+    }
+
+    /**
      * 取原始值；缺列返回 null
      */
     @SuppressWarnings("unchecked")

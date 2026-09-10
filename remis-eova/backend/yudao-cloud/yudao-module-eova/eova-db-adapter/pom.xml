@@ -18,6 +18,19 @@
 
     <dependencies>
         <!-- 依赖 eova-compat：复用其 enjoy 依赖提供的 com.jfinal.kit.TypeKit（类型转换语义） -->
+        <!-- 【必须声明在最前】仅测试期引入旧 JFinal 制品，作为 EovaModel 的比对 oracle。
+             位置不是随意的：enjoy 5.3.0（随 eova-compat 传递引入）与 jfinal 5.2.6
+             都提供 com.jfinal.kit.*（TypeKit/TimeKit/Kv/Ret/...），谁生效取决于
+             classpath 顺序。若 enjoy 先出现，旧侧会变成"jfinal 的 Model + enjoy 的 TypeKit"
+             混合体 —— oracle 被污染，比对结果无意义（本轮实测即踩到，见 EovaModelGoldenTest 的
+             来源自检断言）。放在最前可让 jfinal 的 com.jfinal.kit.* 先解析。
+             生产代码绝不依赖 jfinal。 -->
+        <dependency>
+            <groupId>com.jfinal</groupId>
+            <artifactId>jfinal</artifactId>
+            <version>5.2.6</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>cn.eova</groupId>
             <artifactId>eova-compat</artifactId>
