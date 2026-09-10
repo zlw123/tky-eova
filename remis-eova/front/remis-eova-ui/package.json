@@ -1,0 +1,31 @@
+{
+  "name": "remis-eova-ui",
+  "version": "1.0.0-SNAPSHOT",
+  "private": true,
+  "description": "EovaMeta 技术栈迁移后的独立前端工程（前后端分离，DES-002-R4 阶段 2）",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">= 18.0.0",
+    "pnpm": ">= 8.6.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "build:only": "vite build",
+    "preview": "vite preview",
+    "ts:check": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "axios": "^1.6.8",
+    "pinia": "^2.1.7",
+    "vue": "^3.5.13",
+    "vue-router": "^4.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.21",
+    "@vitejs/plugin-vue": "^5.0.4",
+    "typescript": "~5.3.3",
+    "vite": "^5.1.0",
+    "vue-tsc": "^2.0.6"
+  }
+}
