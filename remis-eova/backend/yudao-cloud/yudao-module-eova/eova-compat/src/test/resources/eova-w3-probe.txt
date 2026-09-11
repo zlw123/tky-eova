@@ -1,0 +1,5 @@
+probe.int=1
+probe.bool=true
+probe.cn=中文值
+probe.notint=abc
+probe.padded=spaced   
