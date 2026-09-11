@@ -89,12 +89,21 @@ remis-eova-ui/
 │   ├── styles/         # [T01] 全局样式
 │   ├── types/          # [T01] 类型定义
 │   ├── utils/          # [T01] 工具函数
-│   └── views/          # [T02] 页面视图（25 个 Enjoy 模板迁入目标）
+│   ├── views/          # [T02] 页面视图（25 个 Enjoy 模板迁入目标）
+│   └── legacy/         # [r90 归并] 旧前端 120 个资产的【冻结副本】（迁移期对照物，见其内 README）
 ├── index.html
 ├── vite.config.ts
 ├── tsconfig.json
 └── package.json
 ```
+
+> **为什么 `legacy/` 也在这张图里（第 90 轮归并）**：它**不是**目标架构的一部分，
+> 而是阶段 2 的**起点与对照物** —— 120 个旧前端资产按冻结账本
+> （`docs/.local/ledger/frontend-assets.jsonl`）的 `targetPath` 逐字节落地在此，
+> 用于 ① 可逐字节复核的基线；② 旧渲染结果与新 SFC 的行为对照。
+> 早前轮次本文与账本对 `legacy/` 的落点口径不一致（本文没写、账本指向 `src/legacy/**`）；
+> 第 90 轮按"**账本为准**（资产单元的 hash 复核以账本为准）+ 本文补齐说明"归并，
+> 清理由阶段 2 的迁移清单逐项确认替代完成后统一进行。
 
 ## 6. 命令
 
