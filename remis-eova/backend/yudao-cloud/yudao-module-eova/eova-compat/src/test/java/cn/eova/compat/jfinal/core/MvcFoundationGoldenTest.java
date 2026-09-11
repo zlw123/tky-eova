@@ -26,6 +26,7 @@ import cn.eova.compat.jfinal.aop.LegacyInvocation;
 import cn.eova.compat.jfinal.kit.LegacyKv;
 import cn.eova.compat.render.LegacyRender;
 import cn.eova.compat.render.LegacyJsonRender;
+import cn.eova.compat.render.LegacyTemplateRender;
 import cn.eova.compat.render.LegacyRedirectRender;
 import cn.eova.compat.render.LegacyRenderFactory;
 import cn.eova.compat.render.LegacyRenderManager;
@@ -466,6 +467,52 @@ class MvcFoundationGoldenTest {
         assertEquals("/a", r7.buildFinalUrl(), "上下文为 \"\" 时应归一为 null");
 
         LegacyRedirectRender.setContextPath("/app");
+    }
+
+    /**
+     * LegacyTemplateRender：contentType 与 toString 对照旧 jfinal 制品。
+     *
+     * @throws Exception 反射失败
+     */
+    @Test
+    @DisplayName("LegacyTemplateRender：contentType/toString/init(null) 对照旧制品")
+    void templateRenderMatchesOld() throws Exception {
+        ClassLoader jf = OldImplementationLoader.createForJFinalOnly();
+        Class<?> oldCls = Class.forName("com.jfinal.render.TemplateRender", true, jf);
+        OldImplementationLoader.assertFromJar(oldCls, OldImplementationLoader.oldJFinalJar());
+
+        Object oldRender = oldCls.getConstructor(String.class).newInstance("v/x.html");
+        assertEquals(oldCls.getMethod("getContentType").invoke(oldRender),
+                new LegacyTemplateRender("v/x.html").getContentType(),
+                "contentType 必须逐字一致（旧为 \"text/html; charset=\" + 编码）");
+        assertEquals("text/html; charset=UTF-8",
+                new LegacyTemplateRender("v/x.html").getContentType(),
+                "默认编码为 UTF-8");
+
+        // toString 返回 view 本身（【不是】"TemplateRender: " + view）
+        assertEquals(oldCls.getMethod("toString").invoke(oldRender),
+                new LegacyTemplateRender("v/x.html").toString(),
+                "toString 必须与旧实现一致");
+        assertEquals("v/x.html", new LegacyTemplateRender("v/x.html").toString(),
+                "旧实现直接返回 view —— 若凭直觉加类名前缀就错了");
+
+        // init(null) 的消息逐字一致
+        IllegalArgumentException oldEx = org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class, () -> {
+                    try {
+                        java.lang.reflect.Method m = oldCls.getDeclaredMethod("init",
+                                Class.forName("com.jfinal.template.Engine", true, jf));
+                        m.setAccessible(true);
+                        m.invoke(null, new Object[]{null});
+                    } catch (java.lang.reflect.InvocationTargetException e) {
+                        throw (RuntimeException) e.getCause();
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+        IllegalArgumentException newEx = org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class, () -> LegacyTemplateRender.init(null));
+        assertEquals(oldEx.getMessage(), newEx.getMessage(), "init(null) 的消息必须逐字一致");
     }
 
     /** LegacyJsonRender：走真实 render() 路径，捕获写出内容 */
