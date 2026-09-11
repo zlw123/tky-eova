@@ -473,27 +473,36 @@ describe('TemplateTable.vue（旧 template/table 的行为等价）', () => {
     const w = mountPage()
     const app = getUzooApp()
     expect(app['extraKey']).toBe('EXTRA')
-    for (const name of [
-      'data',
-      'page',
-      'currentRow',
-      'queryHeight',
-      'tableHeight',
-      'onQuery',
-      'onAdd',
-      'onUpdate',
-      'onDetail',
-      'onHide',
-      'onDelete',
-      'onImport',
-      'onExport',
-      'doResize',
-      'onReady',
-      'onRowClick',
-      'showLinking'
-    ]) {
-      expect(app, `uzoo.app 缺 ${name}`).toHaveProperty(name)
-    }
+    // ★ 第 142 轮收紧：断言**键集合逐字一致**（旧 `template/table/index.js:275-303` 的返回对象
+    //   + `...data_` 摊平进来的钩子键）。此前只断言"这些键存在" ⇒ 多挂/少挂一个键都不会红，
+    //   而 `uzoo.app` 是**外部扩展脚本的唯一入口**（r107 已因扩展点漏调抓到过一次真实回归）。
+    expect(Object.keys(app).sort()).toEqual(
+      [
+        // `...data_`（本用例注入的钩子返回值）
+        'extraKey',
+        // 旧实现的具名字段（**一个不多一个不少**）
+        'data',
+        'auths',
+        'refForm',
+        'refTable',
+        'queryHeight',
+        'tableHeight',
+        'page',
+        'currentRow',
+        'onQuery',
+        'onAdd',
+        'onUpdate',
+        'onDetail',
+        'onHide',
+        'onDelete',
+        'onImport',
+        'onExport',
+        'doResize',
+        'onReady',
+        'onRowClick',
+        'showLinking'
+      ].sort()
+    )
     expect(app['data']).toBe((w.vm as never as { data: unknown }).data)
     void w
   })
