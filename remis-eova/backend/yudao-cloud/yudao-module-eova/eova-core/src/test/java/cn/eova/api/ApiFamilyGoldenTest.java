@@ -21,6 +21,7 @@ import cn.eova.common.Ds;
 import cn.eova.compat.jfinal.aop.LegacyBefore;
 import cn.eova.compat.jfinal.config.LegacyRoutes;
 import cn.eova.compat.jfinal.core.LegacyNotAction;
+import cn.eova.compat.jfinal.kit.LegacyJsonKit;
 import cn.eova.compat.jfinal.kit.LegacyKv;
 import cn.eova.compat.jfinal.plugin.activerecord.LegacyTx;
 import cn.eova.core.api.ApiInterceptor;
@@ -55,15 +56,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   <li><b>URL 契约</b>：{@code EovaApiRoutes} 三条路径、顺序与父类拦截器。</li>
  * </ol>
  *
- * <p><b>本判据<b>刻意不</b>断言 OK/NO 的响应体 envelope —— 那是一个已定位的接缝缺陷（R59）：</b>
- * 旧栈 {@code renderJson(Object)} → {@code JsonRender(Object)} → {@code JsonKit.toJson(object)}，
- * 而 jfinal 5.2.6 的 {@code JFinalJsonKit.createToJson} 对未知类型会走
- * {@code buildBeanToJson(object)}（反射 getter 序列化），实测旧侧 POJO 输出
- * {@code {"code":0,"msg":"ok","data":null}}；新接缝 {@code LegacyJsonKit} 只实现了
- * {@code UnknownToJson} 兜底，同一个 {@code ApiResponse} 输出
- * {@code cn.eova.core.api.ApiResponse@<hash>}。该差异影响 {@code /router/eova/*} 企业侧应答体，
- * 属对外契约，必须在补完 {@code BeanToJson} 分支（并以"旧 jfinal vs 新接缝"对照台账复核）
- * 之后才可断言 —— 见 DES-002-R4 §r75 与风险登记 R59。</p>
+ * <p><b>R59 已修复（第 76 轮）：</b>{@code LegacyJsonKit} 补齐了 jfinal 的
+ * {@code buildBeanToJson} 分支（POJO 反射 getter）+ 嵌套深度上限 + {@code Double/Float} 的
+ * NaN/Infinity→{@code null} + 基本类型数组展开 + 枚举走 {@code toString()}。
+ * 本类因此恢复断言 {@code OK/NO} 的应答体为 {@code ApiResponse} 的结构 JSON
+ * （企业侧 {@code /router/eova/*} 契约）。对照台账在 {@code eova-compat} 的
+ * {@code LegacyJsonKitBeanCrossGoldenTest}（对 jfinal 5.2.6 真制品逐样本比对）。
  */
 class ApiFamilyGoldenTest {
 
@@ -295,6 +293,43 @@ class ApiFamilyGoldenTest {
         } finally {
             EovaGateways.clear();
         }
+    }
+
+    @Test
+    @DisplayName("BaseApi：OK/NO 的应答体必须是 ApiResponse 的【结构】JSON（R59 契约回归）")
+    void baseApiRendersApiEnvelope() {
+        // 第 75 轮此处曾红：接缝缺 Bean 分支，渲染成 "cn.eova.core.api.ApiResponse@hash"。
+        // 第 76 轮补齐 LegacyJsonKit 后，POJO 按 getter 结构展开 ⇒ 企业侧 /router/eova/* 契约恢复。
+        String ok = LegacyJsonKit.toJson(ApiResponse.OK(new JSONObject().fluentPut("id", 7)));
+        assertTrue(ok.startsWith("{\""), "必须是 JSON 对象：" + ok);
+        assertTrue(ok.contains("\"code\":0"), ok);
+        assertTrue(ok.contains("\"msg\":\"ok\""), ok);
+        assertTrue(ok.contains("\"data\":{\"id\":7}"), "data 逐层展开，不得倒成字符串：" + ok);
+        assertTrue(!ok.contains("ApiResponse@"), "不得退化为 toString()：" + ok);
+
+        // 注意：ApiResponse.NO 的重载顺序是 NO(int code, String msg)，与 BaseApi.NO(String, int) 相反
+        String no = LegacyJsonKit.toJson(ApiResponse.NO(10040, "业务异常"));
+        assertTrue(no.contains("\"code\":10040"), no);
+        assertTrue(no.contains("\"msg\":\"业务异常\""), "中文不得被转义：" + no);
+        assertTrue(no.contains("\"data\":null"), "NO 的 data 为 null：" + no);
+
+        String noDefault = LegacyJsonKit.toJson(ApiResponse.NO("仅消息"));
+        assertTrue(noDefault.contains("\"code\":500"), "NO(msg) 默认码 500：" + noDefault);
+
+        // 键序非契约（= getMethods() 返回序），这里只断言键集合的完整性
+        assertTrue(ok.contains("\"code\"") && ok.contains("\"msg\"") && ok.contains("\"data\""),
+                "code/msg/data 三个键必须齐备：" + ok);
+    }
+
+    @Test
+    @DisplayName("BaseApi：OK()/NO() 的 envelope 对象形态（不依赖渲染出口）")
+    void baseApiEnvelopeObjects() {
+        ApiResponse ok = ApiResponse.OK(null);
+        assertEquals(0, ok.getCode());
+        assertEquals("ok", ok.getMsg());
+        assertNull(ok.getData());
+        assertEquals(500, ApiResponse.NO("x").getCode(), "NO(msg) 固定 500");
+        assertEquals("x", ApiResponse.NO("x").getMsg());
     }
 
     @Test
