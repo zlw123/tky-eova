@@ -22,6 +22,9 @@ public final class LegacyRenderManager {
 
     private static volatile LegacyRenderFactory renderFactory;
 
+    /** 单例（旧 RenderManager.me() 的返回物；本接缝无实例状态，故复用同一实例） */
+    private static final LegacyRenderManager INSTANCE = new LegacyRenderManager();
+
     private LegacyRenderManager() {
     }
 
@@ -32,6 +35,25 @@ public final class LegacyRenderManager {
      */
     public static void setRenderFactory(LegacyRenderFactory factory) {
         renderFactory = factory;
+    }
+
+    /**
+     * 单例访问器（旧 {@code RenderManager.me()}）。
+     *
+     * <p><b>本方法存在的理由：</b>旧源码里 {@code RenderManager.me().getRenderFactory()...}
+     * 是常见写法（如 {@code ApiRouterHandler} 的 {@code renderJson}）。
+     * 本接缝原先只提供静态 {@link #getRenderFactory()}，那些调用点就得被改写成另一形状 ——
+     * 于是"port 保形"这条优势就丢了，且每次遇到都要单独声明一次适配。
+     * 补上 {@code me()} 后，旧调用点可以<b>原样保留</b>。</p>
+     *
+     * <p>旧实现的 {@code me()} 返回一个进程级单例；本接缝的状态本就是静态的
+     * （{@code renderFactory} 为 static），故返回同一个实例即可，
+     * <b>不引入新的可变状态</b>。</p>
+     *
+     * @return 单例
+     */
+    public static LegacyRenderManager me() {
+        return INSTANCE;
     }
 
     /**

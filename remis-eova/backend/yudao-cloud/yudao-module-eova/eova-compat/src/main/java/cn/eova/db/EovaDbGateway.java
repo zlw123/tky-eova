@@ -239,6 +239,27 @@ public interface EovaDbGateway {
     int delete(String sql, Object... paras);
 
     /**
+     * 批量执行多条 SQL（对应 jfinal {@code DbPro.batch(List<String> sqlList, int batchSize)}）。
+     *
+     * <p><b>逐条取自旧字节码的语义：</b></p>
+     * <ol>
+     *   <li>{@code sqlList} 为 null 或空 ⇒ 返回<b>长度为 0</b> 的数组；</li>
+     *   <li>{@code batchSize < 1} ⇒ 抛
+     *       {@code IllegalArgumentException("The batchSize must more than 0.")}；</li>
+     *   <li>按 {@code batchSize} 分块 {@code addBatch} + {@code executeBatch}，
+     *       <b>非事务状态下每块执行完即 {@code commit}</b>（⇒ 批与批之间<b>不</b>是一个原子单元，
+     *       中途失败只回滚当前块）——这是旧实现的可观测语义，不得"顺手"改成整体一次提交；</li>
+     *   <li>返回数组长度固定为 {@code sqlList.size()}，各块的 {@code executeBatch()} 结果
+     *       <b>压平到数组前部</b>（不足处留 0）。</li>
+     * </ol>
+     *
+     * @param sqlList   待执行 SQL 列表
+     * @param batchSize 每批条数（必须 &gt; 0）
+     * @return 各行影响数（长度 = sqlList.size()）
+     */
+    int[] batch(List<String> sqlList, int batchSize);
+
+    /**
      * 事务执行；抛出异常则回滚，正常返回则提交
      */
     <T> T tx(Atom<T> atom);

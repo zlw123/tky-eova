@@ -11,6 +11,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -222,6 +223,101 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
     @Override
     public boolean inTransaction() {
         return txConnection.get() != null;
+    }
+
+    /**
+     * 批量执行多条 SQL（对应 jfinal {@code DbPro.batch(List&lt;String&gt;, int)}）。
+     *
+     * <p>旧实现（字节码逐条读出）：空列表返回 {@code new int[0]}；{@code batchSize < 1}
+     * 抛 {@code IllegalArgumentException("The batchSize must more than 0.")}；
+     * 按 batchSize 分块 addBatch/executeBatch，<b>非事务时每块提交</b>；
+     * 结果压平到长度 {@code sqlList.size()} 的数组前部。</p>
+     *
+     * @param sqlList   待执行 SQL
+     * @param batchSize 每批条数
+     * @return 各行影响数
+     */
+    @Override
+    public int[] batch(List<String> sqlList, int batchSize) {
+        if (sqlList == null || sqlList.isEmpty()) {
+            return new int[0];
+        }
+        if (batchSize < 1) {
+            throw new IllegalArgumentException("The batchSize must more than 0.");
+        }
+        boolean inTx = txConnection.get() != null;
+        Connection bound = txConnection.get();
+        if (inTx) {
+            // 事务中：复用绑定连接，交由外层事务统一提交/回滚
+            return doBatch(bound, sqlList, batchSize, result -> { }, true);
+        }
+        Connection c = null;
+        try {
+            c = dataSource.getConnection();
+            final Connection conn = c;
+            boolean auto = conn.getAutoCommit();
+            conn.setAutoCommit(false);
+            int[] r = doBatch(conn, sqlList, batchSize, r2 -> { }, false);
+            conn.setAutoCommit(auto);
+            return r;
+        } catch (SQLException e) {
+            if (c != null) {
+                try {
+                    c.rollback();
+                } catch (SQLException ignored) {
+                    // 回滚失败不掩盖原异常
+                }
+            }
+            throw new IllegalStateException("批量执行失败", e);
+        } finally {
+            closeQuietly(c);
+        }
+    }
+
+    /**
+     * 分块执行并压平结果。
+     *
+     * @param conn      连接
+     * @param sqlList   SQL 列表
+     * @param batchSize 每批条数
+     * @param afterEach 每块执行后的回调（预留）
+     * @param inTx      是否处于外层事务（为真则每块后不提交）
+     * @return 影响数数组
+     */
+    private int[] doBatch(Connection conn, List<String> sqlList, int batchSize,
+                          java.util.function.Consumer<int[]> afterEach, boolean inTx) {
+        int[] result = new int[sqlList.size()];
+        int writeIdx = 0;
+        int counter = 0;
+        try (Statement st = conn.createStatement()) {
+            for (String sql : sqlList) {
+                st.addBatch(sql);
+                if (++counter >= batchSize) {
+                    counter = 0;
+                    int[] ret = st.executeBatch();
+                    if (!inTx) {
+                        conn.commit();
+                    }
+                    afterEach.accept(ret);
+                    for (int v : ret) {
+                        result[writeIdx++] = v;
+                    }
+                }
+            }
+            if (counter != 0) {
+                int[] ret = st.executeBatch();
+                if (!inTx) {
+                    conn.commit();
+                }
+                afterEach.accept(ret);
+                for (int v : ret) {
+                    result[writeIdx++] = v;
+                }
+            }
+            return result;
+        } catch (SQLException e) {
+            throw new IllegalStateException("批量执行失败", e);
+        }
     }
 
     /** 事务执行；异常回滚、正常提交 */
