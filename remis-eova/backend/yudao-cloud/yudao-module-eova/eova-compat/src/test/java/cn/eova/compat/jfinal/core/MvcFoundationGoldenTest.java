@@ -68,6 +68,8 @@ class MvcFoundationGoldenTest {
             "getRequest", "getResponse", "getPara", "getParaMap", "getRawData",
             "getParaToInt", "getParaToBoolean", "getInt", "getBoolean", "set", "setAttr", "getAttr",
             "removeAttr", "keepPara", "getKv", "render", "getRender",
+            // 第 54 轮补齐：get 别名族 + renderText/renderHtml/renderNull
+            "get", "renderText", "renderHtml", "renderNull", "setAttrs",
             // W1b：toLong 族 + Cookie 族
             "getParaToLong", "getLong", "getCookie", "getCookieObject",
             "doSetCookie", "setCookie", "removeCookie",
@@ -147,6 +149,24 @@ class MvcFoundationGoldenTest {
             }
 
             @Override
+            public LegacyRender getTextRender(String text) {
+                CALLS.add("getTextRender:" + text);
+                return new StubRender();
+            }
+
+            @Override
+            public LegacyRender getHtmlRender(String text) {
+                CALLS.add("getHtmlRender:" + text);
+                return new StubRender();
+            }
+
+            @Override
+            public LegacyRender getNullRender() {
+                CALLS.add("getNullRender()");
+                return new StubRender();
+            }
+
+            @Override
             public LegacyRender getRedirectRender(String url) {
                 CALLS.add("getRedirectRender:" + url);
                 return new StubRender();
@@ -159,6 +179,98 @@ class MvcFoundationGoldenTest {
             }
         });
     }
+
+    /**
+     * <b>覆盖断言：我方实现的方法集必须覆盖"全树实际被调用"的方法集。</b>
+     *
+     * <p><b>为什么必须单独有这一条：</b>我此前只有"方法集钉死"（断言实现集等于一份手写清单），
+     * 而那份清单本身可能<b>漏项</b> —— 事实也确实漏了：</p>
+     * <ol>
+     *   <li>第一版普查只统计<b>裸调用</b>（{@code renderNull(}），漏掉了
+     *       "持有 Controller 的普通类"的<b>限定调用</b>（{@code c.renderNull()}）；</li>
+     *   <li>因此 {@code renderNull} 被误判为"未被调用"，而实际上
+     *       {@code SseKit} 需要它；</li>
+     *   <li>更要紧的是 {@code get}（4 个重载）—— <b>全树调用最多的方法（238 处）</b>——
+     *       只因为我把它当成"别名"而没做，钉死清单也没能发现。</li>
+     * </ol>
+     * 本条按<b>裸调用 + 限定调用</b>两种形态重算普查集，并断言实现集 ⊇ 普查集。
+     * 于是"清单漏项"这类错误会在这里失败，而不是等到 port 某个单元时才发现。
+     *
+     * <p><b>注意趋势方向：</b>普查集是<b>超集</b>（限定调用可能属于别的类型，例如
+     * {@code record.get(...)} 会误算成 Controller 的 {@code get}）。这是<b>有意的</b> ——
+     * 对"接缝面是否足够"而言，宁可多实现一个方法，也不能少。</p>
+     *
+     * @throws Exception 反射/读文件失败
+     */
+    @Test
+    @DisplayName("覆盖断言：实现集必须覆盖全树实际被调用的 Controller 方法（裸调用 + 限定调用）")
+    void controllerMethodCoverage() throws Exception {
+        Path base = OldImplementationLoader.locateRepoRoot()
+                .resolve("meta-eova/eova/core/src/main/java/cn/eova");
+        assertTrue(Files.isDirectory(base), "旧源码目录缺失：" + base);
+
+        // jfinal Controller 的方法名（含 protected）
+        java.util.Set<String> all = new java.util.TreeSet<>();
+        for (Method m : Class.forName("com.jfinal.core.Controller", false,
+                OldImplementationLoader.createForJFinalOnly()).getDeclaredMethods()) {
+            if (!Modifier.isPrivate(m.getModifiers())) {
+                all.add(m.getName());
+            }
+        }
+        assertTrue(all.size() >= 70, "应取到 ≥70 个 Controller 方法名，实际 " + all.size());
+
+        java.util.Set<String> used = new java.util.TreeSet<>();
+        int files = 0;
+        try (Stream<Path> walk = Files.walk(base)) {
+            for (Path p : (Iterable<Path>) walk.filter(x -> x.toString().endsWith(".java"))::iterator) {
+                String src = Files.readString(p);
+                if (!src.contains("com.jfinal.core.Controller")
+                        && !src.contains("extends BaseController")
+                        && !src.contains("Controller ")) {
+                    continue;
+                }
+                files++;
+                for (String n : all) {
+                    // 子串搜索 "名称(" —— 同时覆盖裸调用（renderNull(）与限定调用（c.renderNull(）。
+                    // 不用正则：上一步我写的正则转义非法，且此处无需边界断言（见方法注释中
+                    // "普查集是有意取超集"的说明）。
+                    if (src.contains(n + "(")) {
+                        used.add(n);
+                    }
+                }
+            }
+        }
+        assertTrue(files >= 30, "应扫描到 ≥30 个引用 Controller 的文件，实际 " + files);
+
+        // 我方实现集
+        java.util.Set<String> impl = new java.util.TreeSet<>();
+        for (Method m : LegacyController.class.getDeclaredMethods()) {
+            if (!Modifier.isPrivate(m.getModifiers()) && !m.isSynthetic() && !m.isBridge()) {
+                impl.add(m.getName());
+            }
+        }
+
+        java.util.Set<String> missing = new java.util.TreeSet<>(used);
+        missing.removeAll(impl);
+        missing.removeAll(DECLARED_PENDING.keySet());
+        assertTrue(missing.isEmpty(),
+                "以下方法在全树被调用但我方未实现，且未登记为已声明待办 —— 必须补上：\n  " + missing
+                        + "\n（若是依赖未 port 的底座，请登记到 DECLARED_PENDING 并写明阻塞它的接缝）");
+        assertTrue(used.size() >= 25, "普查集应 ≥25 个方法，实际 " + used.size() + "（防判据空洞）");
+    }
+
+    /**
+     * <b>已声明待办</b>的 Controller 方法：全树被调用、但依赖尚未 port 的底座。
+     *
+     * <p>这是"覆盖断言"的白名单，<b>必须随对应底座落地而清空</b>——
+     * 每项都写明了阻塞它的接缝，防止它变成"永远不做的借口"。</p>
+     */
+    private static final Map<String, String> DECLARED_PENDING = Map.of(
+            "getDate", "需 jfinal core.converter.TypeConverter（17 个内建转换器）",
+            "getFile", "需 com.jfinal.upload.UploadFile 接缝",
+            "getFiles", "需 com.jfinal.upload.UploadFile 接缝",
+            "getModel", "需 jfinal Model/Table 的绑定期语义",
+            "validateCaptcha", "需验证码服务接缝（renderCaptcha/validateCaptcha 一族）");
 
     /** 方法集钉死 */
     @Test
@@ -407,11 +519,15 @@ class MvcFoundationGoldenTest {
         c.renderJson(new Object());
         c.renderJson(new String[]{"a"});
         c.renderJson("k", new Object());
+        c.renderText("t1");
+        c.renderHtml("h1");
+        c.renderNull();
         c.redirect("/r1");
         c.redirect("/r2", true);
         assertEquals(List.of("getRender:v1", "getTemplateRender:v2", "getJsonRender()",
                         "getJsonRender(String)", "getJsonRender(Object)", "getJsonRender(String[])",
-                        "getJsonRender(String,Object)", "getRedirectRender:/r1",
+                        "getJsonRender(String,Object)", "getTextRender:t1", "getHtmlRender:h1",
+                        "getNullRender()", "getRedirectRender:/r1",
                         "getRedirectRender:/r2:true"),
                 CALLS, "每个方法都必须转发到工厂的对应方法");
 

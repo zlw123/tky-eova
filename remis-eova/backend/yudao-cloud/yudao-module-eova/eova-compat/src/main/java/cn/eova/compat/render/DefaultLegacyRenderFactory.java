@@ -76,6 +76,21 @@ public class DefaultLegacyRenderFactory implements LegacyRenderFactory {
     }
 
     @Override
+    public LegacyRender getTextRender(String text) {
+        return new LegacyTextRender(text);
+    }
+
+    @Override
+    public LegacyRender getHtmlRender(String text) {
+        return new LegacyHtmlRender(text);
+    }
+
+    @Override
+    public LegacyRender getNullRender() {
+        return new LegacyNullRender();
+    }
+
+    @Override
     public LegacyRender getRedirectRender(String url) {
         return new LegacyRedirectRender(url);
     }

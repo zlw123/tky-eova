@@ -98,6 +98,29 @@ public interface LegacyRenderFactory {
     LegacyRender getJsonRender(String attr, Object object);
 
     /**
+     * 取文本渲染（对应旧 {@code getTextRender(text)}）。
+     *
+     * @param text 文本
+     * @return 渲染
+     */
+    LegacyRender getTextRender(String text);
+
+    /**
+     * 取 HTML 渲染（对应旧 {@code getHtmlRender(text)}）。
+     *
+     * @param text HTML 文本
+     * @return 渲染
+     */
+    LegacyRender getHtmlRender(String text);
+
+    /**
+     * 取空渲染（对应旧 {@code getNullRender()}）。
+     *
+     * @return 渲染
+     */
+    LegacyRender getNullRender();
+
+    /**
      * 取跳转渲染（对应旧 {@code getRedirectRender(url)}）。
      *
      * @param url 目标 URL

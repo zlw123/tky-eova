@@ -210,6 +210,78 @@ public class LegacyController {
     }
 
     /**
+     * 取请求参数（旧实现是 {@link #getPara(String)} 的别名）。
+     *
+     * <p><b>这是全树调用最多的 Controller 方法（238 处）</b>，此前我漏了它 ——
+     * 因为第一版普查只统计<b>裸调用</b>，而"持有 Controller 的普通类"
+     * （如 {@code SseKit}）是以 {@code c.get(x)} 形式调用的。
+     * 该漏检已由 {@code MvcFoundationGoldenTest.controllerMethodCoverage} 兜住。</p>
+     *
+     * @param name 参数名
+     * @return 值
+     */
+    public String get(String name) {
+        return getPara(name);
+    }
+
+    /**
+     * 取请求参数，缺省回落（别名）。
+     *
+     * @param name         参数名
+     * @param defaultValue 缺省值
+     * @return 值
+     */
+    public String get(String name, String defaultValue) {
+        return getPara(name, defaultValue);
+    }
+
+    /**
+     * 取第 index 段 urlPara（别名）。
+     *
+     * @param index 下标
+     * @return 该段
+     */
+    public String get(int index) {
+        return getPara(index);
+    }
+
+    /**
+     * 取第 index 段 urlPara，缺省回落（别名）。
+     *
+     * @param index        下标
+     * @param defaultValue 缺省值
+     * @return 该段
+     */
+    public String get(int index, String defaultValue) {
+        return getPara(index, defaultValue);
+    }
+
+    /**
+     * 设置文本渲染（旧字节码：{@code render = factory.getTextRender(text)}）。
+     *
+     * @param text 文本
+     */
+    public void renderText(String text) {
+        this.render = LegacyRenderManager.getRenderFactory().getTextRender(text);
+    }
+
+    /**
+     * 设置 HTML 渲染（旧字节码：{@code render = factory.getHtmlRender(text)}）。
+     *
+     * @param text HTML 文本
+     */
+    public void renderHtml(String text) {
+        this.render = LegacyRenderManager.getRenderFactory().getHtmlRender(text);
+    }
+
+    /**
+     * 设置空渲染（旧字节码：{@code render = factory.getNullRender()}）。
+     */
+    public void renderNull() {
+        this.render = LegacyRenderManager.getRenderFactory().getNullRender();
+    }
+
+    /**
      * 取全部参数表（原样返回容器的 map，含 String[] 值）。
      *
      * @return 参数表
@@ -540,6 +612,19 @@ public class LegacyController {
      */
     public LegacyController setAttr(String name, Object value) {
         request.setAttribute(name, value);
+        return this;
+    }
+
+    /**
+     * 批量设置请求属性（逐项 {@code setAttribute}，旧字节码如此）。
+     *
+     * @param attrs 属性表
+     * @return this
+     */
+    public LegacyController setAttrs(Map<String, Object> attrs) {
+        for (Map.Entry<String, Object> e : attrs.entrySet()) {
+            request.setAttribute(e.getKey(), e.getValue());
+        }
         return this;
     }
 
