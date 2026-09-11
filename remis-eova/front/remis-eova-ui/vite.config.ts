@@ -4,6 +4,11 @@ import vue from '@vitejs/plugin-vue'
 
 // remis-eova-ui 构建配置：工程选型对齐 platform/fornt/yudao-ui，降低集成期摩擦
 export default defineConfig({
+  // Vitest（阶段 2 行为等价判据）：jsdom 环境下挂载 SFC
+  test: {
+    environment: 'jsdom',
+    include: ['src/**/*.spec.ts']
+  },
   plugins: [vue()],
   resolve: {
     alias: {
