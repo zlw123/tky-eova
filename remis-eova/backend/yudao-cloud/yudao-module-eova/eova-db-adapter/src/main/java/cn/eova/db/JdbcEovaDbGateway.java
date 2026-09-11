@@ -296,7 +296,8 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
             }
         }
         String sql = "insert into " + table + " (" + names + ") values (" + marks + ")";
-        return update(sql, args.toArray()) > 0;
+        // 旧 EovaDbPro 不覆写 save 链路 ⇒ 插入不转义（见 execute 的说明）
+        return execute(false, sql, args.toArray()) > 0;
     }
 
     /** 按默认主键 id 更新（仅提交已修改字段） */
@@ -340,19 +341,39 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
     /** 按主键删除；未命中返回 false */
     @Override
     public boolean deleteById(String table, Object id) {
-        return update("delete from " + table + " where id = ?", id) > 0;
+        // 旧 EovaDbPro 不覆写 delete 链路 ⇒ 删除不转义
+        return execute(false, "delete from " + table + " where id = ?", id) > 0;
     }
 
     /** 执行更新/DDL；返回受影响行数 */
     @Override
     public int update(String sql, Object... paras) {
         // 旧 EovaDbPro.update(Config, Connection, String, Object...) 会先做关键字转义
-        final String escaped = escapeSql(sql);
+        return execute(true, sql, paras);
+    }
+
+    /**
+     * 执行写语句（受控转义）。
+     *
+     * <p><b>为什么必须区分（第 87 轮 live readiness 冒烟抓出的真实缺陷）：</b>
+     * 第 79 轮把 {@code EovaDbPro.escape} 的语义落进网关时，我让它作用在"读路径 + {@code update}"上，
+     * 但<b>实现上 {@code save}/{@code delete} 都经由 {@code update(...)} 下发</b> ⇒ 它们也被转义了。
+     * 旧实现里 {@code save} 直接走 {@code Dialect.forDbSave} + {@code executeUpdate}，
+     * <b>不经过被覆写的 {@code update}</b> ⇒ 不转义。H2 上真跑时表现为
+     * {@code insert into eova_menu (id, code, `value`)} 被反引号引坏而报错 —— 只有真库能暴露。</p>
+     *
+     * @param escape 是否做关键字转义（true 仅用于 {@code update}）
+     * @param sql    SQL
+     * @param paras  参数
+     * @return 受影响行数
+     */
+    private int execute(boolean escape, String sql, Object... paras) {
+        final String target = escape ? escapeSql(sql) : sql;
         return withConnection(conn -> {
-            try (PreparedStatement ps = bind(conn, escaped, paras)) {
+            try (PreparedStatement ps = bind(conn, target, paras)) {
                 return ps.executeUpdate();
             }
-        }, "执行失败: " + escaped);
+        }, "执行失败: " + target);
     }
 
     // ---------------- 事务 ----------------

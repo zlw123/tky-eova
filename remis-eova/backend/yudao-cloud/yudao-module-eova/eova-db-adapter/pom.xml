@@ -74,5 +74,15 @@
             <version>8.0.30</version>
             <scope>test</scope>
         </dependency>
+        <!-- H2（test 作用域）：live readiness 冒烟要一条【真实 JDBC】链路。
+             旧栈本身支持 h2 方言（EovaDbPro 对 h2 做关键字转义），故用 h2 内存库跑
+             "真实 schema + 真实 SQL 变换 + 真实表元数据自省" 的端到端验收，
+             不依赖 baseline MySQL。版本与 druid 无关，取当前仓库可用版本。 -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>2.3.232</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>
