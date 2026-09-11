@@ -3,7 +3,9 @@
 package cn.eova.config;
 
 import java.net.URLClassLoader;
+import java.util.HashMap;
 
+import cn.eova.core.type.Convertor;
 import com.alibaba.druid.DbType;
 
 /**
@@ -42,4 +44,40 @@ public class EovaConfig {
     /** Mod 包的类加载器（ClassUtil 扫描 jar 内类名时读取；由宿主装配注入） */
     // 旧源码 EovaConfig.java:94 —— 逐字一致
     public static URLClassLoader modLoader = null;
+
+    // ------------------------------------------------------------------
+    // 以下三项是第 67 轮为 port cn.eova.model.MetaObject 而【按旧源码逐字补入】的：
+    // MetaObject 的数据转换走 EovaConfig.getConvertor(ds)，若不补则 MetaObject 无法 port。
+    // 它们与旧源码 EovaConfig.java:101/628-634 逐字对应（同一字段、同一实现），
+    // 属【本 stub 内的真实子集】—— 本类整体仍未 port（640 行），故不计入进度。
+    //
+    // ⚠️ 已知宿主装配缺口：旧栈由 EovaDataSource 的业务方言初始化路径
+    // （EovaConfig.addConvertor(ds, convertor)）在启动时填充本表；新栈的
+    // EovaDataSource 是语义重实现，该注册路径【尚未 port】⇒ 新栈启动后本表为空。
+    // 该缺口已记入 DES-002-R4 的风险项，待业务方言族落地时消解。
+    // ------------------------------------------------------------------
+
+    /** DB类型转换器（旧源码 EovaConfig.java:101 —— 逐字一致） */
+    private static HashMap<String, Convertor> convertorMap = new HashMap<>();
+
+    /**
+     * 取数据源对应的类型转换器（旧 EovaConfig.java:628 —— 逐字一致）。
+     *
+     * @param ds 数据源名
+     * @return 转换器；未注册时返回 null（旧实现如此）
+     */
+    public static Convertor getConvertor(String ds) {
+        return convertorMap.get(ds);
+    }
+
+    /**
+     * 注册数据源的类型转换器（旧 EovaConfig.java:632 —— 逐字一致）。
+     *
+     * @param ds 数据源名
+     * @param cv 转换器
+     * @return 被替换的旧值（HashMap.put 语义）
+     */
+    public static Convertor addConvertor(String ds, Convertor cv) {
+        return convertorMap.put(ds, cv);
+    }
 }

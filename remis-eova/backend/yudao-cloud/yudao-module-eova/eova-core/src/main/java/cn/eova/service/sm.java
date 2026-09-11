@@ -11,8 +11,8 @@ package cn.eova.service;
  * <br>本单元为逐行等价 port：文件体与旧实现逐字节一致，仅新增本追溯头。
  * <br><b>刻意保留的既有语义：</b>
  * <ol>
- *   <li>@Deprecated 的 biz 别名（15 行，三位字母便于 IDE 索引）—— 保留注解</li>
- *   <li>空类体；随 biz 一起落地</li>
+ *   <li>@Deprecated 的 biz 别名（三位字母便于 IDE 索引）—— 保留注解，编译器据此告警</li>
+ *   <li>空类体，无自己的成员</li>
  * </ol>
  */
 /**

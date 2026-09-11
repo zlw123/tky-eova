@@ -11,9 +11,9 @@ package cn.eova.service;
  * <br>本单元为逐行等价 port：文件体与旧实现逐字节一致，仅新增本追溯头。
  * <br><b>刻意保留的既有语义：</b>
  * <ol>
- *   <li>本地业务注册中心（40 行）：6 个 public static 服务字段 + init() 全部 new 出来</li>
- *   <li>【依赖登记】导入服务 ImportBiz 与元服务 MetaService 尚未 port ⇒ 本轮按【已声明 stub】登记（见 DECLARED_STUBS），biz 的真 port 在两者的真 port 落地后才算完整</li>
- *   <li>字段为 public static，外部直接赋值，不可改成 getter</li>
+ *   <li>本地业务注册中心：6 个静态服务字段 + init() 全部 new 出来（无参构造）</li>
+ *   <li>字段为 public static —— 外部直接赋值，不可改成 getter</li>
+ *   <li>依赖全部在同包 cn.eova.service，故源码无 import（这也是 raw ledger 依赖抽取看不见它们的原因；依赖规划必须用 java-units.depgraph.jsonl）</li>
  * </ol>
  */
 /**
