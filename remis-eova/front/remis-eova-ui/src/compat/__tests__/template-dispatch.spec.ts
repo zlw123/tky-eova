@@ -42,14 +42,15 @@ describe('resolveTemplate（menu.getTemplate 的等价）', () => {
     expect(resolveTemplate(bs({ template: 0 }))).toEqual({ template: '0', source: 'bootstrap' })
   })
 
-  it('已迁移/未迁移清单互不重叠，且 table 是已迁移', () => {
-    expect(MIGRATED_TEMPLATES).toContain('table')
-    expect(UNMIGRATED_TEMPLATES).toEqual(['tree', 'tree_table'])
+  it('已迁移/未迁移清单互不重叠，且 table/tree 已迁移、tree_table 未迁移', () => {
+    expect(MIGRATED_TEMPLATES).toEqual(['table', 'tree'])
+    expect(UNMIGRATED_TEMPLATES).toEqual(['tree_table'])
     for (const t of MIGRATED_TEMPLATES) {
       expect(UNMIGRATED_TEMPLATES).not.toContain(t)
       expect(isMigratedTemplate(t)).toBe(true)
     }
-    expect(isMigratedTemplate('tree')).toBe(false)
+    expect(isMigratedTemplate('tree')).toBe(true)
+    expect(isMigratedTemplate('tree_table')).toBe(false)
     expect(isMigratedTemplate('whatever')).toBe(false)
   })
 })

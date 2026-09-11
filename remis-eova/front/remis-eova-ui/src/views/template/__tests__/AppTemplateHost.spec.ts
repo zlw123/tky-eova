@@ -13,7 +13,9 @@ import { defineComponent, h } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AppTemplateHost from '../AppTemplateHost.vue'
 import TemplateTable from '../TemplateTable.vue'
+import TemplateTree from '../TemplateTree.vue'
 import type { PageBootstrap } from '@/compat/page-bootstrap'
+import { setEovaMe, setEovaTools, type EovaMe, type EovaTools } from '@/compat/eova-runtime'
 
 const routeState = vi.hoisted(() => ({ params: { menuCode: 'menu_x' } as Record<string, string> }))
 vi.mock('vue-router', () => ({ useRoute: () => ({ params: routeState.params, query: {} }) }))
@@ -78,6 +80,23 @@ describe('AppTemplateHost.vue（AppController#index 的分派等价）', () => {
     ;(globalThis as unknown as Record<string, unknown>)['uzoo'] = { page: {}, vue: {}, app: {} }
     boot.value = makeBootstrap()
     boot.calls = 0
+    // ready 分支会挂**真实**的模版页组件，它们的 `onMounted` 需要运行时接缝；
+    // 不装的话 `getEovaTools()` 会**响亮抛出**（这是设计如此）——实测会让 `pnpm test` 退出码变 1
+    // 而汇总行仍显示 "Tests … passed"（r112/r116 同族的假绿）。
+    setEovaTools({
+      isEmpty: () => true,
+      dom: { getViewSize: () => ({ width: 0, height: 0 }) },
+      json: { toStr: (v: unknown) => JSON.stringify(v), toObj: (t: string) => JSON.parse(t) },
+      str: { template: (t: string) => t },
+      axios: { download: () => Promise.resolve() },
+      log: () => {},
+      validate: { start: () => true, showMsg: () => '', addRules: () => {} }
+    } as unknown as EovaTools)
+    setEovaMe({
+      layer: { msg: () => {}, open: () => {}, confirm: () => {} },
+      cross: { on: () => {}, off: () => {}, emit: () => {} },
+      urls: { url: () => '' }
+    } as unknown as EovaMe)
   })
 
   it('① 加载中：不画任何诊断（避免闪一屏"缺模版"）', () => {
@@ -107,15 +126,15 @@ describe('AppTemplateHost.vue（AppController#index 的分派等价）', () => {
     expect(w.findComponent(TemplateTable).exists()).toBe(false)
   })
 
-  it('④ 未迁移模版（tree/tree_table）⇒ 报出模版名与清单，**不降级**成 table', async () => {
-    boot.value = makeBootstrap({ menu: { code: 'menu_x', template: 'tree' } as never })
+  it('④ 未迁移模版（tree_table）⇒ 报出模版名与清单，**不降级**成已迁移模版', async () => {
+    boot.value = makeBootstrap({ menu: { code: 'menu_x', template: 'tree_table' } as never })
     const w = mount(AppTemplateHost, mountOpts)
     await flushPromises()
     expect(stateOf(w)).toBe('unmigrated')
-    expect(w.text()).toContain('tree')
     expect(w.text()).toContain('tree_table')
     expect(w.text()).toContain('不降级')
     expect(w.findComponent(TemplateTable).exists()).toBe(false)
+    expect(w.findComponent(TemplateTree).exists()).toBe(false)
   })
 
   it('⑤ template=table ⇒ 渲染 TemplateTable 并把引导数据传下去（只取一次）', async () => {
@@ -131,5 +150,14 @@ describe('AppTemplateHost.vue（AppController#index 的分派等价）', () => {
     // ★ 只取一次：宿主取给分派用，模版页**不再**自己取（否则同页两次请求）
     expect(boot.calls).toBe(1)
     void bs
+  })
+
+  it('⑤ template=tree ⇒ 渲染 TemplateTree（不是 TemplateTable）', async () => {
+    boot.value = makeBootstrap({ menu: { code: 'menu_x', template: 'tree', conf: {} } as never })
+    const w = mount(AppTemplateHost, mountOpts)
+    await flushPromises()
+    expect(stateOf(w)).toBeUndefined()
+    expect(w.findComponent(TemplateTree).exists()).toBe(true)
+    expect(w.findComponent(TemplateTable).exists()).toBe(false)
   })
 })

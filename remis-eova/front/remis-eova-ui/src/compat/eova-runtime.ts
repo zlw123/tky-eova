@@ -157,9 +157,26 @@ export interface EovaTools {
 }
 
 /** `me` 的最小可用面 */
+/**
+ * `me.urls` 面（制品的 URL 工具）
+ *
+ * 取证（第 119 轮）：URL 表**硬编码在冻结制品 `eovaui.js` 里**（扁平键，如
+ * `form_update:"/api/form/update/{{object_code}}"`、`form_detail:…`），
+ * 组件与页面通过 `me.urls.url(key, params)` 取用（旧 `template/tree/index.js:139`
+ * 即 `me.urls.url('form_update', props)`）。**本工程不重建这张表**（r103 已定：
+ * `me.urls` 由制品自带，本工程零工作）—— 只声明类型，调用仍走制品实现。
+ */
+export interface EovaUrls {
+  /** 按键取 URL（`{{key}}` 占位由制品替换；参数缺省时行为与制品一致） */
+  url: (key: string, params?: Record<string, unknown>) => string
+  [k: string]: unknown
+}
+
 export interface EovaMe {
   layer: EovaLayer
   cross: EovaCross
+  /** 制品自带的 URL 表工具（见 `EovaUrls`） */
+  urls: EovaUrls
   [k: string]: unknown
 }
 

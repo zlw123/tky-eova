@@ -67,16 +67,16 @@
       </div>
     </div>
 
-    <!-- 单表模版 -->
-    <TemplateTable v-else :bootstrap="bootstrap!" />
+    <!-- 已迁移模版：按 `menu.template` 分派到组件表里的组件 -->
+    <component :is="readyComponent" v-else :bootstrap="bootstrap!" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import TemplateTable from './TemplateTable.vue'
 import { loadPageBootstrap, type PageBootstrap } from '@/compat/page-bootstrap'
+import { TEMPLATE_COMPONENTS } from './registry'
 import {
   MIGRATED_TEMPLATES,
   UNMIGRATED_TEMPLATES,
@@ -106,6 +106,13 @@ const resolved = computed(() =>
 
 /** 模版名（模板用） */
 const template = computed(() => resolved.value.template)
+
+/**
+ * 该模版对应的组件（`state='ready'` 时才取用）
+ *
+ * 组件表与"已迁移模版名"必须同一集合 —— 由 `__tests__/registry.spec.ts` 双向断言。
+ */
+const readyComponent = computed(() => TEMPLATE_COMPONENTS[template.value])
 
 /** 页面状态（分支必须可观测：判据直接断言它） */
 const state = computed<
