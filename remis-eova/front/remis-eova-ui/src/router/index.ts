@@ -6,6 +6,7 @@ import Password from '@/views/user/Password.vue'
 import Su from '@/views/admin/Su.vue'
 import ButtonAdd from '@/views/button/ButtonAdd.vue'
 import MetaReorder from '@/views/meta/MetaReorder.vue'
+import MenuAuth from '@/views/menu/MenuAuth.vue'
 
 /**
  * 路由表：阶段 2 逐页接管旧 URL。
@@ -56,6 +57,12 @@ export const routes: RouteRecordRaw[] = [
     path: '/meta/reorder',
     name: 'meta-reorder',
     component: MetaReorder
+  },
+  {
+    // 功能授权：旧路径 /eova/menu/auth/<id>（MenuController#auth() 的 `getInt(0)` 就是那个 id）
+    path: '/eova/menu/auth/:id',
+    name: 'menu-auth',
+    component: MenuAuth
   }
 ]
 

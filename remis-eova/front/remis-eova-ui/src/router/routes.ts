@@ -28,7 +28,8 @@ export const SPA_OWNED_PATHS: readonly string[] = [
   // 对应旧栈 ButtonController:36 的 `get(0)`）—— 见 ownedPrefixOf()
   '/eova/button/add',
   // ★ `/meta` 也是 dev 代理前缀之一 ⇒ 不登记就会被代理去后端（见本文件顶部说明）
-  '/meta/reorder'
+  '/meta/reorder',
+  '/eova/menu/auth'
 ]
 
 /**
