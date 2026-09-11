@@ -154,6 +154,28 @@ public final class EovaGateways {
     }
 
     /**
+     * 插入一行（对应 jfinal 静态 {@code Db.save(table, record)}，走默认数据源）。
+     *
+     * @param table  表名
+     * @param record 记录
+     * @return 是否成功
+     */
+    public static boolean save(String table, EovaRecord record) {
+        return get(null).save(table, record);
+    }
+
+    /**
+     * 执行删除/更新语句（对应 jfinal 静态 {@code Db.delete(sql, paras)}，走默认数据源）。
+     *
+     * @param sql   语句
+     * @param paras 参数
+     * @return 受影响行数
+     */
+    public static int delete(String sql, Object... paras) {
+        return get(null).delete(sql, paras);
+    }
+
+    /**
      * 执行更新/DDL（对应静态 {@code Db.update(sql)}，走默认数据源）
      *
      * @param sql 语句
@@ -161,6 +183,28 @@ public final class EovaGateways {
      */
     public static int update(String sql) {
         return get(null).update(sql);
+    }
+
+    /**
+     * 查询首行（对应 jfinal 静态 {@code Db.findFirst(sql, paras)}，走默认数据源）。
+     *
+     * @param sql   查询语句
+     * @param paras 参数
+     * @return 首行；无命中返回 {@code null}
+     */
+    public static EovaRecord findFirst(String sql, Object... paras) {
+        return get(null).findFirst(sql, paras);
+    }
+
+    /**
+     * 批量执行多条 SQL（对应 jfinal 静态 {@code Db.batch(List&lt;String&gt;, int)}，走默认数据源）。
+     *
+     * @param sqlList   待执行 SQL
+     * @param batchSize 每批条数
+     * @return 各行影响数
+     */
+    public static int[] batch(java.util.List<String> sqlList, int batchSize) {
+        return get(null).batch(sqlList, batchSize);
     }
 
     /**

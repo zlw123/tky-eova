@@ -70,6 +70,24 @@ public interface EovaDbGateway {
     EovaRecord findById(String table, Object id);
 
     /**
+     * 按<b>指定主键列</b>查询（对应 jfinal {@code DbPro.findById(String tableName, String primaryKey, Object idValue)}）。
+     *
+     * <p><b>SQL 形态取自旧制品实测</b>（直接调用 jfinal 5.2.6 的
+     * {@code MysqlDialect.forDbFindById} 取值，而非照 javap 注释拼）：</p>
+     * <pre>
+     * select * from `表` where `主键` = ?
+     * </pre>
+     * 多条主键（逗号分隔）时为 {@code where `k1` = ? and `k2` = ?}；
+     * <b>表名与各主键都会 trim</b>。列名一律反引号引用（保留字安全）。
+     *
+     * @param table        表名（会 trim）
+     * @param primaryKey   主键列名，多个以逗号分隔（每段会 trim）
+     * @param idValue      主键值
+     * @return 命中行；无命中返回 {@code null}
+     */
+    EovaRecord findById(String table, String primaryKey, Object idValue);
+
+    /**
      * 分页查询
      *
      * @param pageNumber      页码（从 1 开始；越界返回空列表）

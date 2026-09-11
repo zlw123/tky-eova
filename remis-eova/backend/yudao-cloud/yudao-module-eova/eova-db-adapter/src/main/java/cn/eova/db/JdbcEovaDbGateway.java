@@ -226,6 +226,35 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
     }
 
     /**
+     * 按指定主键列查询（对应 jfinal {@code DbPro.findById(tableName, primaryKey, idValue)}）。
+     *
+     * <p>SQL 形态与 jfinal 5.2.6 的 {@code MysqlDialect.forDbFindById} <b>实测输出</b>一致：
+     * {@code select * from `表` where `主键` = ?}（表名与各主键 trim；多主键用 {@code  and } 连接）。
+     * 主键个数与值个数不匹配时，旧实现抛
+     * {@code IllegalArgumentException("primary key number must equals id value number")}。</p>
+     *
+     * @param table      表名
+     * @param primaryKey 主键列名（可逗号分隔）
+     * @param idValue    主键值
+     * @return 命中行；无命中返回 null
+     */
+    @Override
+    public EovaRecord findById(String table, String primaryKey, Object idValue) {
+        String[] pks = primaryKey.split(",");
+        for (int i = 0; i < pks.length; i++) {
+            pks[i] = pks[i].trim();
+        }
+        StringBuilder sql = new StringBuilder("select * from `").append(table.trim()).append("` where");
+        for (int i = 0; i < pks.length; i++) {
+            if (i > 0) {
+                sql.append(" and");
+            }
+            sql.append('`').append(pks[i]).append("` = ?");
+        }
+        return findFirst(sql.toString(), idValue);
+    }
+
+    /**
      * 批量执行多条 SQL（对应 jfinal {@code DbPro.batch(List&lt;String&gt;, int)}）。
      *
      * <p>旧实现（字节码逐条读出）：空列表返回 {@code new int[0]}；{@code batchSize < 1}

@@ -5,6 +5,7 @@ package cn.eova.config;
 import java.net.URLClassLoader;
 import java.util.HashMap;
 
+import cn.eova.aop.MetaObjectIntercept;
 import cn.eova.core.type.Convertor;
 import com.alibaba.druid.DbType;
 
@@ -68,6 +69,29 @@ public class EovaConfig {
      */
     public static Convertor getConvertor(String ds) {
         return convertorMap.get(ds);
+    }
+
+    /** 默认的元对象业务拦截器（旧源码 EovaConfig.java:121 —— 逐字一致） */
+    private static MetaObjectIntercept defaultMetaObjectIntercept = null;
+
+    /**
+     * 取默认元对象拦截器（旧 EovaConfig.java:583 —— 逐字一致）。
+     *
+     * <p>第 67 轮为 port {@code TemplateUtil} 而按旧源码逐字补入（同一 stub 的真实子集）。</p>
+     *
+     * @return 默认拦截器；未设置时为 null
+     */
+    public static MetaObjectIntercept getDefaultMetaObjectIntercept() {
+        return defaultMetaObjectIntercept;
+    }
+
+    /**
+     * 设置默认元对象拦截器（旧 EovaConfig.java:587 —— 逐字一致）。
+     *
+     * @param defaultMetaObjectIntercept 默认拦截器
+     */
+    public static void setDefaultMetaObjectIntercept(MetaObjectIntercept defaultMetaObjectIntercept) {
+        EovaConfig.defaultMetaObjectIntercept = defaultMetaObjectIntercept;
     }
 
     /**
