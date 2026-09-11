@@ -77,6 +77,9 @@ class DeclarativeUnitGoldenTest {
             "cn.eova.ext.jfinal.directive.JsonDirective",
             "cn.eova.template.Template");
 
+    private static final List<String> UNITS_NEED_JFINAL = List.of(
+            "cn.eova.widget.tree.TreeNode");
+
     /**
      * <b>已声明的适配</b>：单元 FQCN → 允许在【新实现侧】额外出现在的成员。
      *
@@ -105,6 +108,8 @@ class DeclarativeUnitGoldenTest {
 
         ClassLoader oldLoader =
                 OldImplementationLoader.create(OldImplementationLoader.locateRepoRoot());
+        ClassLoader jfinalLoader =
+                OldImplementationLoader.createWithOldJFinal(OldImplementationLoader.locateRepoRoot());
 
         List<String> diffs = new ArrayList<>();
         int compared = 0;
@@ -112,8 +117,16 @@ class DeclarativeUnitGoldenTest {
         int annotations = 0;
         int constFields = 0;
 
-        for (String fqcn : UNITS) {
-            Class<?> oldC = oldLoader.loadClass(fqcn);
+        List<String> all = new ArrayList<>(UNITS);
+        all.addAll(UNITS_NEED_JFINAL);
+        for (String fqcn : all) {
+            Class<?> oldC;
+            try {
+                oldC = (UNITS_NEED_JFINAL.contains(fqcn) ? jfinalLoader : oldLoader).loadClass(fqcn);
+            } catch (Throwable t) {
+                diffs.add(fqcn + " 旧类加载失败: " + t.getClass().getSimpleName());
+                continue;
+            }
             // 自校验：确保比对的是旧产物，而非本次 port 的新类（否则比对退化为"新 vs 新"）
             OldImplementationLoader.assertFromOldArtifacts(oldC);
             Class<?> newC = Class.forName(fqcn);
@@ -154,9 +167,29 @@ class DeclarativeUnitGoldenTest {
                 "声明式单元反射面差异 " + diffs.size() + " 条：\n" + String.join("\n", diffs));
     }
 
+    /** 宿主类型替换映射（r200）：port 把 jfinal 类型换成项目 shim，属已声明适配
+     * （R39/R40），不是 port 不等价；比对前归一化，避免用白名单掩盖差异。 */
+    private static final Map<String, String> HOST_SUBSTITUTIONS = Map.of(
+            "com.jfinal.kit.Kv", "cn.eova.compat.jfinal.kit.LegacyKv",
+            "com.jfinal.plugin.activerecord.Record", "cn.eova.db.EovaRecord");
+
+    /** 归一化签名/父类里的旧宿主类型名 */
+    private static String norm(String s) {
+        if (s == null) {
+            return null;
+        }
+        String out = s;
+        for (Map.Entry<String, String> e : HOST_SUBSTITUTIONS.entrySet()) {
+            out = out.replace(e.getKey(), e.getValue());
+        }
+        return out;
+    }
+
     private static void diff(List<String> diffs, String fqcn, String what, Object o, Object n) {
-        if (!String.valueOf(o).equals(String.valueOf(n))) {
-            diffs.add(fqcn + " | " + what + ":\n    旧=" + o + "\n    新=" + n);
+        String so = norm(String.valueOf(o));
+        String sn = norm(String.valueOf(n));
+        if (!so.equals(sn)) {
+            diffs.add(fqcn + " | " + what + ":\n    旧=" + so + "\n    新=" + sn);
         }
     }
 
