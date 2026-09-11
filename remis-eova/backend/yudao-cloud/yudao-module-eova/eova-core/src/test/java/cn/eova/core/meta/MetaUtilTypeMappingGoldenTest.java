@@ -54,6 +54,8 @@ class MetaUtilTypeMappingGoldenTest {
             "decimal", "numeric", "double", "float", "real", "bit", "boolean", "bool",
             "json", "enum", "set", "serial", "money", "uuid",
             "", " ", "unknown_type", "INT ", " int", "汉字类型", "int(11)", "varchar(64)",
+            // ★ r187 实测：第二个 baseline（KingbaseES）真实出现的列类型字面量
+            "oid", "USER-DEFINED", "double precision", "boolean", "integer",
     };
 
     /** getFormType 的 (isAuto, size) 组合 */
