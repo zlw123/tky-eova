@@ -429,6 +429,17 @@ describe('TemplateTree.vue（旧 template/tree 的行为等价）', () => {
     )
   })
 
+  it('★ 跨窗口约定：`uzoo.app.refTree` 必须仍是 **ref**（`.value.reload()` 才能被父页调用）', () => {
+    // 取证：`_view/menu/add/app.js:157` 与 `_view/role/auth/app.js:142`（注释）里是
+    // `parent.uzoo.app.refTree.value.reload()` —— 即"菜单树页面作为父窗口、创建菜单弹层作为子窗口"的约定。
+    // 旧实现 `return uzoo.app = {…, refTree, …}` 放进去的是 **ref 对象**（不是解包后的实例），
+    // 子窗口才能 `.value.reload()`。SPA 侧（r111 已迁的 MenuAdd）同样按该形态调用 ⇒ 此处必须钉住。
+    mountPage()
+    const refTree = getUzooApp()['refTree'] as { value?: { reload?: unknown } }
+    expect(refTree).toBeTruthy()
+    expect(typeof refTree.value?.reload).toBe('function')
+  })
+
   it('⑨ 既有死值原样带出：cityData 11 条、json 演示串', () => {
     const w = mountPage()
     const vm = w.vm as never as {
