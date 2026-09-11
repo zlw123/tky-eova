@@ -11,6 +11,7 @@ import cn.eova.compat.jfinal.kit.LegacyStrKit;
 import cn.eova.compat.jfinal.kit.LegacyKv;
 import cn.eova.compat.render.LegacyRender;
 import cn.eova.compat.render.LegacyRenderManager;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -276,6 +277,97 @@ public class LegacyController {
                     LegacyRenderManager.getRenderFactory().getErrorRender(400),
                     "Can not parse the parameter \"" + value + "\" to Integer value.");
         }
+    }
+
+    /**
+     * 转 Long。
+     *
+     * <p>旧字节码与 {@link #toInt} <b>同构</b>：blank 回落缺省；trim 后
+     * {@code "N"}/{@code "n"} 前缀表示<b>取负</b>（{@code "N9"} → {@code -9L}）；
+     * 失败抛 400，消息为 {@code Can not parse the parameter "X" to Long value.}。</p>
+     *
+     * @param value        原始值
+     * @param defaultValue 缺省值
+     * @return Long
+     */
+    private Long toLong(String value, Long defaultValue) {
+        try {
+            if (LegacyStrKit.isBlank(value)) {
+                return defaultValue;
+            }
+            value = value.trim();
+            if (value.startsWith("N") || value.startsWith("n")) {
+                return -Long.parseLong(value.substring(1));
+            }
+            return Long.parseLong(value);
+        } catch (Exception e) {
+            throw new LegacyActionException(400,
+                    LegacyRenderManager.getRenderFactory().getErrorRender(400),
+                    "Can not parse the parameter \"" + value + "\" to Long value.");
+        }
+    }
+
+    /**
+     * 取参数转 Long。
+     *
+     * @param name 参数名
+     * @return Long
+     */
+    public Long getParaToLong(String name) {
+        return toLong(request.getParameter(name), null);
+    }
+
+    /**
+     * 取参数转 Long，缺省回落。
+     *
+     * @param name         参数名
+     * @param defaultValue 缺省值
+     * @return Long
+     */
+    public Long getParaToLong(String name, Long defaultValue) {
+        return toLong(request.getParameter(name), defaultValue);
+    }
+
+    /**
+     * 取第 index 段 urlPara 转 Long。
+     *
+     * @param index 下标
+     * @return Long
+     */
+    public Long getParaToLong(int index) {
+        return toLong(getPara(index), null);
+    }
+
+    /**
+     * 取第 index 段 urlPara 转 Long，缺省回落。
+     *
+     * @param index        下标
+     * @param defaultValue 缺省值
+     * @return Long
+     */
+    public Long getParaToLong(int index, Long defaultValue) {
+        return toLong(getPara(index), defaultValue);
+    }
+
+    /**
+     * 取参数转 Long（旧实现是 {@link #getParaToLong(String)} 的别名）。
+     *
+     * @param name 参数名
+     * @return Long
+     */
+    public Long getLong(String name) {
+        return getParaToLong(name);
+    }
+
+    /**
+     * 取参数转 Long，缺省回落（别名）。
+     *
+     * @param name         参数名
+     * @param defaultValue 缺省值
+     * @return Long
+     */
+    public Long getLong(String name, Long defaultValue) {
+        return getParaToLong(name, defaultValue);
     }
 
     /**
@@ -551,6 +643,118 @@ public class LegacyController {
      */
     public LegacyRender getRender() {
         return render;
+    }
+
+    // ---------------- Cookie ----------------
+
+    /**
+     * 按名取 Cookie 对象。
+     *
+     * <p>旧字节码：遍历 {@code request.getCookies()}（可能为 null），
+     * 用 {@code getName().equals(name)} <b>区分大小写</b>比对，
+     * <b>返回首个命中</b>；无命中或 cookies 为 null 返回 null。</p>
+     *
+     * @param name Cookie 名
+     * @return Cookie；未命中返回 null
+     */
+    public Cookie getCookieObject(String name) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie c : cookies) {
+                if (c.getName().equals(name)) {
+                    return c;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 按名取 Cookie 值。
+     *
+     * @param name Cookie 名
+     * @return 值；未命中返回 null
+     */
+    public String getCookie(String name) {
+        return getCookie(name, null);
+    }
+
+    /**
+     * 按名取 Cookie 值，缺省回落（旧字节码：命中取 {@code getValue()}，否则返回缺省值）。
+     *
+     * @param name         Cookie 名
+     * @param defaultValue 缺省值
+     * @return 值
+     */
+    public String getCookie(String name, String defaultValue) {
+        Cookie c = getCookieObject(name);
+        return c != null ? c.getValue() : defaultValue;
+    }
+
+    /**
+     * 设置 Cookie（各便捷重载的统一实现）。
+     *
+     * <p><b>语义逐条取自旧字节码，含一处极易写错的地方：</b>
+     * <pre>
+     * Cookie cookie = new Cookie(name, value);
+     * cookie.setMaxAge(maxAge);
+     * if (StrKit.isBlank(path)) path = "/";      // 空 path 归一为 "/"
+     * cookie.setPath(path);
+     * if (domain != null) cookie.setDomain(domain);
+     * if (secure != null) cookie.setHttpOnly(secure.booleanValue());   // ← 不是 setSecure！
+     * response.addCookie(cookie);
+     * return this;
+     * </pre>
+     * 最后一个形参在旧签名里叫 {@code secure}，但实际调用的是 <b>{@code setHttpOnly}</b>
+     * （jfinal 的命名与行为不一致，属既有形态，<b>不得</b>改成 {@code setSecure}）。</p>
+     *
+     * @param name   Cookie 名
+     * @param value  值
+     * @param maxAge 最大存活秒数
+     * @param path   路径；空则归一为 "/"
+     * @param domain 域；null 则不设置
+     * @param secure 是否 HttpOnly；null 则不设置
+     * @return this
+     */
+    protected LegacyController doSetCookie(String name, String value, int maxAge,
+                                          String path, String domain, Boolean secure) {
+        Cookie cookie = new Cookie(name, value);
+        cookie.setMaxAge(maxAge);
+        if (LegacyStrKit.isBlank(path)) {
+            path = "/";
+        }
+        cookie.setPath(path);
+        if (domain != null) {
+            cookie.setDomain(domain);
+        }
+        if (secure != null) {
+            cookie.setHttpOnly(secure);
+        }
+        response.addCookie(cookie);
+        return this;
+    }
+
+    /**
+     * 设置 Cookie（最大存活秒数）。
+     *
+     * @param name   Cookie 名
+     * @param value  值
+     * @param maxAge 最大存活秒数
+     * @return this
+     */
+    public LegacyController setCookie(String name, String value, int maxAge) {
+        return doSetCookie(name, value, maxAge, null, null, null);
+    }
+
+    /**
+     * 移除 Cookie（旧字节码：{@code doSetCookie(name, null, 0, null, null, null)} ——
+     * 即置空值 + maxAge 0，path 由 doSetCookie 归一为 "/"）。
+     *
+     * @param name Cookie 名
+     * @return this
+     */
+    public LegacyController removeCookie(String name) {
+        return doSetCookie(name, null, 0, null, null, null);
     }
 
     // ---------------- 路径信息 ----------------

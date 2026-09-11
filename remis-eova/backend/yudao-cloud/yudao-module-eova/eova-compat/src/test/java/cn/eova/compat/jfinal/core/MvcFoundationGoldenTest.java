@@ -60,6 +60,9 @@ class MvcFoundationGoldenTest {
             "getRequest", "getResponse", "getPara", "getParaMap", "getRawData",
             "getParaToInt", "getParaToBoolean", "getInt", "getBoolean", "set", "setAttr", "getAttr",
             "removeAttr", "keepPara", "getKv", "render", "getRender",
+            // W1b：toLong 族 + Cookie 族
+            "getParaToLong", "getLong", "getCookie", "getCookieObject",
+            "doSetCookie", "setCookie", "removeCookie",
             "getControllerKey", "getViewPath", "getControllerPath");
 
     /**
@@ -85,7 +88,7 @@ class MvcFoundationGoldenTest {
 
     /** 方法集钉死 */
     @Test
-    @DisplayName("W1a 方法集钉死")
+    @DisplayName("方法集钉死（W1a + W1b）")
     void w1aMethodSetIsPinned() {
         List<String> actual = new ArrayList<>();
         for (Method m : LegacyController.class.getDeclaredMethods()) {
@@ -94,7 +97,7 @@ class MvcFoundationGoldenTest {
             }
         }
         assertEquals(new ArrayList<>(new TreeSet<>(W1A_METHODS)), new ArrayList<>(new TreeSet<>(actual)),
-                "方法集必须与 W1a 清单一致；新增（W1b/W2）时同步清单");
+                "方法集必须与清单一致；新增（W1c/W2）时同步清单");
     }
 
     /**
@@ -244,6 +247,79 @@ class MvcFoundationGoldenTest {
         assertNull(c.getPara());
     }
 
+    /** toLong 的 N 前缀取负 */
+    @Test
+    @DisplayName("getParaToLong：\"N\"/\"n\" 前缀取负；超 int 范围不溢出")
+    void toLongNPrefixMeansNegate() {
+        assertEquals(9L, controller(Map.of("v", "9")).getParaToLong("v"));
+        assertEquals(-9L, controller(Map.of("v", "N9")).getParaToLong("v"), "N9 应为 -9");
+        assertEquals(-12L, controller(Map.of("v", "n12")).getParaToLong("v"));
+        long big = 3_000_000_000L;
+        assertEquals(big, controller(Map.of("v", String.valueOf(big))).getParaToLong("v"),
+                "超出 int 范围的值必须按 Long 正确解析");
+        assertEquals(-big, controller(Map.of("v", "N" + big)).getParaToLong("v"));
+        assertNull(controller(Map.of("v", "")).getParaToLong("v"));
+    }
+
+    /** Cookie 族：写-读-删往返 + doSetCookie 的三处语义 */
+    @Test
+    @DisplayName("Cookie 族：setCookie/removeCookie 的 path 归一与 setHttpOnly（不是 setSecure）")
+    void cookieSemantics() {
+        Map<String, Object> attrs = new LinkedHashMap<>();
+        List<jakarta.servlet.http.Cookie> added = new ArrayList<>();
+        LegacyController c = new LegacyController();
+        c.setHttpServletRequest(spy(attrs, Map.of()));
+        c.setHttpServletResponse(responseSpy(added));
+
+        c.setCookie("t", "v", 60);
+        assertEquals(1, added.size());
+        jakarta.servlet.http.Cookie ck = added.get(0);
+        assertEquals("t", ck.getName());
+        assertEquals("v", ck.getValue());
+        assertEquals(60, ck.getMaxAge());
+        assertEquals("/", ck.getPath(), "空 path 必须归一为 \"/\"");
+        assertTrue(!ck.isHttpOnly(), "secure 参数为 null 时不应设置 HttpOnly");
+
+        c.removeCookie("t");
+        assertEquals(2, added.size());
+        jakarta.servlet.http.Cookie gone = added.get(1);
+        assertNull(gone.getValue(), "removeCookie 置空值");
+        assertEquals(0, gone.getMaxAge(), "removeCookie 置 maxAge=0");
+        assertEquals("/", gone.getPath());
+
+        // 【判别性用例】secure = TRUE 时必须走 setHttpOnly（不是 setSecure）
+        // 不加这一条，"setHttpOnly 被改成 setSecure" 不会被任何判据发现
+        // （secure 为 null 时两条分支都不执行）—— 该漏检由变异测试实测发现。
+        Probe p2 = new Probe();
+        Map<String, Object> a2 = new LinkedHashMap<>();
+        List<jakarta.servlet.http.Cookie> add2 = new ArrayList<>();
+        p2.setHttpServletRequest(spy(a2, Map.of()));
+        p2.setHttpServletResponse(responseSpy(add2));
+        p2.doSetCookie("h", "v", 10, null, null, Boolean.TRUE);
+        assertTrue(add2.get(0).isHttpOnly(),
+                "secure=TRUE 必须设置 HttpOnly —— 旧实现的形参名叫 secure 但调用的是 setHttpOnly");
+        assertTrue(!add2.get(0).getSecure(),
+                "【不得】设置 Secure 标志（与形参名相反，属 jfinal 的既有命名与行为不一致）");
+    }
+
+    /** Cookie 名比对区分大小写 */
+    @Test
+    @DisplayName("getCookieObject：Cookie 名比对【区分大小写】")
+    void cookieNameLookupIsCaseSensitive() {
+        Map<String, Object> attrs = new LinkedHashMap<>();
+        Map<String, jakarta.servlet.http.Cookie> jar = new LinkedHashMap<>();
+        jar.put("T", new jakarta.servlet.http.Cookie("T", "upper"));
+        jar.put("t", new jakarta.servlet.http.Cookie("t", "lower"));
+        LegacyController c = new LegacyController();
+        c.setHttpServletRequest(cookieSpy(jar));
+
+        assertEquals("upper", c.getCookie("T"));
+        assertEquals("lower", c.getCookie("t"), "大小写不同是【两个】Cookie");
+        assertNull(c.getCookie("Tt"), "找不到时必须走缺省值；大小写敏感，不得 equalsIgnoreCase");
+        assertEquals("d", c.getCookie("Tt", "d"));
+        assertNull(c.getCookieObject("TT"));
+    }
+
     /** invoke 链 */
     @Test
     @DisplayName("LegacyInvocation.invoke：拦截器按序 + action 只执行一次")
@@ -325,6 +401,78 @@ class MvcFoundationGoldenTest {
         LegacyController c = new LegacyController();
         c.setHttpServletRequest(spy(new LinkedHashMap<>(), multi));
         return c;
+    }
+
+    /**
+     * 建带 Cookie 罐的请求替身。
+     *
+     * @param jar 名 -> Cookie
+     * @return 替身
+     */
+    private static HttpServletRequest cookieSpy(Map<String, jakarta.servlet.http.Cookie> jar) {
+        InvocationHandler h = (p, m, args) -> {
+            switch (m.getName()) {
+                case "getCookies":
+                    return jar.values().toArray(new jakarta.servlet.http.Cookie[0]);
+                case "equals":
+                    return p == args[0];
+                case "hashCode":
+                    return System.identityHashCode(p);
+                case "toString":
+                    return "CookieSpy";
+                default:
+                    return null;
+            }
+        };
+        return (HttpServletRequest) Proxy.newProxyInstance(
+                MvcFoundationGoldenTest.class.getClassLoader(),
+                new Class<?>[]{HttpServletRequest.class}, h);
+    }
+
+    /** 探针子类：把 protected 的 doSetCookie 暴露给判据 */
+    static class Probe extends LegacyController {
+        /**
+         * 暴露 doSetCookie。
+         *
+         * @param n 名
+         * @param v 值
+         * @param age 存活
+         * @param path 路径
+         * @param domain 域
+         * @param secure HttpOnly
+         * @return this
+         */
+        public LegacyController doSetCookie(String n, String v, int age, String path, String domain, Boolean secure) {
+            return super.doSetCookie(n, v, age, path, domain, secure);
+        }
+    }
+
+    /**
+     * 建响应替身（只记录 {@code addCookie}）。
+     *
+     * @param added 收集被 add 的 Cookie
+     * @return 替身
+     */
+    private static jakarta.servlet.http.HttpServletResponse responseSpy(
+            List<jakarta.servlet.http.Cookie> added) {
+        InvocationHandler h = (p, m, args) -> {
+            switch (m.getName()) {
+                case "addCookie":
+                    added.add((jakarta.servlet.http.Cookie) args[0]);
+                    return null;
+                case "equals":
+                    return p == args[0];
+                case "hashCode":
+                    return System.identityHashCode(p);
+                case "toString":
+                    return "RespSpy";
+                default:
+                    return null;
+            }
+        };
+        return (jakarta.servlet.http.HttpServletResponse) Proxy.newProxyInstance(
+                MvcFoundationGoldenTest.class.getClassLoader(),
+                new Class<?>[]{jakarta.servlet.http.HttpServletResponse.class}, h);
     }
 
     /**
