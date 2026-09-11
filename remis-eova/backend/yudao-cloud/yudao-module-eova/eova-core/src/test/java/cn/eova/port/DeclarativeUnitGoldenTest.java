@@ -71,7 +71,9 @@ class DeclarativeUnitGoldenTest {
             "cn.eova.common.base.BaseCache",
             // r192 二分实测：本类旧侧可在无 jfinal 的 classpath 下定义 ⇒ 可跨制品比对
             "cn.eova.core.object.config.TableConfig",
-            "cn.eova.sql.ddl.DefineConfig");
+            "cn.eova.sql.ddl.DefineConfig",
+            "cn.eova.mod.EovaModPackage",
+            "cn.eova.core.button.ButtonFactory");
 
     /**
      * <b>已声明的适配</b>：单元 FQCN → 允许在【新实现侧】额外出现在的成员。
