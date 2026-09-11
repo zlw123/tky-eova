@@ -5,8 +5,8 @@ import { describe, expect, it } from 'vitest'
 import { closeAllTab, closeTab, initTabs, openTab, toTab, type TabItem } from '../tab'
 
 describe('tab.ts（旧 index.js 的 Tab 行为等价）', () => {
-  it('初始页签：首页固定第一项且激活', () => {
-    expect(initTabs()).toEqual([{ id: 0, name: '首页', active: true }])
+  it('初始页签：首页固定第一项且激活，且必须带 link=/main（内容区靠它渲染 iframe）', () => {
+    expect(initTabs()).toEqual([{ id: 0, name: '首页', active: true, link: '/main' }])
   })
 
   it('openTab：已存在则只切换、不重复入栈；不存在则入栈并激活', () => {
@@ -44,12 +44,12 @@ describe('tab.ts（旧 index.js 的 Tab 行为等价）', () => {
     expect(tabs.find((t) => t.active)!.id).toBe(3)
   })
 
-  it('closeAllTab：只保留首页并激活（splice(1)）', () => {
+  it('closeAllTab：只保留首页并激活（splice(1)），且首页仍带 link（否则首页 iframe 会失去 src）', () => {
     const tabs: TabItem[] = initTabs()
     openTab(tabs, { id: 1, name: 'A' })
     openTab(tabs, { id: 2, name: 'B' })
     closeAllTab(tabs)
-    expect(tabs).toEqual([{ id: 0, name: '首页', active: true }])
+    expect(tabs).toEqual([{ id: 0, name: '首页', active: true, link: '/main' }])
   })
 
   it('toTab：单一激活（其余全部置 false）', () => {

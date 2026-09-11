@@ -28,10 +28,14 @@ export interface TabItem {
 /**
  * 初始页签（旧实现：首页固定在第一项且激活）
  *
+ * ★ `link: '/main'` **不可省**：旧实现初始项就是
+ * `{id:0, name:'首页', active:true, link:'/main'}`，而内容区按 `:src="m.link"` 渲染 iframe
+ * —— 少了它首页 iframe 没有 src（第 97 轮抽出本模块时漏带，第 101 轮实施内容区时暴露并补回）。
+ *
  * @returns 初始页签数组
  */
 export function initTabs(): TabItem[] {
-  return [{ id: 0, name: '首页', active: true }]
+  return [{ id: 0, name: '首页', active: true, link: '/main' }]
 }
 
 /**
