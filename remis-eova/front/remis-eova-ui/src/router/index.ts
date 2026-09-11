@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Placeholder from '@/views/Placeholder.vue'
 import Login from '@/views/Login.vue'
 import Home from '@/views/Home.vue'
+import Password from '@/views/user/Password.vue'
 
 // 路由表：阶段 2 / T01 骨架。
 // 口径 ②：旧 URL（/eova、/meta、/widget）不得加前缀，路由在 T02 逐页接管。
@@ -25,6 +26,13 @@ const router = createRouter({
       path: '/user/login',
       name: 'login',
       component: Login
+    },
+    {
+      // 修改密码：旧栈由 Home 的 me.layer.open('修改密码', '/user/password', 400, 300) 以 iframe 打开
+      // ⇒ 路径必须与旧实现逐字一致（否则弹层会 404）
+      path: '/user/password',
+      name: 'user-password',
+      component: Password
     }
   ]
 })
