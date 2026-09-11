@@ -341,6 +341,15 @@ public final class LegacyConstants {
     }
 
     /**
+     * 记录 JSON 工厂实例（旧 {@code setJsonFactory(MixedJsonFactory.me())} 的等价重载）。
+     *
+     * @param jsonFactory JSON 工厂实例
+     */
+    public void setJsonFactory(cn.eova.compat.jfinal.json.LegacyMixedJsonFactory jsonFactory) {
+        this.jsonFactoryName = jsonFactory.getClass().getName();
+    }
+
+    /**
      * 取 JSON 工厂类名。
      *
      * @return 类名；未设置时为 null

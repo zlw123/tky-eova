@@ -1,0 +1,3 @@
+# 判据资源：模拟真实部署的 eova/dev.txt（EovaConfig.configConstant 用 PropKit.useFirstFound 加载五档之一）
+devMode=true
+env=DEV

@@ -5,6 +5,7 @@
  */
 package cn.eova.config;
 
+import cn.eova.tools.x;
 import com.alibaba.druid.DbType;
 import com.alibaba.druid.util.JdbcUtils;
 
@@ -60,6 +61,68 @@ public class EovaDataSource {
 
     /** 数据源列表<数据源名, 数据源DB类型> **/
     private static final Map<String, DbType> dataSources = new HashMap<>();
+
+    /**
+     * 注册数据源（支持多数据源）—— 旧 {@code create(Plugins)} 的**可移植半部分**逐行等价。
+     *
+     * <p><b>切分线（第 86 轮裁定，逐行读旧 68-110 行得出）：</b>
+     * 本方法逐行保留旧实现的<b>配置语义</b>：{@code db.datasource} 逗号分隔解析、
+     * 每 ds 的 {@code url/user/pwd/driver/filters}（filters 默认 {@code "log4j,stat,wall"}）、
+     * {@code db.pwd.encrypt} 时的 AES 解密、DbType 写入注册表
+     * （{@code JdbcUtils.getDbTypeRaw(url, getDriverClassName(url))}）、
+     * <b>两条中文错误消息</b>与 info 日志。
+     * 旧的<b>宿主装配半部分</b>（{@code initDruidPlugin} 建池、{@code initActiveRecordPlugin} 建 ARP、
+     * {@code plugins.add(dp).add(arp)}、{@code EovaConfig.arps.put}）由 Spring 承担
+     * （§4 约束 2），此处显式落成 {@link LegacyDataSourceWiring.Spec} + {@link LegacyDbPlugin}
+     * —— 装配所需信息一个字段都不丢，只是不在这一层建池。</p>
+     *
+     * @param plugins 插件容器（旧签名；新栈只是承载装配信息）
+     */
+    public static void create(cn.eova.compat.jfinal.config.LegacyPlugins plugins) {
+        // 多数据源支持
+        String datasource = x.conf.get("db.datasource");
+        if (x.isEmpty(datasource)) {
+            throw new RuntimeException("数据源配置项不存在,请检查配置jdbc.config 配置项[db.datasource]");
+        }
+        for (String ds : datasource.split(",")) {
+            ds = ds.trim();
+
+            String url = x.conf.get(ds + ".url");
+            String user = x.conf.get(ds + ".user");
+            String pwd = x.conf.get(ds + ".pwd");
+            String driver = x.conf.get(ds + ".driver");
+            String filters = x.conf.get(ds + ".filters", "log4j,stat,wall");
+            if (x.isEmpty(url)) {
+                throw new RuntimeException(String.format("数据源[%s]配置异常,请检查请检查配置jdbc.config", ds));
+            }
+
+            // JDBC密码加密
+            if (x.conf.getBool("db.pwd.encrypt", false)) {
+                pwd = cn.eova.common.utils.string.AESUtil.decrypt(pwd);
+            }
+
+            // 【已声明适配】旧栈在此建 DruidPlugin + ActiveRecordPlugin 并 plugins.add(dp).add(arp)；
+            // 新栈把坐标登记给宿主装配层（连接池归 Spring，ARP 归 LegacyActiveRecordPlugin + 网关）
+            cn.eova.compat.db.LegacyDataSourceWiring.Spec spec =
+                    new cn.eova.compat.db.LegacyDataSourceWiring.Spec(ds, url, user, pwd, driver, filters);
+            cn.eova.compat.db.LegacyDataSourceWiring.add(spec);
+
+            cn.eova.common.utils.xx.info("create ds[%s] %s > %s", ds, user, url);
+
+            try {
+                dataSources.put(ds, com.alibaba.druid.util.JdbcUtils.getDbTypeRaw(
+                        url, com.alibaba.druid.util.JdbcUtils.getDriverClassName(url)));
+            } catch (java.sql.SQLException e) {
+                e.printStackTrace();
+            }
+            // 【已声明适配】旧栈在此 EovaConfig.arps.put(ds, arp)：ARP 同时是"该 ds 的映射登记句柄"，
+            // 被 EovaConfig.mappingEova(arps.get(Ds.EOVA)) / mapping(arps) 读取。
+            // 新栈用 LegacyActiveRecordPlugin 承担这一角色（其 addMapping 落到 EovaTableMapping），
+            // 故此处登记同形句柄 —— 否则 mappingEova 会收到 null（第 86 轮实测到）。
+            cn.eova.config.EovaConfig.arps.put(ds, new cn.eova.compat.jfinal.plugin.activerecord.LegacyActiveRecordPlugin(ds));
+            plugins.add(new cn.eova.compat.db.LegacyDbPlugin(spec));
+        }
+    }
 
     /**
      * 取数据源注册表（返回内部视图，与旧实现一致）

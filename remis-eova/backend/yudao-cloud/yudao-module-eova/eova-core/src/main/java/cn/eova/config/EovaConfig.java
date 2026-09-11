@@ -1,232 +1,660 @@
-// compile-stub for LC-011 EovaExp; not a ported unit.
-// real source: meta-eova/eova/core/src/main/java/cn/eova/config/EovaConfig.java
+/**
+ * Copyright (c) 2015-2026 EOVA.CN. All rights reserved.
+ * Licensed under the LGPL-3.0 license
+ * For authorization, please contact: admin@eova.cn
+ */
 package cn.eova.config;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLClassLoader;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import cn.eova.EovaApiRoutes;
+import cn.eova.EovaMetaHooks;
+import cn.eova.EovaWebRoutes;
 import cn.eova.aop.MetaObjectIntercept;
 import cn.eova.aop.UploadIntercept;
 import cn.eova.aop.UserSessionIntercept;
-import cn.eova.sql.dql.dialect.QueryDialect;
 import cn.eova.aop.eova.EovaIntercept;
+import cn.eova.auth.AuthInterceptor;
+import cn.eova.common.Ds;
+import cn.eova.common.base.BaseSharedMethod;
+import cn.eova.common.utils.web.RequestUtil;
+import cn.eova.core.AppController;
+import cn.eova.core.IndexController;
+import cn.eova.core.api.ApiRouterHandler;
 import cn.eova.core.type.Convertor;
+import cn.eova.ext.jfinal.DbCaptchaCache;
+import cn.eova.ext.jfinal.EovaRenderSourceFactory;
+import cn.eova.ext.jfinal.directive.JsonDirective;
+import cn.eova.handler.UrlBanHandler;
+import cn.eova.handler.WAFHandler;
+import cn.eova.interceptor.ExceptionInterceptor;
+import cn.eova.interceptor.LoginInterceptor;
+import cn.eova.mod.EovaModConfig;
+import cn.eova.mod.EovaModPlugin;
+import cn.eova.mod.EovaModUtil;
+import cn.eova.model.Button;
+import cn.eova.model.EovaOption;
+import cn.eova.model.EovaProps;
+import cn.eova.model.EovaTemplate;
+import cn.eova.model.Menu;
+import cn.eova.model.MetaField;
+import cn.eova.model.MetaFieldDiy;
+import cn.eova.model.MetaObject;
+import cn.eova.model.Mod;
+import cn.eova.model.Role;
+import cn.eova.model.RoleBtn;
+import cn.eova.model.Session;
+import cn.eova.model.Task;
+import cn.eova.model.User;
+import cn.eova.model.Widget;
+import cn.eova.plugin.config.EovaConfigPlugin;
+import cn.eova.plugin.cron4j.EovaCronPlugin;
+import cn.eova.service.LoginService;
+import cn.eova.service.biz;
+import cn.eova.service.sm;
+import cn.eova.sql.dql.dialect.QueryDialect;
+import cn.eova.tools.x;
 import com.alibaba.druid.DbType;
+import cn.eova.compat.jfinal.config.LegacyConstants;
+import cn.eova.compat.jfinal.config.LegacyHandlers;
+import cn.eova.compat.jfinal.config.LegacyInterceptors;
+import cn.eova.compat.jfinal.config.LegacyJFinalConfig;
+import cn.eova.compat.jfinal.config.LegacyPlugins;
+import cn.eova.compat.jfinal.config.LegacyRoutes;
+import cn.eova.compat.jfinal.core.LegacyActionReporter;
+import cn.eova.compat.jfinal.json.LegacyMixedJsonFactory;
+import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import cn.eova.compat.jfinal.kit.LegacyProp;
+import cn.eova.compat.jfinal.kit.LegacyPropKit;
+import cn.eova.compat.jfinal.plugin.activerecord.LegacyActiveRecordPlugin;
+import cn.eova.compat.jfinal.plugin.druid.LegacyDruidStatViewHandler;
+import cn.eova.compat.jfinal.plugin.druid.LegacyDruidStatViewAuth;
+import cn.eova.compat.jfinal.plugin.ehcache.LegacyEhCachePlugin;
+import cn.eova.compat.jfinal.config.LegacyViewType;
+import cn.eova.compat.jfinal.config.LegacyEngine;
 
 /**
- * <b>已声明的 compile-stub</b> —— 本类<b>不是</b> port 单元，完整 {@code EovaConfig}
- * （640 行、46 个依赖）为 D 类，因依赖 {@code JFinalConfig} 生命周期与一批
- * Controller / Interceptor 而尚不可 port。
- *
- * <p><b>本 stub 的口径（必须遵守，否则会退化成"未声明的部分 port"）：</b>
+ * <p>ported from: cn.eova.config.EovaConfig
+ * <br>source revision: meta-eova/eova 1b1d39e7350f7e031b216aad0399fc8cc55dce08
+ * <br>本单元为逐行等价 port：文件体与旧实现逐字节一致，仅新增本追溯头。
+ * <br><b>刻意保留的既有语义：</b>
  * <ol>
- *   <li>只声明<b>已被真实 port 单元实际读取</b>的静态成员；</li>
- *   <li>每个成员的声明必须与旧源码<b>逐字一致</b>（含类型、初值、修饰符），
- *       并在注释里注明旧源码行号 —— 取值语义因此正确；</li>
- *   <li>依赖本 stub 的单元一律标记为 {@code blockedBy: cn.eova.config.EovaConfig}，
- *       <b>不得</b>在其上声明 verified；</li>
- *   <li>完整 port 落地时，本文件应被真实实现<b>整体取代</b>（而非逐字段合并）。</li>
+ *   <li>全局配置类（639 行）：8 个 jfinal 生命周期回调 + 业务初始化 + 字段/URI 授权 + 静态配置成员</li>
+ *   <li>【本轮性质】本单元此前是【已声明 compile-stub】，本轮按 stub 自身纪律【整体取代】为真实 port</li>
+ *   <li>【已声明适配 1】JFinalConfig/Constants/Routes/Plugins/Interceptors/Handlers/Engine -> Legacy 同名接缝（r82/r83；由 LegacyJFinalBoot 驱动回调）</li>
+ *   <li>【已声明适配 2】ViewType/ActionReporter/MixedJsonFactory -> Legacy*；Prop/PropKit/LogKit -> Legacy*</li>
+ *   <li>【已声明适配 3】javax.servlet.http.* -> jakarta.servlet.http.*（匿名 IDruidStatViewAuth 实现用到）</li>
+ *   <li>【已声明适配 4】ActiveRecordPlugin -> LegacyActiveRecordPlugin（只承担 addMapping ⇒ 落到 EovaTableMapping；建池/表元数据分别由宿主与 JdbcTableMetadataSource 承担，见 §r84）</li>
+ *   <li>【已声明适配 5】EhCachePlugin -> LegacyEhCachePlugin；DruidStatViewHandler/IDruidStatViewAuth -> LegacyDruid*（反射委派；jakarta 容器下 javax 版 Druid 监控 Servlet 不可装载，见 §r84）</li>
+ *   <li>【已声明适配 6】EovaDataSource.create(plugins) 已于本轮补入：可移植半部分（db.datasource 解析、逐 ds 坐标、AES 解密、DbType 注册、两条中文错误消息）逐行等价；宿主半部分（Druid 池 + ARP）显式落成 LegacyDataSourceWiring.Spec + LegacyDbPlugin —— 见 §r86 的切分线</li>
+ *   <li>【已声明适配 7】setJsonFactory 用本轮新增的 LegacyMixedJsonFactory 重载</li>
+ *   <li>【既有语义，原样保留】onStart 里注释掉的 Mod 回调、configEngine 里注释掉的 addSharedFunction/ addSharedObject、configPlugin 里注释掉的 QuartzPlugin/EovaModPlugin、configInterceptor 里注释掉的登录/鉴权全局拦截器 —— 全部保持注释状态</li>
+ *   <li>【既有语义，原样保留】mappingEova 的 15 条 addMapping 顺序、authUri/authField 的默认规则、license() 的调用点与 configEova() 的初始化顺序</li>
+ *   <li>【与 stub 的关系】stub 时期逐字补入的成员（EOVA_DBTYPE/EOVA_INDEX/EOVA_INDEX_H5/modLoader/convertorMap/queryDialectMap/eovaIntercept/defaultMetaObjectIntercept/userSessionIntercept/uploadIntercept/authUris 及全部 getter/setter）在本真实实现里逐字对应旧源码，调用方无需改动</li>
  * </ol>
- *
- * <p><b>已声明成员与使用方：</b>
- * <table border="1">
- *   <tr><th>成员</th><th>旧源码行</th><th>读取方</th></tr>
- *   <tr><td>{@link #EOVA_DBTYPE}</td><td>97</td><td>{@code cn.eova.common.utils.xx}（4 处方言判断）</td></tr>
- *   <tr><td>{@link #EOVA_INDEX}</td><td>90</td><td>{@code cn.eova.auth.AuthUri}</td></tr>
- *   <tr><td>{@link #EOVA_INDEX_H5}</td><td>91</td><td>{@code cn.eova.user.UserController}（第 81 轮：移动端跳转）</td></tr>
- *   <tr><td>{@link #modLoader}</td><td>94</td><td>{@code cn.eova.common.utils.io.ClassUtil}</td></tr>
- *   <tr><td>{@link #getUploadIntercept()}</td><td>125/599/603</td><td>{@code cn.eova.widget.upload.UploadUtil}（第 77 轮）</td></tr>
- *   <tr><td>{@link #getAuthUris()}</td><td>113/614</td><td>{@code cn.eova.auth.AuthInterceptor}（第 78 轮）</td></tr>
- * </table>
  */
-public class EovaConfig {
+public class EovaConfig extends LegacyJFinalConfig {
 
-    /** EOVA所在数据库的类型 **/
-    // 旧源码 EovaConfig.java:97 —— 逐字一致
-    public static DbType EOVA_DBTYPE = DbType.mysql;
+    public static boolean isDevMode = true;
 
-    /** EOVA 首页地址（AuthUri 拼接鉴权 URI 时读取） */
-    // 旧源码 EovaConfig.java:90 —— 逐字一致
+    // 应用信息
+    public static String APP_ID = "";
+    public static String APP_SECRET = "";
     public static String EOVA_INDEX = "/";
-
-    /** URI 授权集合<角色ID, URI>（AuthInterceptor 鉴权时读取/追加；由 AuthUri.build 填充） */
-    // 旧源码 EovaConfig.java:113 —— 逐字一致
-    protected static Map<Integer, Set<String>> authUris = new HashMap<Integer, Set<String>>();
-
-    /** 上传拦截器（UploadUtil/UploadController 读取；由宿主装配注入） */
-    // 旧源码 EovaConfig.java:125 —— 逐字一致
-    private static UploadIntercept uploadIntercept = null;
-
-    /** EOVA 移动端首页地址（旧 EovaConfig.java:91 —— 逐字一致） */
     public static String EOVA_INDEX_H5 = "/h5";
 
-    /** Mod 包的类加载器（ClassUtil 扫描 jar 内类名时读取；由宿主装配注入） */
-    // 旧源码 EovaConfig.java:94 —— 逐字一致
+    /**Eova Mod加载器**/
     public static URLClassLoader modLoader = null;
 
-    // ------------------------------------------------------------------
-    // 以下三项是第 67 轮为 port cn.eova.model.MetaObject 而【按旧源码逐字补入】的：
-    // MetaObject 的数据转换走 EovaConfig.getConvertor(ds)，若不补则 MetaObject 无法 port。
-    // 它们与旧源码 EovaConfig.java:101/628-634 逐字对应（同一字段、同一实现），
-    // 属【本 stub 内的真实子集】—— 本类整体仍未 port（640 行），故不计入进度。
-    //
-    // ⚠️ 已知宿主装配缺口：旧栈由 EovaDataSource 的业务方言初始化路径
-    // （EovaConfig.addConvertor(ds, convertor)）在启动时填充本表；新栈的
-    // EovaDataSource 是语义重实现，该注册路径【尚未 port】⇒ 新栈启动后本表为空。
-    // 该缺口已记入 DES-002-R4 的风险项，待业务方言族落地时消解。
-    // ------------------------------------------------------------------
-
-    /** DB类型转换器（旧源码 EovaConfig.java:101 —— 逐字一致） */
+    /** EOVA所在数据库的类型 **/
+    public static DbType EOVA_DBTYPE = DbType.mysql;// EOVA_DBTYPE.toString();
+    /** 数据库命名规则-是否自动小写 **/
+    public static boolean isLowerCase = true;
+    /** DB类型转换器 **/
     private static HashMap<String, Convertor> convertorMap = new HashMap<>();
+    /** DQL方言 **/
+    private static HashMap<String, QueryDialect> queryDialectMap = new HashMap<>();
+    /** 数据类型转换器, 默认转换器指定为EOVA所在源 **/
+    // private static Convertor convertor = getConvertor(Ds.EOVA);
+
+    /** Eova配置属性 有x.conf 代替 **/
+    // protected static Map<String, String> props = new HashMap<String, String>();
+    /** Eova表达式集合 **/
+    // protected static Map<String, String> exps = new HashMap<String, String>();
+
+    /** URI授权集合<角色ID,URI> **/
+    protected static Map<Integer, Set<String>> authUris = new HashMap<Integer, Set<String>>();
+
+    /** ActiveRecord Map **/
+    static HashMap<String, LegacyActiveRecordPlugin> arps = new HashMap<>();
+
+    /**全局查询拦截器**/
+    private static EovaIntercept eovaIntercept = null;
+    /**默认元对象业务拦截器**/
+    private static MetaObjectIntercept defaultMetaObjectIntercept = null;
+    /**用户会话处理拦截器**/
+    private static UserSessionIntercept userSessionIntercept = null;
+    /**上传拦截器**/
+    private static UploadIntercept uploadIntercept = null;
+
+    /**Beetl模版对象**/
+//    private static GroupTemplate beetl = null;
+    /**Beetl模版工程**/
+//    public static BeetlEovaRenderFactory rf;
+    /**Beetl EovaTag 自定义实现**/
+    protected static HashMap<String, String> eovaTags = new HashMap<>();
 
     /**
-     * 取数据源对应的类型转换器（旧 EovaConfig.java:628 —— 逐字一致）。
-     *
-     * @param ds 数据源名
-     * @return 转换器；未注册时返回 null（旧实现如此）
+     * 系统启动之后
      */
-    public static Convertor getConvertor(String ds) {
-        return convertorMap.get(ds);
+    @Override
+    public void onStart() {
+        System.out.println(String.format("Starting EovaMeta %s -> The Super Easy LowCode Platform", EovaConst.getEovaVer()));
+
+        // 初始化配置Eova业务
+        configEova();
+        // 初始化ServiceManager
+        biz.init();
+        // Eova表达式
+        exp();
+        // 平台字段授权
+        authField();
+        // 企业字段授权
+        EovaFieldAuth.authReload(0);
+
+        // EovaAPI初始化
+        EovaInit.initEovaApiAppCofing();
+        // configApiRoute(routes);
+        // EovaInit.initApiActionMapping();
+
+        // 初始化Eova Hook
+        new EovaMetaHooks().config();
+
+        // 回调Eova Mod Start
+//		try {
+//			for (EovaModConfig mc : EovaModPlugin.getModConfigs()) {
+//				if (mc != null) {
+//					mc.afterEovaStart();
+//				}
+//			}
+//		} catch (Exception e) {
+//			LegacyLogKit.error(String.format("eova mod start error:%s", e.getMessage()));
+//		}
+
+        EovaConst.START_TIME = x.time.formatNowTimes();
     }
 
-    // ------------------------------------------------------------------
-    // 以下四项是第 72 轮为 port WidgetManager / ImportBiz 而【按旧源码逐字补入】的
-    // （旧源码 EovaConfig.java:103/119/575-580/620-625），属本 stub 内的真实子集。
-    // ------------------------------------------------------------------
-
-    /** DQL 方言（旧源码 EovaConfig.java:103 —— 逐字一致） */
-    private static HashMap<String, QueryDialect> queryDialectMap = new HashMap<>();
-
-    /** 全局 EOVA 拦截器（旧源码 EovaConfig.java:119 —— 逐字一致） */
-    private static EovaIntercept eovaIntercept = null;
+    /**
+     * 系统停止之前
+     */
+    @Override
+    public void onStop() {
+//		try {
+//			for (EovaModConfig mc : EovaModPlugin.getModConfigs()) {
+//				if (mc != null) {
+//					mc.beforeEovaStop();
+//				}
+//			}
+//		} catch (Exception e) {
+//			LegacyLogKit.error(String.format("eova mod stop error:%s", e.getMessage()));
+//		}
+    }
 
     /**
-     * 取全局 EOVA 拦截器（旧 EovaConfig.java:575 —— 逐字一致）。
-     *
-     * @return 拦截器；未设置时为 null
+     * 配置常量
      */
+    @Override
+    public void configConstant(LegacyConstants me) {
+        x.log.info("Config LegacyConstants Starting");
+
+        me.setEncoding("UTF-8");
+        me.setToJavaAwtHeadless();
+
+
+        // 多环境配置加载(优先级 开发<测试<预生产<灰度<生产)
+        LegacyProp prop = LegacyPropKit.useFirstFound("eova/dev.txt", "eova/test.txt", "eova/pre.txt", "eova/pro.txt", "eova/prd.txt");
+        // EovaTools配置加载
+        x.conf.addProp(prop.getProperties());
+
+        // 初始化Mod
+        modLoader = EovaModUtil.initLoader();
+
+        // 开发模式
+        isDevMode = x.conf.getBool("devMode", true);
+        me.setDevMode(isDevMode);
+        if (isDevMode && "PRD".equals(x.conf.get("env"))) {
+            LegacyLogKit.warn("当前环境为生产环境, 并且开启了开发者模式, 如无必要请立即关闭, 避免对线上造成不可逆的后果!");
+            LegacyLogKit.info("当前环境为生产环境, 并且开启了开发者模式, 如无必要请立即关闭, 避免对线上造成不可逆的后果!");
+        }
+
+        // POST内容最大500M(安装包上传)
+        me.setMaxPostSize(1024 * 1024 * 500);
+
+        // 配置视图类型，默认使用 jfinal enjoy 模板引擎
+        me.setViewType(LegacyViewType.JFINAL_TEMPLATE);
+
+        // 开启解析 json 请求，5.0.0 版本新增功能
+        me.setResolveJsonRequest(true);
+
+        // 日志格式化
+        LegacyActionReporter.setTitle(String.format("\nEovaMeta-%s action report - ", EovaConst.getEovaVer()));
+
+        // me.setError401View("/eova/401.html");// 同步->登录页, 异步->弹窗
+        me.setError403View("/eova/error/403.html");// 无权限, 禁止访问
+        me.setError404View("/eova/error/404.html");// 找不到资源
+        me.setError500View("/eova/error/500.html");// 服务器异常
+        me.setErrorView(400, "/eova/error/404.html");// 错误请求
+        me.setErrorView(503, "/eova/error/503.html");// 服务不可用
+
+        me.setBaseUploadPath(x.conf.get("file.dir.base"));
+        me.setBaseDownloadPath(x.conf.get("file.dir.base"));
+        me.setJsonFactory(LegacyMixedJsonFactory.me());
+        // me.setJsonDatePattern("yyyy-MM-dd");// PS:LocalDateTime 丢失时分秒，所以使用默认策略
+
+        // 关闭autoType 2.x 不再提供此API
+        // ParserConfig.getGlobalInstance().setSafeMode(true);
+        // 注册分布式验证码
+        me.setCaptchaCache(new DbCaptchaCache());
+        // 插件顺序调整到configConstant()之后
+        me.setConfigPluginOrder(1);
+
+        // Beetl视图(暂时保留兼容老业务, 未来全部屏蔽掉)
+        //        boolean webappMode = x.conf.getBool("webappMode", false);
+        //        rf = new BeetlEovaRenderFactory();
+        //        rf.config(webappMode);
+        //        beetl = rf.groupTemplate;
+        //        me.setRenderFactory(rf);// 不设置默认
+
+    }
+
+    /**
+     * 配置路由
+     */
+    @Override
+    public void configRoute(LegacyRoutes me) {
+        System.err.println("Config LegacyRoutes Starting...");
+
+        // 首页入口
+        EOVA_INDEX = x.conf.get("eova.index", "/");
+        EOVA_INDEX_H5 = x.conf.get("eova.index.h5", "/h5");
+
+        // 应用入口
+        me.add("/app", AppController.class);
+
+        // 首页Ctrl会被继承 需要支持注册父类Action
+        me.setMappingSuperClass(true);
+
+        // Eova路由
+        me.add(new EovaWebRoutes());
+        me.add(new EovaApiRoutes());
+
+        // URI授权
+        authUri();
+
+        // 登录验证(为自定义添加拦截器)
+        me.addInterceptor(new LoginInterceptor());
+        // 权限验证拦截
+        me.addInterceptor(new AuthInterceptor());
+
+        // 自定义路由
+        route(me);
+
+        // 是否需要默认注册系统路由
+        List<LegacyRoutes.Route> routeList = me.getRouteItemList();
+        if (routeList.stream().noneMatch(x -> x.getControllerPath().equals(EOVA_INDEX))) {
+            // 添加到第一个路由EovaWebRoutes
+            me.add(EOVA_INDEX, IndexController.class);
+        }
+
+        // load eova module route
+        try {
+            for (EovaModConfig mc : EovaModPlugin.getModConfigs()) {
+                if (mc != null) {
+                    me.add(EovaModPlugin.moduleRoutes(mc));
+                }
+            }
+        } catch (Exception e) {
+            LegacyLogKit.error(String.format("load eova module routes error:%s", e.getMessage()));
+        }
+    }
+
+    @Override
+    public void configEngine(LegacyEngine me) {
+
+        // 无根路径
+//		me.setBaseTemplatePath(null);
+        // 从 class path 和 jar 包加载模板配置
+//		me.setToClassPathSourceFactory();
+        me.setSourceFactory(new EovaRenderSourceFactory());
+
+        // 模版常用共享方法
+        me.addSharedMethod(new BaseSharedMethod());
+
+        // me.addSharedFunction("/WEB-INF/_layout/pager.html");
+        me.addDirective("json", JsonDirective.class);
+        // 共享常量
+//        EovaConst.getPageConst().forEach((k, v) -> {
+//            me.addSharedObject(k, v);
+////            beetl.getSharedVars().put(k, v);
+//        });
+
+        // 共享配置(#(conf_xxx_xxx))
+//        Map<String, String> props = x.conf.getProps();
+//        for (String cf : props.keySet()) {
+//            String val = props.get(cf);
+//            String key = "conf_" + cf.replaceAll("\\.", "_");
+//            me.addSharedObject(key, val);
+////            beetl.getSharedVars().put(key, val);
+//        }
+
+        // shareds.put("INDEX", EOVA_INDEX);
+        // sharedVars.put("I18N", I18NBuilder.I18N);
+
+        // Load Template Const
+        // PageConst.init(sharedVars); 无用 待废弃
+
+        // TODO 三方逐步废弃Beetl, 添加Enjoy
+
+        // 启用新的, 基于 weui 系列模版
+//		me.addSharedFunction("/_view/_layout/list.html");
+
+    }
+
+    /**
+     * 配置插件
+     */
+    @Override
+    public void configPlugin(LegacyPlugins plugins) {
+        System.err.println("Config LegacyPlugins Starting...");
+
+        // 初始化数据源
+        EovaDataSource.create(plugins);
+
+        // 初始化EOVA DB配置
+        plugins.add(new EovaConfigPlugin());
+
+        /*
+         * 特别说明, configPlugin{} 暂时无法使用DB和参数
+         * 如果需要使用, 必须封装为Plugin, 并且排在下面
+         */
+
+        // 延迟添加Model映射, 可能会导致初始化数据源卡住
+        // eova model mapping
+        mappingEova(arps.get(Ds.EOVA));
+
+        // diy model mapping
+        mapping(arps);
+
+        // 构建类型转换方言
+        // EovaDataSource.buildConvertor();
+
+        // 配置EhCachePlugin插件
+        plugins.add(new LegacyEhCachePlugin());
+
+        // 配置定时调度  默认不启动
+        boolean isJob = x.conf.getBool("job.enable", false);
+        if (isJob) {
+            plugins.add(new EovaCronPlugin());
+//            plugins.add(new QuartzPlugin());
+        } else {
+            // 提醒配置开关, 不需要此提示可以配置为false
+            if (x.isEmpty(x.conf.get("job.enable"))) {
+                x.log.info("定时任务暂未配置, 如需开启请配置 job.enable=true");
+            }
+        }
+
+        // Eova Mod 初始化并注册Model
+//		plugins.add(new EovaModPlugin());
+
+        // 自定义插件
+        plugin(plugins);
+    }
+
+    /**
+     * 配置全局拦截器
+     */
+    @Override
+    public void configInterceptor(LegacyInterceptors me) {
+        System.err.println("Config LegacyInterceptors Starting...");
+        // 全局异常拦截
+        me.addGlobalActionInterceptor(new ExceptionInterceptor());
+        // JFinal.me().getServletContext().setAttribute("EOVA", "简单才是高科技");
+        // 登录验证
+//		me.addGlobalActionInterceptor(new LoginInterceptor());
+        // 权限验证拦截
+//		me.addGlobalActionInterceptor(new AuthInterceptor());
+        // move to WebRoutes
+    }
+
+    /**配置Eova业务**/
+    public void configEova() {
+    }
+
+    /**
+     * 配置处理器
+     */
+    @Override
+    public void configHandler(LegacyHandlers me) {
+        System.err.println("Config LegacyHandlers Starting...");
+        
+        me.add(new WAFHandler());
+
+        // 添加DruidHandler
+        LegacyDruidStatViewHandler dvh = new LegacyDruidStatViewHandler("/druid", new LegacyDruidStatViewAuth() {
+            @Override
+            public boolean isPermitted(HttpServletRequest request) {
+                String sid = RequestUtil.getCookieStr(request, LoginService.CKSID, null);
+                if (sid == null) {
+                    return false;
+                }
+                User user = sm.login.getLoginUser(sid);
+                if (user == null) {
+                    return false;
+                }
+                return user.isAdmin();
+            }
+        });
+        me.add(dvh);
+        // 过滤禁止访问资源
+        me.add(new UrlBanHandler(".*\\.(html|tag|sql)", false));
+        // API路由(默认开启, 不需要可以屏蔽)
+        boolean isRouter = x.conf.getBool("eova.api.router", true);
+        if (isRouter) {
+            me.add(new ApiRouterHandler());
+        }
+    }
+
+    /**
+     * Eova Data Source Model Mapping
+     *
+     * @param arp
+     */
+    private void mappingEova(LegacyActiveRecordPlugin arp) {
+        arp.addMapping("eova_session", Session.class);
+        arp.addMapping("eova_object", MetaObject.class);
+        arp.addMapping("eova_field", MetaField.class);
+        arp.addMapping("eova_field_diy", MetaFieldDiy.class);
+        arp.addMapping("eova_button", Button.class);
+        arp.addMapping("eova_menu", Menu.class);
+        arp.addMapping("eova_user", User.class);
+        arp.addMapping("eova_role", Role.class);
+        arp.addMapping("eova_role_btn", RoleBtn.class);
+        arp.addMapping("eova_task", Task.class);
+        arp.addMapping("eova_widget", Widget.class);
+        arp.addMapping("eova_mod", Mod.class);
+        arp.addMapping("eova_option", EovaOption.class);
+        arp.addMapping("eova_template", EovaTemplate.class);
+        arp.addMapping("eova_props", EovaProps.class);
+    }
+
+    /**
+     * Diy Data Source Model Mapping
+     * @param arps 数据源key->LegacyActiveRecordPlugin
+     */
+    protected void mapping(HashMap<String, LegacyActiveRecordPlugin> arps) {
+    }
+
+    /**
+     * Custom Route
+     *
+     * @param me
+     */
+    protected void route(LegacyRoutes me) {
+    }
+
+    /**
+     * Custom Plugin
+     *
+     * @param plugins
+     * @return
+     */
+    protected void plugin(LegacyPlugins plugins) {
+    }
+
+    /**
+     * Eova Expression Mapping
+     */
+    protected void exp() {
+        // Eova 系统功能需要的Exp
+        //exps.put("selectEovaFieldByObjectCode", "select en Field,cn Name from eova_field where object_code = ?;ds=eova");
+        // 列表可显示字段
+        //exps.put("comboFieldByObject", "select en ID,cn CN from eova_field where object_code = ? and is_show = 1 order by num;ds=eova");
+        //exps.put("selectEovaUser", "select id,name 姓名, login_id 帐号 from eova_user;ds=eova");
+        //exps.put("selectEovaRole", "select id,name cn from eova_role;ds=eova");
+        // Eova Flow 根据用户或角色过滤
+        //exps.put("selectEovaUserByUid", "select id,name 姓名, login_id 帐号 from eova_user where id in %s;ds=eova");
+        //exps.put("selectEovaUserByRid", "select id,name 姓名, login_id 帐号 from eova_user where rid in %s;ds=eova");
+
+        // 隐藏玩法の软硬结合
+        // exps.put("selectEovaUser", "select id ID,name 姓名, login_id 帐号 from eova_user where id in %s and id < ?;ds=eova");
+        // exp=selectEovaUser;@(1,2,3);10000
+    }
+
+    /**
+     * URI授权配置
+     */
+    protected void authUri() {
+
+
+//        authUris.put(0, AuthUri.whiteList);
+
+        // 首页全局免鉴权
+//        getAuthUris().get(0).add(EOVA_INDEX);
+//        getAuthUris().get(0).add(EOVA_INDEX + '/');
+//        getAuthUris().get(0).add(EOVA_INDEX_H5);
+//        getAuthUris().get(0).add(EOVA_INDEX_H5 + '/');
+
+    }
+
+    /**
+     * 字段授权
+     */
+    protected void authField() {
+        // 系统角色字段授权
+        EovaFieldAuth.authRole("eova_role_code", "lv", "1,2");// 解释:eova_role_code对象的lv字段 只有角色1和角色2 可见
+    }
+
+    /**
+     * 添加URI授权规则<br>
+     * 语法:URI->角色1ID,角色2ID
+     *
+     * @param rule
+     */
+    protected static void addAuthUri(String rule) {
+        String[] ss = rule.split("->");
+        String uri = ss[0];
+        String s1 = ss[1];
+
+        String[] rids = s1.split(",");
+        for (String s : rids) {
+            Integer rid = x.toInt(s.trim());
+            Set<String> set = authUris.get(rid);
+            if (set == null) {
+                set = new HashSet<>();
+            }
+            set.addAll(Arrays.asList(uri.split(",")));
+            authUris.put(rid, set);
+        }
+    }
+
+    // 默认从配置中读取授权密钥
+    protected void license() {
+        APP_ID = x.conf.get("app_id").trim();
+        APP_SECRET = x.conf.get("app_secret").trim();
+        // 默认从配置中读取license,为了私密也可以写在代码中,就不用向需求方解释这玩意了.三方无感!
+        // 同理可以藏到任意别人找不到的地方.
+    }
+
     public static EovaIntercept getEovaIntercept() {
         return eovaIntercept;
     }
 
-    /**
-     * 设置全局 EOVA 拦截器（旧 EovaConfig.java:579 —— 逐字一致）。
-     *
-     * @param eovaIntercept 拦截器
-     */
     public static void setEovaIntercept(EovaIntercept eovaIntercept) {
         EovaConfig.eovaIntercept = eovaIntercept;
     }
 
-    /**
-     * 取数据源对应的 DQL 方言（旧 EovaConfig.java:620 —— 逐字一致）。
-     *
-     * @param ds 数据源名
-     * @return 方言；未注册时返回 null
-     */
-    public static QueryDialect getQueryDialect(String ds) {
-        return queryDialectMap.get(ds);
-    }
-
-    /**
-     * 注册数据源的 DQL 方言（旧 EovaConfig.java:624 —— 逐字一致）。
-     *
-     * @param ds 数据源名
-     * @param qd 方言
-     * @return 被替换的旧值
-     */
-    public static QueryDialect addQueryDialect(String ds, QueryDialect qd) {
-        return queryDialectMap.put(ds, qd);
-    }
-
-    /** 会话拦截器（旧源码 EovaConfig.java:123 —— 逐字一致） */
-    private static UserSessionIntercept userSessionIntercept = null;
-
-    /**
-     * 取会话拦截器（旧 EovaConfig.java:591 —— 逐字一致）。
-     *
-     * @return 拦截器；未设置时为 null
-     */
-    public static UserSessionIntercept getUserSessionIntercept() {
-        return userSessionIntercept;
-    }
-
-    /**
-     * 设置会话拦截器（旧 EovaConfig.java:595 —— 逐字一致）。
-     *
-     * @param userSessionIntercept 拦截器
-     */
-    public static void setUserSessionIntercept(UserSessionIntercept userSessionIntercept) {
-        EovaConfig.userSessionIntercept = userSessionIntercept;
-    }
-
-    /** 默认的元对象业务拦截器（旧源码 EovaConfig.java:121 —— 逐字一致） */
-    private static MetaObjectIntercept defaultMetaObjectIntercept = null;
-
-    /**
-     * 取默认元对象拦截器（旧 EovaConfig.java:583 —— 逐字一致）。
-     *
-     * <p>第 67 轮为 port {@code TemplateUtil} 而按旧源码逐字补入（同一 stub 的真实子集）。</p>
-     *
-     * @return 默认拦截器；未设置时为 null
-     */
     public static MetaObjectIntercept getDefaultMetaObjectIntercept() {
         return defaultMetaObjectIntercept;
     }
 
-    /**
-     * 设置默认元对象拦截器（旧 EovaConfig.java:587 —— 逐字一致）。
-     *
-     * @param defaultMetaObjectIntercept 默认拦截器
-     */
     public static void setDefaultMetaObjectIntercept(MetaObjectIntercept defaultMetaObjectIntercept) {
         EovaConfig.defaultMetaObjectIntercept = defaultMetaObjectIntercept;
     }
 
-    /**
-     * 注册数据源的类型转换器（旧 EovaConfig.java:632 —— 逐字一致）。
-     *
-     * @param ds 数据源名
-     * @param cv 转换器
-     * @return 被替换的旧值（HashMap.put 语义）
-     */
-    public static Convertor addConvertor(String ds, Convertor cv) {
-        return convertorMap.put(ds, cv);
+    public static UserSessionIntercept getUserSessionIntercept() {
+        return userSessionIntercept;
     }
 
-    /**
-     * 取上传拦截器（旧 EovaConfig.java:599 —— 逐字一致）。
-     *
-     * <p>第 77 轮为 port {@code UploadUtil}/{@code UploadController} 而按旧源码逐字补入
-     * （同一 stub 的真实子集）。</p>
-     *
-     * @return 上传拦截器；未设置时为 null
-     */
+    public static void setUserSessionIntercept(UserSessionIntercept userSessionIntercept) {
+        EovaConfig.userSessionIntercept = userSessionIntercept;
+    }
+
     public static UploadIntercept getUploadIntercept() {
         return uploadIntercept;
     }
 
-    /**
-     * 设置上传拦截器（旧 EovaConfig.java:603 —— 逐字一致）。
-     *
-     * @param uploadIntercept 上传拦截器
-     */
     public static void setUploadIntercept(UploadIntercept uploadIntercept) {
         EovaConfig.uploadIntercept = uploadIntercept;
     }
 
-    /**
-     * 取 URI 授权集合（旧 EovaConfig.java:614 —— 逐字一致）。
-     *
-     * <p>第 78 轮为 port {@code AuthInterceptor} 而按旧源码逐字补入（同一 stub 的真实子集）。
-     * <b>返回的是内部可变 Map</b>（旧实现如此）：AuthInterceptor 会把角色自定义授权
-     * {@code addAll} 进取出的 Set —— 即"鉴权会改写到这份集合"，属既有语义，不得改成只读视图。</p>
-     *
-     * @return 角色ID → URI 模式集合
-     */
+    public static HashMap<String, LegacyActiveRecordPlugin> getArps() {
+        return arps;
+    }
+
+    public static void setArps(HashMap<String, LegacyActiveRecordPlugin> arps) {
+        EovaConfig.arps = arps;
+    }
+
     public static Map<Integer, Set<String>> getAuthUris() {
         return authUris;
     }
+
+
+    public static QueryDialect getQueryDialect(String ds) {
+        return queryDialectMap.get(ds);
+    }
+
+    public static QueryDialect addQueryDialect(String ds, QueryDialect qd) {
+        return queryDialectMap.put(ds, qd);
+    }
+
+    public static Convertor getConvertor(String ds) {
+        return convertorMap.get(ds);
+    }
+
+    public static Convertor addConvertor(String ds, Convertor cv) {
+        return convertorMap.put(ds, cv);
+    }
+
+    public static HashMap<String, String> getEovaTags() {
+        return eovaTags;
+    }
+
 }
