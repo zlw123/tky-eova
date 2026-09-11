@@ -253,6 +253,35 @@ public class EovaRecord implements LegacyJsonKit.JsonColumns, java.io.Serializab
     }
 
     /**
+     * 用另一个 Record 的列批量设置（对应 jfinal {@code Record.setColumns(Record)}）。
+     *
+     * <p>旧字节码：{@code return setColumns(record.getColumns());} —— 一条委托，无别的动作。</p>
+     *
+     * @param record 来源
+     * @return 本对象
+     */
+    public EovaRecord setColumns(EovaRecord record) {
+        return setColumns(record.getColumns());
+    }
+
+    /**
+     * 用 Model 的属性批量设置（对应 jfinal {@code Record.setColumns(Model)}）。
+     *
+     * <p><b>本重载是第 63 轮由真实 port 逼出来的：</b>port {@code WidgetUtil} 时
+     * {@code new Record().setColumns(model)} 编译失败，才发现本类漏了这个重载。
+     * 旧字节码：{@code return setColumns(model._getAttrs());} ——
+     * {@code Model._getAttrs()} 是 {@code protected}，jfinal 能调是因为二者同包；
+     * 本实现的 {@code EovaRecord}/{@code EovaModel} 同在 {@code cn.eova.db}，同样可访问，
+     * 故委托关系原样保留。</p>
+     *
+     * @param model 来源模型
+     * @return 本对象
+     */
+    public EovaRecord setColumns(EovaModel<?> model) {
+        return setColumns(model._getAttrs());
+    }
+
+    /**
      * 取列名数组（小写）。
      *
      * <p><b>返回类型必须与 jfinal 一致：{@code String[]}，不是 {@code Set<String>}。</b>
