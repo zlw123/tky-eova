@@ -10,6 +10,7 @@ import MenuAuth from '@/views/menu/MenuAuth.vue'
 import MetaField from '@/views/meta/MetaField.vue'
 import MenuAdd from '@/views/menu/MenuAdd.vue'
 import MetaEdit from '@/views/meta/MetaEdit.vue'
+import MetaImport from '@/views/meta/MetaImport.vue'
 
 /**
  * 路由表：阶段 2 逐页接管旧 URL。
@@ -84,6 +85,12 @@ export const routes: RouteRecordRaw[] = [
     path: '/meta/edit',
     name: 'meta-edit',
     component: MetaEdit
+  },
+  {
+    // 导入元数据：旧路径 /meta/import（无查询参数；数据源列表由服务端 `#for(t : dataSources)` 注入）
+    path: '/meta/import',
+    name: 'meta-import',
+    component: MetaImport
   }
 ]
 
