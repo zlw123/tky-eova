@@ -90,6 +90,22 @@ public class EovaRecord implements LegacyJsonKit.JsonColumns, java.io.Serializab
      * @param column 列名（键会归一化为小写）
      * @param value  值
      */
+    /**
+     * 批量放入（对应 jfinal {@code Record.put(Map&lt;String, Object&gt;)}）。
+     *
+     * <p><b>旧字节码：{@code getColumns().putAll(map); return this;} —— 是【原始 putAll】，
+     * 不经过 {@code set}，故不做键归一化、也不走"表列校验"。</b>这与
+     * {@code setColumns(Map)}（逐条 {@code set}）是<b>两条不同路径</b>，不得统一。
+     * 第 72 轮 port {@code ImportBiz} 时编译失败才补上本重载。</p>
+     *
+     * @param map 列值表
+     * @return 本对象
+     */
+    public EovaRecord put(Map<String, Object> map) {
+        getColumns().putAll(map);
+        return this;
+    }
+
     public EovaRecord put(String column, Object value) {
         columns.put(norm(column), value);
         return this;

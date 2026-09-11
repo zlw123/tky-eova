@@ -29,5 +29,14 @@ public @interface LegacyClear {
      *
      * @return 拦截器类型
      */
-    Class<? extends LegacyInterceptor>[] value();
+    /**
+     * 要清除的拦截器类型；<b>默认空数组</b>（旧制品的 {@code AnnotationDefault: []}）。
+     *
+     * <p><b>第 72 轮修正：</b>port {@code IndexController} 时 {@code @Clear} 无参使用编译失败 ——
+     * 本接缝原先漏了默认值。旧注解的 {@code AnnotationDefault} 是 {@code []}，
+     * 故 {@code @Clear} 不带参数即"清除全部拦截器"。</p>
+     *
+     * @return 拦截器类型数组
+     */
+    Class<? extends LegacyInterceptor>[] value() default {};
 }

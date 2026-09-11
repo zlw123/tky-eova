@@ -6,6 +6,8 @@ import java.net.URLClassLoader;
 import java.util.HashMap;
 
 import cn.eova.aop.MetaObjectIntercept;
+import cn.eova.sql.dql.dialect.QueryDialect;
+import cn.eova.aop.eova.EovaIntercept;
 import cn.eova.core.type.Convertor;
 import com.alibaba.druid.DbType;
 
@@ -69,6 +71,56 @@ public class EovaConfig {
      */
     public static Convertor getConvertor(String ds) {
         return convertorMap.get(ds);
+    }
+
+    // ------------------------------------------------------------------
+    // 以下四项是第 72 轮为 port WidgetManager / ImportBiz 而【按旧源码逐字补入】的
+    // （旧源码 EovaConfig.java:103/119/575-580/620-625），属本 stub 内的真实子集。
+    // ------------------------------------------------------------------
+
+    /** DQL 方言（旧源码 EovaConfig.java:103 —— 逐字一致） */
+    private static HashMap<String, QueryDialect> queryDialectMap = new HashMap<>();
+
+    /** 全局 EOVA 拦截器（旧源码 EovaConfig.java:119 —— 逐字一致） */
+    private static EovaIntercept eovaIntercept = null;
+
+    /**
+     * 取全局 EOVA 拦截器（旧 EovaConfig.java:575 —— 逐字一致）。
+     *
+     * @return 拦截器；未设置时为 null
+     */
+    public static EovaIntercept getEovaIntercept() {
+        return eovaIntercept;
+    }
+
+    /**
+     * 设置全局 EOVA 拦截器（旧 EovaConfig.java:579 —— 逐字一致）。
+     *
+     * @param eovaIntercept 拦截器
+     */
+    public static void setEovaIntercept(EovaIntercept eovaIntercept) {
+        EovaConfig.eovaIntercept = eovaIntercept;
+    }
+
+    /**
+     * 取数据源对应的 DQL 方言（旧 EovaConfig.java:620 —— 逐字一致）。
+     *
+     * @param ds 数据源名
+     * @return 方言；未注册时返回 null
+     */
+    public static QueryDialect getQueryDialect(String ds) {
+        return queryDialectMap.get(ds);
+    }
+
+    /**
+     * 注册数据源的 DQL 方言（旧 EovaConfig.java:624 —— 逐字一致）。
+     *
+     * @param ds 数据源名
+     * @param qd 方言
+     * @return 被替换的旧值
+     */
+    public static QueryDialect addQueryDialect(String ds, QueryDialect qd) {
+        return queryDialectMap.put(ds, qd);
     }
 
     /** 默认的元对象业务拦截器（旧源码 EovaConfig.java:121 —— 逐字一致） */

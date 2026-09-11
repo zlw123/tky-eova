@@ -278,6 +278,42 @@ public interface EovaDbGateway {
     int[] batch(List<String> sqlList, int batchSize);
 
     /**
+     * 按缓存查询多行（对应 jfinal {@code DbPro.findByCache(cacheName, key, sql, paras)}）。
+     *
+     * <p>缓存键由 {@code (cacheName, key)} 决定；命中则直接返回缓存值，未命中执行查询并回填。</p>
+     *
+     * @param cacheName 缓存名
+     * @param key       缓存键
+     * @param sql       查询语句
+     * @param paras     参数
+     * @return 结果集（无命中为空列表）
+     */
+    List<EovaRecord> findByCache(String cacheName, Object key, String sql, Object... paras);
+
+    /**
+     * 生成分页 SQL（对应 jfinal {@code MysqlDialect.forPaginate(pageNumber, pageSize, sql)}）。
+     *
+     * <p><b>行为取自旧制品实测</b>（直接调用 jfinal 5.2.6 的
+     * {@code MysqlDialect.forPaginate} 打印结果）：</p>
+     * <ul>
+     *   <li>{@code pageNumber=1, pageSize=100} ⇒ {@code select * from t limit 0, 100}</li>
+     *   <li>{@code pageNumber=0, pageSize=100} ⇒ {@code select * from t limit -100, 100}
+     *       —— 偏移量为 {@code (pageNumber-1)*pageSize}，<b>pageNumber=0 时是负数</b>；
+     *       这是旧实现的既有行为（该 SQL 在 MySQL 上实际不可执行），本接缝<b>原样保留</b>，
+     *       不得"顺手修正"成 0 —— 否则等于改变 EOVA 该路径的既有语义。</li>
+     * </ul>
+     *
+     * <p><b>不做 trim</b>：入参 SQL 原样拼接（实测 {@code forPaginate(1,5,"  select 1  ")}
+     * 产出 {@code "  select 1   limit 0, 5"}）。</p>
+     *
+     * @param pageNumber 页码（旧实现允许 &lt; 1）
+     * @param pageSize   每页条数
+     * @param sql        SQL（StringBuilder 形态与旧签名一致）
+     * @return 分页 SQL 文本
+     */
+    String forPaginate(int pageNumber, int pageSize, StringBuilder sql);
+
+    /**
      * 按列名批量执行同一条 SQL（对应 jfinal
      * {@code DbPro.batch(String sql, String columns, List modelOrRecordList, int batchSize)}）。
      *

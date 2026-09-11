@@ -228,6 +228,39 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
     }
 
     /**
+     * 按缓存查询多行（对应 jfinal {@code DbPro.findByCache}）。委托 {@code EovaGateways} 的缓存查询。
+     *
+     * @param cacheName 缓存名
+     * @param key       缓存键
+     * @param sql       查询语句
+     * @param paras     参数
+     * @return 结果集
+     */
+    @Override
+    public List<EovaRecord> findByCache(String cacheName, Object key, String sql, Object... paras) {
+        return EovaGateways.findByCache(cacheName, key, sql, paras);
+    }
+
+    /**
+     * 生成分页 SQL（对应 jfinal {@code MysqlDialect.forPaginate}）。
+     *
+     * <p>偏移量 = {@code (pageNumber-1) * pageSize}（与旧制品实测一致，pageNumber=0 时为负数），
+     * 形态为 {@code <sql> limit <offset>, <pageSize>}。</p>
+     *
+     * @param pageNumber 页码
+     * @param pageSize   每页条数
+     * @param sql        SQL
+     * @return 分页 SQL
+     */
+    @Override
+    public String forPaginate(int pageNumber, int pageSize, StringBuilder sql) {
+        int offset = (pageNumber - 1) * pageSize;
+        // 【实测】旧实现【不 trim】入参 SQL：forPaginate(1,5,"  select 1  ")
+        // 产出 "  select 1   limit 0, 5"（原样拼接）。我最初写成 trim 后拼接 —— 判据纠正。
+        return sql.toString() + " limit " + offset + ", " + pageSize;
+    }
+
+    /**
      * 按列名批量执行同一条 SQL（对应 jfinal
      * {@code DbPro.batch(sql, columns, modelOrRecordList, batchSize)}）。
      *
