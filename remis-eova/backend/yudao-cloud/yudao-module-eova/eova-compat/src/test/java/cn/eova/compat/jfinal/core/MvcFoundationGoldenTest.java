@@ -352,18 +352,47 @@ class MvcFoundationGoldenTest {
     }
 
     /**
-     * 钉住带参方法清单。
+     * <b>本波最关键的一条断言</b>：验证 jfinal 参数绑定框架<b>不需要</b> port。
+     *
+     * <p><b>为什么需要它：</b>我在这一点上连续判断错两次（先称"action 全无参"，
+     * 后称"发现带参 action 故绑定必需"）。静态扫描容易把
+     * {@code @NotAction} 辅助方法与<b>未注册</b>类的方法误算成 action。
+     * 故本条按 jfinal 的真实语义重算：<b>已注册 controller + 非 {@code @NotAction} + 带参</b>。</p>
+     *
+     * <p>实测：注册 controller 21 个；带参 public 方法 9 个 —— 8 个 {@code @NotAction}
+     * 辅助方法、1 个在未注册类中（{@code RouterController}，全树无引用）。
+     * 故结论为 <b>0</b>，绑定额外框架不需要，{@code LegacyAction.args} 恒空数组正确。</p>
      *
      * @throws Exception 读文件失败
      */
     @Test
-    @DisplayName("钉住带参方法清单：存在真正的带参 action（要求 W1c 补参数绑定）")
-    void pinnedArgBearingActionMethods() throws Exception {
-        Path base = OldImplementationLoader.locateRepoRoot().resolve("meta-eova/eova/core/src/main/java/cn/eova");
+    @DisplayName("参数绑定不需要：已注册 controller 中不存在带参 action（实测 0）")
+    void argBearingActionsAreNone() throws Exception {
+        Path base = OldImplementationLoader.locateRepoRoot()
+                .resolve("meta-eova/eova/core/src/main/java/cn/eova");
         assertTrue(Files.isDirectory(base), "旧源码目录缺失：" + base);
 
-        Pattern decl = Pattern.compile("^\\s+public\\s+(?:void|[\\w.<>\\[\\]]+)\\s+(\\w+)\\s*\\(([^)]*)\\)\\s*\\{?\\s*$");
-        List<String> withArgs = new ArrayList<>();
+        // ① 显式注册的 controller（旧栈经 add("/path", Xxx.class) 注册；无动态扫描）
+        TreeSet<String> registered = new TreeSet<>();
+        // 允许【全限定名】注册（add("/x", cn.eova.core.api.XxxController.class)）——
+        // 只认简单名的版本会漏掉这种写法（该健壮性缺陷由变异测试实测发现）。
+        Pattern addCall = Pattern.compile("(?:^|[^\\w.])add\\(\\s*[^,]+,\\s*([\\w.]+)\\.class\\s*\\)",
+                Pattern.MULTILINE);
+        try (Stream<Path> walk = Files.walk(base)) {
+            for (Path p : (Iterable<Path>) walk.filter(x -> x.toString().endsWith(".java"))::iterator) {
+                Matcher m = addCall.matcher(Files.readString(p));
+                while (m.find()) {
+                    String fq = m.group(1);
+                    registered.add(fq.substring(fq.lastIndexOf('.') + 1));
+                }
+            }
+        }
+
+        // ② 扫描 *Controller 类的带参 public 方法，并识别 @NotAction
+        Pattern decl = Pattern.compile(
+                "^\\s+public\\s+(?:void|[\\w.<>\\[\\]]+)\\s+(\\w+)\\s*\\(([^)]*)\\)\\s*\\{?\\s*$");
+        List<String> hits = new ArrayList<>();
+        List<String> pinned = new ArrayList<>();
         int classes = 0;
         try (Stream<Path> walk = Files.walk(base)) {
             for (Path p : (Iterable<Path>) walk.filter(x -> x.toString().endsWith("Controller.java"))::iterator) {
@@ -372,17 +401,42 @@ class MvcFoundationGoldenTest {
                     continue;
                 }
                 classes++;
-                for (String line : src.split("\n")) {
-                    Matcher m = decl.matcher(line);
-                    if (m.matches() && !line.contains(" class ") && !m.group(2).trim().isEmpty()) {
-                        withArgs.add(p.getFileName() + " -> " + m.group(1) + "(" + m.group(2) + ")");
+                String simple = p.getFileName().toString().replace(".java", "");
+                String[] lines = src.split("\n");
+                for (int i = 0; i < lines.length; i++) {
+                    Matcher m = decl.matcher(lines[i]);
+                    if (!m.matches() || lines[i].contains(" class ") || m.group(2).trim().isEmpty()) {
+                        continue;
+                    }
+                    String ann = "";
+                    for (int k = i - 1; k >= 0; k--) {
+                        String tt = lines[k].trim();
+                        if (tt.startsWith("@")) {
+                            ann = tt;
+                            break;
+                        }
+                        if (tt.isEmpty() || tt.startsWith("*") || tt.startsWith("/*") || tt.startsWith("//")) {
+                            continue;
+                        }
+                        break;
+                    }
+                    boolean notAction = ann.contains("@NotAction");
+                    pinned.add((registered.contains(simple) ? "[注册]" : "[未注册]")
+                            + (notAction ? "[@NotAction]" : "[-]") + " " + simple + "." + m.group(1));
+                    if (registered.contains(simple) && !notAction) {
+                        hits.add(simple + "." + m.group(1) + "(" + m.group(2) + ")");
                     }
                 }
             }
         }
+
         assertTrue(classes >= 20, "应扫描到 ≥20 个 Controller 类，实际 " + classes);
-        assertEquals(PINNED_ARG_BEARING, new ArrayList<>(new TreeSet<>(withArgs)),
-                "带参方法清单变化 —— 真正的带参 action 要求 W1c 补参数绑定（LegacyAction.args 现为临时空数组）");
+        assertTrue(registered.size() >= 20, "应识别出 ≥20 个已注册 controller，实际 " + registered.size());
+        assertEquals(9, pinned.size(), "带参 public 方法清单变化了，须复核分类：\n  "
+                + String.join("\n  ", new TreeSet<>(pinned)));
+        assertTrue(hits.isEmpty(),
+                "发现【已注册 + 非 @NotAction + 带参】的方法，说明 jfinal 参数绑定框架是必需的：\n  "
+                        + String.join("\n  ", hits));
     }
 
     // ---------------- 支撑 ----------------

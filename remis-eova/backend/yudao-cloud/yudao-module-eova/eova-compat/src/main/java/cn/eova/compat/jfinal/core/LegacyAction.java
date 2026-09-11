@@ -19,17 +19,18 @@ import cn.eova.compat.jfinal.aop.LegacyInterceptor;
  * （类型 {@code com.jfinal.core.paragetter.ParaProcessor}），其职责是
  * <b>把请求参数绑定到 action 方法的形参上</b>。本接缝<b>不</b>port 该类型，原因有二：
  * <ol>
- *   <li><b>⚠️ 我最初声称"EOVA 的 action 全部无参"，该说法是【错的】并被断言当场推翻。</b>
- *       实测存在<b>真正的带参 action</b>：
- *       {@code MetaController.importMeta(String ds, String type, String table, String name, String code, String pk)}、
- *       {@code RouterController.signCheck(String appKey, String method, String timestamp, String sign)}。
- *       故 <b>jfinal 的参数绑定框架（{@code paragetter}）是必需的</b>，
- *       本接缝的 {@code args} 目前恒为空数组属<b>临时状态</b>，
- *       待 W1c 补参数绑定后修正。清单由
- *       {@code MvcFoundationGoldenTest.pinnedArgBearingActionMethods} 钉住。</li>
- *   <li>{@code ParaProcessor} 会牵出 jfinal 的 {@code paragetter} 整包
- *       （Getter/JsonRequest 等），属宿主装配面，非 EOVA 契约面。</li>
- * </ol>
+ *   <li><b>⚠️ 这一点我连续判断错了两次，最终由实测判据定案：</b>
+ *       <ol>
+ *         <li>初次声称"EOVA 的 action 全部无参" —— <b>错</b>（扫描太粗，把
+ *             {@code @NotAction} 辅助方法与未注册类的方法都算成了 action）；</li>
+ *         <li>随后"发现"两个带参方法并断言"参数绑定框架必需" —— <b>也错</b>；
+ *             {@code MetaController.importMeta} 带 {@code @NotAction}，
+ *             {@code RouterController.signCheck} 所在类<b>全树未被注册</b>。</li>
+ *       </ol>
+ *       <b>实测结论（判据 {@code MvcFoundationGoldenTest.argBearingActionsAreNone}）：
+ *       "已注册 controller + 非 {@code @NotAction} + 带参"的方法数 = 0</b>，
+ *       故 jfinal 的参数绑定框架（{@code paragetter}）<b>不需要</b> port，
+ *       {@code args} 恒为空数组是<b>正确而非临时</b>的状态。</li> * </ol>
  */
 public class LegacyAction {
 
