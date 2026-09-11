@@ -11,9 +11,6 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-@Inherited
-@Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.TYPE})
 /**
  * <p>ported from: cn.eova.plugin.automodel.TableBind
  * <br>source revision: meta-eova/eova 1b1d39e7350f7e031b216aad0399fc8cc55dce08
@@ -23,6 +20,9 @@ import java.lang.annotation.Target;
  *   <li>注解定义，属性名与默认值属契约</li>
  * </ol>
  */
+@Inherited
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.TYPE})
 public @interface TableBind {
     String tableName() default "";
 

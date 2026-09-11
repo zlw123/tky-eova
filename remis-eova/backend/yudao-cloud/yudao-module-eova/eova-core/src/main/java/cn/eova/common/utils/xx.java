@@ -20,15 +20,6 @@ import cn.eova.config.EovaConfig;
 import cn.eova.compat.jfinal.kit.LegacyLogKit;
 
 /**
- * 请 import cn.eova.tools.x;
- * <br>
- * 使用 x.xxx 代替 xx.xxx
- *
- * @author Jieven
- *
- */
-@Deprecated
-/**
  * <p>ported from: cn.eova.common.utils.xx
  * <br>source revision: meta-eova/eova 1b1d39e7350f7e031b216aad0399fc8cc55dce08
  * <br>本单元为逐行等价 port：文件体与旧实现逐字节一致，仅新增本追溯头。
@@ -39,6 +30,15 @@ import cn.eova.compat.jfinal.kit.LegacyLogKit;
  *   <li>【已声明依赖 stub】4 处方言判断读 cn.eova.config.EovaConfig.EOVA_DBTYPE（292/304/317/332）。EovaConfig 当前为【已声明 compile-stub】，其 EOVA_DBTYPE 声明与旧源码逐字一致（public static DbType EOVA_DBTYPE = DbType.mysql），故这 4 个分支的取值语义正确；但 EovaConfig 完整 port 前，本单元不得标记 verified（见账本 blockedBy）。</li>
  * </ol>
  */
+/**
+ * 请 import cn.eova.tools.x;
+ * <br>
+ * 使用 x.xxx 代替 xx.xxx
+ *
+ * @author Jieven
+ *
+ */
+@Deprecated
 public class xx {
 
     /**默认数据源名称**/

@@ -21,11 +21,6 @@ import cn.eova.compat.jfinal.kit.LegacyKv;
 import cn.eova.compat.jfinal.kit.LegacyLogKit;
 
 /**
- * SSE消息发送工具类 v1.1.0
- * @author 杜福忠
- */
-@SuppressWarnings({"unused", "UnusedReturnValue"})
-/**
  * <p>ported from: cn.eova.common.utils.web.SseKit
  * <br>source revision: meta-eova/eova 1b1d39e7350f7e031b216aad0399fc8cc55dce08
  * <br>本单元为逐行等价 port：文件体与旧实现逐字节一致，仅新增本追溯头。
@@ -36,6 +31,11 @@ import cn.eova.compat.jfinal.kit.LegacyLogKit;
  *   <li>AsyncContext/AsyncEvent/AsyncListener 为 jakarta.servlet（决策 1）</li>
  * </ol>
  */
+/**
+ * SSE消息发送工具类 v1.1.0
+ * @author 杜福忠
+ */
+@SuppressWarnings({"unused", "UnusedReturnValue"})
 public class SseKit {
     private static final Map<String, AsyncContext> sseMap = new ConcurrentHashMap<>();
 

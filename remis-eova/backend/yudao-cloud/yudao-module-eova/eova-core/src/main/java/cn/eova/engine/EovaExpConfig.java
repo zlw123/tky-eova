@@ -3,12 +3,6 @@ package cn.eova.engine;
 import cn.eova.compat.jfinal.kit.LegacyKv;
 
 /**
- * 表达式配置
- *
- * @author Jieven
- */
-@Deprecated
-/**
  * <p>ported from: cn.eova.engine.EovaExpConfig
  * <br>source revision: meta-eova/eova 1b1d39e7350f7e031b216aad0399fc8cc55dce08
  * <br>本单元为逐行等价 port：文件体与旧实现逐字节一致，仅新增本追溯头。
@@ -17,6 +11,12 @@ import cn.eova.compat.jfinal.kit.LegacyKv;
  *   <li>表达式配置容器；字段名与嵌套结构属契约</li>
  * </ol>
  */
+/**
+ * 表达式配置
+ *
+ * @author Jieven
+ */
+@Deprecated
 public class EovaExpConfig {
 
     private String code;// 编码
