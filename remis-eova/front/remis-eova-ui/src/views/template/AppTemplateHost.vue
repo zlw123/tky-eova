@@ -131,7 +131,11 @@ const state = computed<
   if (resolved.value.source === 'missing') {
     return 'missing'
   }
-  if (!isMigratedTemplate(resolved.value.template)) {
+  // ★ 第 131 轮加固：**已迁移清单**与**组件表**若发生漂移（登记了模版名却没组件），
+  //   `state='ready'` 会让 `<component :is="undefined">` 渲染**空白**（构建与其它判据全绿）。
+  //   组件表一致性由 `__tests__/registry.spec.ts` 在静态上钉住；这里是**运行期的第二道**：
+  //   取不到组件时退回明确诊断，而不是静默空页。
+  if (!isMigratedTemplate(resolved.value.template) || !TEMPLATE_COMPONENTS[resolved.value.template]) {
     return 'unmigrated'
   }
   return 'ready'
