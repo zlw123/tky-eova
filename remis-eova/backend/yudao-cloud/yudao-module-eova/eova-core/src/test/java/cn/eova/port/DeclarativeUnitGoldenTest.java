@@ -214,6 +214,24 @@ class DeclarativeUnitGoldenTest {
     private static Set<String> fields(Class<?> c) {
         List<String> out = new ArrayList<>();
         for (Field f : c.getDeclaredFields()) {
+            // 跳过【合成】字段 —— 与 methods() 的处理保持一致（此前本方法漏了这一条，
+            // 形成不对称：方法过滤 synthetic、字段不过滤）。
+            //
+            // 触发本修正的实际案例：3 个枚举（EovaHookCode / EovaHookType / MsgType）
+            // 报出
+            //     旧: private static final X[] ENUM$VALUES
+            //     新: private static final X[] $VALUES
+            // 这是【javac 版本的产物】而非语义差异 —— 旧制品由 Java 8 javac 编译
+            // （合成名 ENUM$VALUES），新代码由 Java 17 javac 编译（合成名 $VALUES）。
+            // 该字段是 private + synthetic，用户代码【两个名字都无法引用】，
+            // 故其名称不构成契约。
+            //
+            // 为什么这一步不是"为通过而放宽"：过滤只作用于 synthetic。
+            // 枚举常量本身是【非合成】的 public static final 字段，仍逐项比对 ——
+            // 由 surfacesMatchOld 的常量名/顺序断言与本类的非空洞护栏共同保证。
+            if (f.isSynthetic()) {
+                continue;
+            }
             String v;
             try {
                 f.setAccessible(true);
