@@ -25,6 +25,8 @@ import cn.eova.compat.jfinal.aop.LegacyInterceptor;
 import cn.eova.compat.jfinal.aop.LegacyInvocation;
 import cn.eova.compat.jfinal.kit.LegacyKv;
 import cn.eova.compat.render.LegacyRender;
+import cn.eova.compat.render.DefaultLegacyRenderFactory;
+import cn.eova.compat.render.LegacyErrorRender;
 import cn.eova.compat.render.LegacyJsonRender;
 import cn.eova.compat.render.LegacyTemplateRender;
 import cn.eova.compat.render.LegacyRedirectRender;
@@ -513,6 +515,203 @@ class MvcFoundationGoldenTest {
         IllegalArgumentException newEx = org.junit.jupiter.api.Assertions.assertThrows(
                 IllegalArgumentException.class, () -> LegacyTemplateRender.init(null));
         assertEquals(oldEx.getMessage(), newEx.getMessage(), "init(null) 的消息必须逐字一致");
+    }
+
+    /**
+     * <b>内建错误页与旧制品逐字节比对</b>（最强的一条：字节相等蕴含内容相等）。
+     *
+     * @throws Exception 反射失败
+     */
+    @Test
+    @DisplayName("LegacyErrorRender：内建错误页/回退页与旧 jfinal 制品逐字节一致")
+    void errorRenderPagesMatchOld() throws Exception {
+        ClassLoader jf = OldImplementationLoader.createForJFinalOnly();
+        Class<?> oldCls = Class.forName("com.jfinal.render.ErrorRender", true, jf);
+        OldImplementationLoader.assertFromJar(oldCls, OldImplementationLoader.oldJFinalJar());
+
+        // ① 内建表：逐状态码比对字节
+        int compared = 0;
+        for (String mapName : new String[]{"errorHtmlMap", "errorJsonMap"}) {
+            java.lang.reflect.Field oldF = oldCls.getDeclaredField(mapName);
+            oldF.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            Map<Integer, byte[]> oldMap = (Map<Integer, byte[]>) oldF.get(null);
+            java.lang.reflect.Field newF = LegacyErrorRender.class.getDeclaredField(mapName);
+            newF.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            Map<Integer, byte[]> newMap = (Map<Integer, byte[]>) newF.get(null);
+
+            assertEquals(new TreeSet<>(oldMap.keySet()), new TreeSet<>(newMap.keySet()),
+                    mapName + " 的状态码集合必须一致");
+            for (Integer code : oldMap.keySet()) {
+                assertTrue(Arrays.equals(oldMap.get(code), newMap.get(code)),
+                        mapName + "[" + code + "] 必须逐字节一致");
+                compared++;
+            }
+        }
+        assertEquals(10, compared, "应有 10 项内建页（html/json × 400/401/403/404/500）");
+
+        // ② 回退页（未命中内建表的状态码）逐字节比对
+        Object oldFallback = oldCls.getConstructor(int.class).newInstance(999);
+        LegacyErrorRender newFallback = new LegacyErrorRender(999);
+        assertTrue(Arrays.equals(
+                        (byte[]) oldCls.getMethod("getErrorHtml").invoke(oldFallback),
+                        newFallback.getErrorHtml()),
+                "回退 HTML 页必须逐字节一致");
+        assertTrue(Arrays.equals(
+                        (byte[]) oldCls.getMethod("getErrorJson").invoke(oldFallback),
+                        newFallback.getErrorJson()),
+                "回退 JSON 体必须逐字节一致（含键序 state,msg）");
+    }
+
+    /** ErrorRender.render 的两条分支 */
+    @Test
+    @DisplayName("LegacyErrorRender.render：内建字节分支（状态码+contentType+字节）")
+    void errorRenderBuiltinBranch() throws Exception {
+        java.io.StringWriter out = new java.io.StringWriter();
+        java.util.List<Integer> status = new ArrayList<>();
+        java.util.List<String> cts = new ArrayList<>();
+        LegacyErrorRender r = new LegacyErrorRender(404);
+        r.setContext(probeRequest(Map.of()), outSpy(status, cts, out));
+        r.render();
+
+        assertEquals(List.of(404), status, "必须先 setStatus(404)");
+        assertEquals(List.of("text/html; charset=UTF-8"), cts, "非 JSON 请求用 HTML contentType");
+        assertTrue(out.toString().contains("404 Not Found"), "应写内建 404 页，实际：" + out);
+
+        // JSON 请求（contentType 含 json）→ 走 JSON contentType 与 JSON 体
+        java.io.StringWriter out2 = new java.io.StringWriter();
+        java.util.List<Integer> st2 = new ArrayList<>();
+        java.util.List<String> ct2 = new ArrayList<>();
+        LegacyErrorRender r2 = new LegacyErrorRender(500);
+        r2.setContext(jsonRequest(), outSpy(st2, ct2, out2));
+        r2.render();
+        assertEquals(List.of("application/json; charset=UTF-8"), ct2, "JSON 请求用 JSON contentType");
+        assertTrue(out2.toString().contains("\"state\":\"fail\""), "实际：" + out2);
+    }
+
+    /**
+     * 建能记录 setStatus/setContentType 并捕获写出内容的响应替身。
+     *
+     * @param status 状态码收集
+     * @param cts    contentType 收集
+     * @param out    输出缓冲
+     * @return 替身
+     */
+    private static jakarta.servlet.http.HttpServletResponse outSpy(
+            java.util.List<Integer> status, java.util.List<String> cts, java.io.Writer out) {
+        InvocationHandler h = (p, m, args) -> {
+            switch (m.getName()) {
+                case "setStatus":
+                    status.add((Integer) args[0]);
+                    return null;
+                case "setContentType":
+                    cts.add((String) args[0]);
+                    return null;
+                case "getOutputStream":
+                    return outputStreamOf(out);
+                case "getWriter":
+                    return new java.io.PrintWriter(out);
+                case "equals":
+                    return p == args[0];
+                case "hashCode":
+                    return System.identityHashCode(p);
+                default:
+                    return null;
+            }
+        };
+        return (jakarta.servlet.http.HttpServletResponse) Proxy.newProxyInstance(
+                MvcFoundationGoldenTest.class.getClassLoader(),
+                new Class<?>[]{jakarta.servlet.http.HttpServletResponse.class}, h);
+    }
+
+    /**
+     * 把 Writer 包成 {@code ServletOutputStream}。
+     *
+     * <p><b>为什么不能用 Proxy：</b>{@code jakarta.servlet.ServletOutputStream}
+     * 是<b>抽象类</b>（不是接口），{@code Proxy} 只能代理接口 ——
+     * 该错误由本判据第一次运行时报出（"is not an interface"）。</p>
+     *
+     * @param out 目标 Writer
+     * @return 输出流
+     */
+    private static jakarta.servlet.ServletOutputStream outputStreamOf(java.io.Writer out) {
+        return new jakarta.servlet.ServletOutputStream() {
+            @Override
+            public void write(int b) throws java.io.IOException {
+                out.write(b);
+            }
+
+            @Override
+            public void write(byte[] b) throws java.io.IOException {
+                out.write(new String(b));
+            }
+
+            @Override
+            public void write(byte[] b, int off, int len) throws java.io.IOException {
+                out.write(new String(b, off, len));
+            }
+
+            @Override
+            public void flush() throws java.io.IOException {
+                out.flush();
+            }
+
+            @Override
+            public boolean isReady() {
+                return true;
+            }
+
+            @Override
+            public void setWriteListener(jakarta.servlet.WriteListener writeListener) {
+                // 判据不需要
+            }
+        };
+    }
+
+    /**
+     * 建 contentType 为 application/json 的请求替身。
+     *
+     * @return 替身
+     */
+    private static HttpServletRequest jsonRequest() {
+        InvocationHandler h = (p, m, args) -> {
+            switch (m.getName()) {
+                case "getContentType":
+                    return "application/json;charset=UTF-8";
+                case "getAttributeNames":
+                    return java.util.Collections.emptyEnumeration();
+                case "getAttribute":
+                    return null;
+                case "equals":
+                    return p == args[0];
+                case "hashCode":
+                    return System.identityHashCode(p);
+                default:
+                    return null;
+            }
+        };
+        return (HttpServletRequest) Proxy.newProxyInstance(
+                MvcFoundationGoldenTest.class.getClassLoader(),
+                new Class<?>[]{HttpServletRequest.class}, h);
+    }
+
+    /** 默认工厂：四类渲染都能造出来，且 render 族端到端可跑 */
+    @Test
+    @DisplayName("DefaultLegacyRenderFactory：串起四类渲染，render 族端到端可用")
+    void defaultFactoryWiresAllRenders() {
+        DefaultLegacyRenderFactory f = new DefaultLegacyRenderFactory();
+        assertTrue(f.getRender("v") instanceof LegacyTemplateRender);
+        assertTrue(f.getTemplateRender("v") instanceof LegacyTemplateRender);
+        assertTrue(f.getJsonRender() instanceof LegacyJsonRender);
+        assertTrue(f.getJsonRender(new String[]{"a"}) instanceof LegacyJsonRender);
+        assertTrue(f.getJsonRender("{}") instanceof LegacyJsonRender);
+        assertTrue(f.getJsonRender(new Object()) instanceof LegacyJsonRender);
+        assertTrue(f.getJsonRender("k", new Object()) instanceof LegacyJsonRender);
+        assertTrue(f.getErrorRender(404) instanceof LegacyErrorRender);
+        assertTrue(f.getErrorRender(404, "v") instanceof LegacyErrorRender);
+        assertTrue(f.getRedirectRender("/a") instanceof LegacyRedirectRender);
+        assertTrue(f.getRedirectRender("/a", true) instanceof LegacyRedirectRender);
     }
 
     /** LegacyJsonRender：走真实 render() 路径，捕获写出内容 */
