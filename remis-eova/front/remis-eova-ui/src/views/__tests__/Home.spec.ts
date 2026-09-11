@@ -98,6 +98,61 @@ describe('Home.vue（旧 _view/index/index.html + index.js 的行为等价）', 
     expect((w2.vm as any).msg).toBe('请求异常')
   })
 
+  it('组件级接线：点菜单入页签并激活；重复点不重复入栈', async () => {
+    post.mockResolvedValue(okBody)
+    const w = mount(Home)
+    await flushPromises()
+    const vm = w.vm as any
+    expect(vm.tabMenus.map((t: any) => t.id)).toEqual([0])
+    vm.onMenuClick({ id: 1, name: '菜单A' })
+    expect(vm.tabMenus.map((t: any) => t.id)).toEqual([0, 1])
+    expect(vm.tabMenus.find((t: any) => t.id == 1).active).toBe(true)
+    vm.onMenuClick({ id: 1, name: '菜单Again' })
+    expect(vm.tabMenus.length).toBe(2)
+  })
+
+  it('组件级接线：type=open 的菜单走新窗口且不入页签', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+    post.mockResolvedValue(okBody)
+    const w = mount(Home)
+    await flushPromises()
+    const vm = w.vm as any
+    vm.onMenuClick({ id: 8, name: '外链', type: 'open', link: 'https://eova.cn' })
+    expect(openSpy).toHaveBeenCalledWith('https://eova.cn')
+    expect(vm.tabMenus.map((t: any) => t.id)).toEqual([0])
+    openSpy.mockRestore()
+  })
+
+  it('组件级接线：点页签切换（onTabClick 必须接 toTab，单一激活）', async () => {
+    post.mockResolvedValue(okBody)
+    const w = mount(Home)
+    await flushPromises()
+    const vm = w.vm as any
+    vm.onMenuClick({ id: 1, name: 'A' })
+    vm.onMenuClick({ id: 2, name: 'B' })
+    expect(vm.tabMenus.find((t: any) => t.id == 2).active).toBe(true)
+    // 回点 A：A 激活、B 失活（这条专门覆盖 onTabClick → toTab 的接线；缺它时 M2 变异会漏网）
+    vm.onTabClick(vm.tabMenus.find((t: any) => t.id == 1))
+    expect(vm.tabMenus.find((t: any) => t.id == 1).active).toBe(true)
+    expect(vm.tabMenus.find((t: any) => t.id == 2).active).toBe(false)
+  })
+
+  it('组件级接线：关页签切到最后一个；关全部只留首页', async () => {
+    post.mockResolvedValue(okBody)
+    const w = mount(Home)
+    await flushPromises()
+    const vm = w.vm as any
+    vm.onMenuClick({ id: 1, name: 'A' })
+    vm.onMenuClick({ id: 2, name: 'B' })
+    vm.onMenuClick({ id: 3, name: 'C' })
+    vm.onTabClose({ id: 1, name: 'A' })
+    expect(vm.tabMenus.map((t: any) => t.id)).toEqual([0, 2, 3])
+    expect(vm.tabMenus.find((t: any) => t.active).id).toBe(3)
+    vm.onCloseAll()
+    expect(vm.tabMenus.map((t: any) => t.id)).toEqual([0])
+    expect(vm.tabMenus[0].active).toBe(true)
+  })
+
   it('渲染：过滤后的目录与归属菜单可见（m.parent_id == c.id && type != dir）', async () => {
     post.mockResolvedValue(okBody)
     const w = mount(Home)
