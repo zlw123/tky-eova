@@ -118,6 +118,8 @@ class MetaUtilAddVirtualObjectLiveTest {
         // ★ 自证 baseline 已复原（本判据是少数会写参考数据表的判据，必须自己证明清理干净）
         assertEquals(0, count("eova_object", "code", OBJ), "清理后 eova_object 不得残留 scratch 行");
         assertEquals(0, count("eova_field", "object_code", OBJ), "清理后 eova_field 不得残留 scratch 行");
+        assertEquals(0, count("eova_object", "code", SCRATCH), "★ 无前缀形式也不得残留（r230 实测踩到）");
+        assertEquals(0, count("eova_field", "object_code", SCRATCH), "★ 无前缀形式也不得残留");
         CacheServices.clear();
         EhCacheService.shutdown();
         EovaDataSource.clear();
@@ -130,8 +132,11 @@ class MetaUtilAddVirtualObjectLiveTest {
     private static void cleanup() throws Exception {
         try (Connection c = DriverManager.getConnection(URL, DB_USER, DB_PWD);
              Statement st = c.createStatement()) {
-            st.executeUpdate("delete from eova_field where object_code = '" + OBJ + "'");
-            st.executeUpdate("delete from eova_object where code = '" + OBJ + "'");
+            // ★ r230 加固：连**无前缀**形式一起清 —— M1 变异（去掉 "v_" 前缀）会让实现写出
+            //   code=SCRATCH，只按 v_ 前缀清理就会把它留在参考数据表里（实测 eova_object 42→43，
+            //   即"清理自证"本身在变异下失效）。清理与断言都必须覆盖两种形式。
+            st.executeUpdate("delete from eova_field where object_code in ('" + OBJ + "', '" + SCRATCH + "')");
+            st.executeUpdate("delete from eova_object where code in ('" + OBJ + "', '" + SCRATCH + "')");
         }
     }
 
