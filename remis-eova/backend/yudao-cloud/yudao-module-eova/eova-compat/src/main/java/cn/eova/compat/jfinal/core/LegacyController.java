@@ -1,0 +1,598 @@
+/**
+ * Copyright (c) 2015-2026 EOVA.CN. All rights reserved.
+ * Licensed under the LGPL-3.0 license
+ * For authorization, please contact: admin@eova.cn
+ */
+package cn.eova.compat.jfinal.core;
+
+import java.util.Map;
+
+import cn.eova.compat.jfinal.kit.LegacyStrKit;
+import cn.eova.compat.jfinal.kit.LegacyKv;
+import cn.eova.compat.render.LegacyRender;
+import cn.eova.compat.render.LegacyRenderManager;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+/**
+ * jfinal 5.2.6 的 {@code com.jfinal.core.Controller} 的等价接缝。
+ *
+ * <p>{@code ported from} {@code com.jfinal.core.Controller}（jfinal 5.2.6）。
+ * EOVA 的 31 个 Controller 类（含 {@code BaseController}）全部继承本类。</p>
+ *
+ * <p><b>方法集口径：旧类 81 个方法，EOVA 实际只调用 28 个</b>（全树普查，见
+ * {@code MvcFoundationGoldenTest}）。本类<b>分批实现</b>，每一批都由判据把
+ * "已实现的方法集"钉死，未实现部分<b>显式声明</b>而非留成看似可用的空壳：</p>
+ *
+ * <table border="1">
+ *   <tr><th>批次</th><th>内容</th><th>状态</th></tr>
+ *   <tr><td>W1a</td><td>请求/参数/属性/Kv/rawData/Cookie 无关部分 + {@code render(Render)} 赋值语义</td>
+ *       <td><b>本批已实现</b></td></tr>
+ *   <tr><td>W1b</td><td>{@code getLong}/{@code getDate}（{@code toLong}/{@code toDate} 字节码待读）、
+ *       {@code getFile}、{@code getModel}、{@code getCookie} 族</td><td>待</td></tr>
+ *   <tr><td>W2</td><td>{@code render(String)} / {@code renderJson} / {@code renderText} /
+ *       {@code renderHtml} / {@code renderError} / {@code renderTemplate} / {@code redirect}
+ *       （全部经渲染工厂）</td><td>待</td></tr>
+ * </table>
+ *
+ * <p><b>本批已逐条取自旧字节码的语义（含 4 处易错点）：</b>
+ * <ol>
+ *   <li>{@code getPara(String)}：取到的值<b>为空串时返回 null</b>（不是空串）。</li>
+ *   <li>{@code getPara(int)}：{@code index < 0} 时回落到 {@link #getPara()}；
+ *       urlPara 为 null 或空串时用空数组；否则按 {@code "-"} 切分；
+ *       切分后<b>逐段把空串就地改写为 null</b>（改写发生在<b>缓存数组</b>上，故只做一次）。</li>
+ *   <li>{@code toInt}：{@code "N"}/{@code "n"} 前缀表示 <b>取负</b>
+ *       （{@code "N5"} → {@code -5}），<b>不是</b> "null" —— 这是 jfinal 为规避
+ *       URL 里 {@code "-"} 被当作 urlPara 分隔符而设的约定。失败时抛
+ *       {@link LegacyActionException}(400, 错误渲染, 固定消息)。</li>
+ *   <li>{@code set(name,value)} 与 {@code setAttr(name,value)} <b>实现完全相同</b>
+ *       （都只做 {@code request.setAttribute}）—— 旧实现如此，不得"顺手合并"或"顺手区分"。</li>
+ * </ol>
+ */
+public class LegacyController {
+
+    /** 空 urlPara 数组（旧实现为 static final，避免每次新建） */
+    private static final String[] NULL_URL_PARA_ARRAY = new String[0];
+
+    /** urlPara 分隔符（旧 {@code Const.DEFAULT_URL_PARA_SEPARATOR} = "-"） */
+    private static final String URL_PARA_SEPARATOR = "-";
+
+    /**
+     * action 元信息 —— <b>包级私有</b>，与旧实现一致（jfinal 的
+     * {@code Controller.action} 同样是包级字段，由同包的 {@code ActionHandler} 直接写入）。
+     * 故<b>不</b>提供 public 的 setter/getter —— 那会新增旧实现没有的对外成员。
+     */
+    LegacyAction action;
+
+    private HttpServletRequest request;
+
+    private HttpServletResponse response;
+
+    private String urlPara;
+
+    private String[] urlParaArray;
+
+    private String rawData;
+
+    /** 待渲染对象；{@code render*} 族只负责赋值，真正渲染由框架在 action 返回后进行 */
+    private LegacyRender render;
+
+    /**
+     * 回收本实例（旧实现由 ControllerFactory 在每次请求前后调用，
+     * 与 {@code Controller} 实例复用配套）。逐字段置空，顺序与旧字节码一致。
+     */
+    protected void _clear_() {
+        action = null;
+        request = null;
+        response = null;
+        urlPara = null;
+        urlParaArray = null;
+        render = null;
+        rawData = null;
+    }
+
+    // ---------------- 上下文注入（宿主/框架调用） ----------------
+
+    /**
+     * 注入请求。
+     *
+     * @param request 请求
+     */
+    public void setHttpServletRequest(HttpServletRequest request) {
+        this.request = request;
+    }
+
+    /**
+     * 注入响应。
+     *
+     * @param response 响应
+     */
+    public void setHttpServletResponse(HttpServletResponse response) {
+        this.response = response;
+    }
+
+    /**
+     * 注入 urlPara（URL 中 action 之后的附加路径段）。
+     *
+     * @param urlPara 附加路径段
+     */
+    public void setUrlPara(String urlPara) {
+        this.urlPara = urlPara;
+        this.urlParaArray = null;
+    }
+
+    /** 取请求 */
+    public HttpServletRequest getRequest() {
+        return request;
+    }
+
+    /** 取响应 */
+    public HttpServletResponse getResponse() {
+        return response;
+    }
+
+    // ---------------- 参数 ----------------
+
+    /**
+     * 取 urlPara。
+     *
+     * <p>旧实现：{@code "".equals(urlPara)} 时先把字段置 null 再返回 ——
+     * 即<b>空串会被永久归一为 null</b>（有副作用的自归一）。</p>
+     *
+     * @return urlPara；空串返回 null
+     */
+    public String getPara() {
+        if ("".equals(urlPara)) {
+            urlPara = null;
+        }
+        return urlPara;
+    }
+
+    /**
+     * 取第 index 段 urlPara。
+     *
+     * @param index 下标；小于 0 时回落到 {@link #getPara()}
+     * @return 该段；无该段返回 null
+     */
+    public String getPara(int index) {
+        if (index < 0) {
+            return getPara();
+        }
+        if (urlParaArray == null) {
+            if (urlPara == null || "".equals(urlPara)) {
+                urlParaArray = NULL_URL_PARA_ARRAY;
+            } else {
+                urlParaArray = urlPara.split(URL_PARA_SEPARATOR);
+            }
+            for (int i = 0; i < urlParaArray.length; i++) {
+                if ("".equals(urlParaArray[i])) {
+                    urlParaArray[i] = null;
+                }
+            }
+        }
+        return urlParaArray.length > index ? urlParaArray[index] : null;
+    }
+
+    /**
+     * 取第 index 段 urlPara，缺省回落。
+     *
+     * @param index        下标
+     * @param defaultValue 缺省值
+     * @return 该段；为 null 时返回缺省值
+     */
+    public String getPara(int index, String defaultValue) {
+        String v = getPara(index);
+        return v != null ? v : defaultValue;
+    }
+
+    /**
+     * 取请求参数（<b>空串归一为 null</b>）。
+     *
+     * @param name 参数名
+     * @return 值；缺失或空串返回 null
+     */
+    public String getPara(String name) {
+        String v = request.getParameter(name);
+        return (v != null && v.length() != 0) ? v : null;
+    }
+
+    /**
+     * 取请求参数，缺省回落。
+     *
+     * @param name         参数名
+     * @param defaultValue 缺省值
+     * @return 值；为 null 时返回缺省值
+     */
+    public String getPara(String name, String defaultValue) {
+        String v = getPara(name);
+        return v != null ? v : defaultValue;
+    }
+
+    /**
+     * 取全部参数表（原样返回容器的 map，含 String[] 值）。
+     *
+     * @return 参数表
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, String[]> getParaMap() {
+        return request.getParameterMap();
+    }
+
+    /**
+     * 请求原始体（首次读取后缓存；旧实现经 {@code HttpKit.readData}）。
+     *
+     * @return 原始体
+     */
+    public String getRawData() {
+        if (rawData == null) {
+            rawData = readData();
+        }
+        return rawData;
+    }
+
+    /**
+     * 读取请求体（按 {@code Content-Length} 读满，UTF-8）。
+     *
+     * @return 请求体
+     */
+    private String readData() {
+        StringBuilder sb = new StringBuilder();
+        try (java.io.BufferedReader br = request.getReader()) {
+            char[] buf = new char[1024];
+            int n;
+            while ((n = br.read(buf)) != -1) {
+                sb.append(buf, 0, n);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        return sb.toString();
+    }
+
+    // ---------------- 参数转换（私有助手，语义取自旧字节码） ----------------
+
+    /**
+     * 转 Integer。
+     *
+     * <p><b>注意 {@code "N"}/{@code "n"} 前缀表示取负</b>（{@code "N5"} → {@code -5}），
+     * 详见类注释。</p>
+     *
+     * @param value        原始值
+     * @param defaultValue 缺省值
+     * @return Integer
+     */
+    private Integer toInt(String value, Integer defaultValue) {
+        try {
+            if (LegacyStrKit.isBlank(value)) {
+                return defaultValue;
+            }
+            value = value.trim();
+            if (value.startsWith("N") || value.startsWith("n")) {
+                return -Integer.parseInt(value.substring(1));
+            }
+            return Integer.parseInt(value);
+        } catch (Exception e) {
+            throw new LegacyActionException(400,
+                    LegacyRenderManager.getRenderFactory().getErrorRender(400),
+                    "Can not parse the parameter \"" + value + "\" to Integer value.");
+        }
+    }
+
+    /**
+     * 转 Boolean。
+     *
+     * <p>旧字节码：先 {@code trim().toLowerCase()}，{@code "1"}/{@code "true"} → TRUE，
+     * {@code "0"}/{@code "false"} → FALSE，其余抛 400。</p>
+     *
+     * @param value        原始值
+     * @param defaultValue 缺省值
+     * @return Boolean
+     */
+    private Boolean toBoolean(String value, Boolean defaultValue) {
+        try {
+            if (LegacyStrKit.isBlank(value)) {
+                return defaultValue;
+            }
+            value = value.trim().toLowerCase();
+            if ("1".equals(value) || "true".equals(value)) {
+                return Boolean.TRUE;
+            }
+            if ("0".equals(value) || "false".equals(value)) {
+                return Boolean.FALSE;
+            }
+        } catch (Exception e) {
+            throw new LegacyActionException(400,
+                    LegacyRenderManager.getRenderFactory().getErrorRender(400),
+                    "Can not parse the parameter \"" + value + "\" to Boolean value.");
+        }
+        throw new LegacyActionException(400,
+                LegacyRenderManager.getRenderFactory().getErrorRender(400),
+                "Can not parse the parameter \"" + value + "\" to Boolean value.");
+    }
+
+    /**
+     * 取参数转 Integer。
+     *
+     * @param name 参数名
+     * @return Integer；缺失返回 null
+     */
+    public Integer getParaToInt(String name) {
+        return toInt(request.getParameter(name), null);
+    }
+
+    /**
+     * 取参数转 Integer，缺省回落。
+     *
+     * @param name         参数名
+     * @param defaultValue 缺省值
+     * @return Integer
+     */
+    public Integer getParaToInt(String name, Integer defaultValue) {
+        return toInt(request.getParameter(name), defaultValue);
+    }
+
+    /**
+     * 取第 index 段 urlPara 转 Integer。
+     *
+     * @param index 下标
+     * @return Integer
+     */
+    public Integer getParaToInt(int index) {
+        return toInt(getPara(index), null);
+    }
+
+    /**
+     * 取第 index 段 urlPara 转 Integer，缺省回落。
+     *
+     * @param index        下标
+     * @param defaultValue 缺省值
+     * @return Integer
+     */
+    public Integer getParaToInt(int index, Integer defaultValue) {
+        return toInt(getPara(index), defaultValue);
+    }
+
+    /**
+     * 取参数转 Boolean。
+     *
+     * @param name 参数名
+     * @return Boolean
+     */
+    public Boolean getParaToBoolean(String name) {
+        return toBoolean(request.getParameter(name), null);
+    }
+
+    /**
+     * 取参数转 Boolean，缺省回落。
+     *
+     * @param name         参数名
+     * @param defaultValue 缺省值
+     * @return Boolean
+     */
+    public Boolean getParaToBoolean(String name, Boolean defaultValue) {
+        return toBoolean(request.getParameter(name), defaultValue);
+    }
+
+    /**
+     * 取第 index 段 urlPara 转 Boolean。
+     *
+     * @param index 下标
+     * @return Boolean
+     */
+    public Boolean getParaToBoolean(int index) {
+        return toBoolean(getPara(index), null);
+    }
+
+    /**
+     * 取参数转 Integer（旧实现是 {@link #getParaToInt(String)} 的别名）。
+     *
+     * @param name 参数名
+     * @return Integer
+     */
+    public Integer getInt(String name) {
+        return getParaToInt(name);
+    }
+
+    /**
+     * 取参数转 Integer，缺省回落（别名）。
+     *
+     * @param name         参数名
+     * @param defaultValue 缺省值
+     * @return Integer
+     */
+    public Integer getInt(String name, Integer defaultValue) {
+        return getParaToInt(name, defaultValue);
+    }
+
+    /**
+     * 取参数转 Boolean（旧实现是 {@link #getParaToBoolean(String)} 的别名）。
+     *
+     * @param name 参数名
+     * @return Boolean
+     */
+    public Boolean getBoolean(String name) {
+        return getParaToBoolean(name);
+    }
+
+    /**
+     * 取参数转 Boolean，缺省回落（别名）。
+     *
+     * @param name         参数名
+     * @param defaultValue 缺省值
+     * @return Boolean
+     */
+    public Boolean getBoolean(String name, Boolean defaultValue) {
+        return getParaToBoolean(name, defaultValue);
+    }
+
+    // ---------------- 属性 ----------------
+
+    /**
+     * 设置请求属性（与 {@link #setAttr(String, Object)} <b>实现相同</b>，旧实现如此）。
+     *
+     * @param name  名称
+     * @param value 值
+     * @return this
+     */
+    public LegacyController set(String name, Object value) {
+        request.setAttribute(name, value);
+        return this;
+    }
+
+    /**
+     * 设置请求属性（与 {@link #set(String, Object)} <b>实现相同</b>）。
+     *
+     * @param name  名称
+     * @param value 值
+     * @return this
+     */
+    public LegacyController setAttr(String name, Object value) {
+        request.setAttribute(name, value);
+        return this;
+    }
+
+    /**
+     * 取请求属性。
+     *
+     * @param name 名称
+     * @param <T>  类型
+     * @return 属性值
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T getAttr(String name) {
+        return (T) request.getAttribute(name);
+    }
+
+    /**
+     * 取请求属性，缺省回落。
+     *
+     * @param name         名称
+     * @param defaultValue 缺省值
+     * @param <T>          类型
+     * @return 属性值
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T getAttr(String name, T defaultValue) {
+        Object v = request.getAttribute(name);
+        return v != null ? (T) v : defaultValue;
+    }
+
+    /**
+     * 移除请求属性。
+     *
+     * @param name 名称
+     * @return this
+     */
+    public LegacyController removeAttr(String name) {
+        request.removeAttribute(name);
+        return this;
+    }
+
+    /**
+     * 把参数保留为请求属性（使 forward 后仍可取到）。
+     *
+     * <p>旧字节码：对每个名字取 {@code getParameterValues}；
+     * <b>为 null 时什么都不做</b>；长度为 1 时存单个 String，否则存整个数组。</p>
+     *
+     * @param names 参数名
+     * @return this
+     */
+    public LegacyController keepPara(String... names) {
+        for (String name : names) {
+            String[] values = request.getParameterValues(name);
+            if (values != null) {
+                if (values.length == 1) {
+                    request.setAttribute(name, values[0]);
+                } else {
+                    request.setAttribute(name, values);
+                }
+            }
+        }
+        return this;
+    }
+
+    /**
+     * 取参数构成的 Kv（单值；<b>空串归一为 null</b>）。
+     *
+     * <p>旧字节码：遍历参数表；每个键取 String[] 的<b>第 0 个</b>（数组为空取 null），
+     * 再 {@code "".equals(v) ? null : v} 放入 Kv。</p>
+     *
+     * @return Kv
+     */
+    public LegacyKv getKv() {
+        LegacyKv kv = new LegacyKv();
+        for (Map.Entry<String, String[]> e : getParaMap().entrySet()) {
+            String[] arr = e.getValue();
+            String v = (arr != null && arr.length > 0) ? arr[0] : null;
+            kv.put(e.getKey(), "".equals(v) ? null : v);
+        }
+        return kv;
+    }
+
+    // ---------------- 渲染（W1a 只实现"赋值"语义） ----------------
+
+    /**
+     * 设置待渲染对象。
+     *
+     * <p><b>旧字节码只是赋值</b>（{@code this.render = render}），
+     * 真正的渲染由框架在 action 返回后进行 —— 故本方法<b>不</b>调用 {@code render()}。
+     * 这一点容易"顺手写错"成立即渲染。</p>
+     *
+     * @param render 渲染对象
+     */
+    public void render(LegacyRender render) {
+        this.render = render;
+    }
+
+    /**
+     * 取待渲染对象。
+     *
+     * @return 渲染对象
+     */
+    public LegacyRender getRender() {
+        return render;
+    }
+
+    // ---------------- 路径信息 ----------------
+
+    /**
+     * 取 Controller 键（旧实现从 action 取）。
+     *
+     * @return Controller 键；无 action 时为 null
+     */
+    public String getControllerKey() {
+        return action != null ? controllerKeyOf(action.getControllerPath()) : null;
+    }
+
+    /**
+     * 取视图路径（旧实现从 action 取）。
+     *
+     * @return 视图路径；无 action 时为 null
+     */
+    public String getViewPath() {
+        return action != null ? action.getViewPath() : null;
+    }
+
+    /**
+     * 取 Controller 路径（旧实现从 action 取）。
+     *
+     * @return Controller 路径；无 action 时为 null
+     */
+    public String getControllerPath() {
+        return action != null ? action.getControllerPath() : null;
+    }
+
+    /**
+     * 由 Controller 路径推出 Controller 键（去掉 {@code "/"} 前缀）。
+     *
+     * @param controllerPath Controller 路径
+     * @return Controller 键
+     */
+    private static String controllerKeyOf(String controllerPath) {
+        if (controllerPath != null && controllerPath.length() > 1 && controllerPath.charAt(0) == '/') {
+            return controllerPath.substring(1);
+        }
+        return controllerPath;
+    }
+
+}
