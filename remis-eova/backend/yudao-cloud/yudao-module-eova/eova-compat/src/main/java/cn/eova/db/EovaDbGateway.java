@@ -278,6 +278,31 @@ public interface EovaDbGateway {
     int[] batch(List<String> sqlList, int batchSize);
 
     /**
+     * 按列名批量执行同一条 SQL（对应 jfinal
+     * {@code DbPro.batch(String sql, String columns, List modelOrRecordList, int batchSize)}）。
+     *
+     * <p><b>逐条取自旧字节码：</b></p>
+     * <ol>
+     *   <li>{@code recordList} 为 null/空 ⇒ 返回长度 0 的数组；</li>
+     *   <li>首元素必须是 Record（本接缝只支持 Record）⇒ 否则
+     *       {@code IllegalArgumentException("The element in list must be Model or Record.")}；</li>
+     *   <li>{@code batchSize < 1} ⇒
+     *       {@code IllegalArgumentException("The batchSize must more than 0.")}；</li>
+     *   <li>{@code columns} 以 {@code ,} 分隔且<b>逐段 trim</b>，按该顺序把每条记录的列值绑定到
+     *       {@code sql} 的 {@code ?} 上；</li>
+     *   <li>每 {@code batchSize} 条 {@code executeBatch} 一次，<b>非事务状态下每批提交</b>
+     *       （与 {@link #batch(List, int)} 同构）；结果压平到长度 = 记录数的数组前部。</li>
+     * </ol>
+     *
+     * @param sql        含 {@code ?} 占位符的语句（如 {@code update t set num = ? where id = ?}）
+     * @param columns    列名，逗号分隔（顺序即绑定顺序）
+     * @param recordList 记录列表
+     * @param batchSize  每批条数（必须 &gt; 0）
+     * @return 各行影响数（长度 = recordList.size()）
+     */
+    int[] batch(String sql, String columns, List<EovaRecord> recordList, int batchSize);
+
+    /**
      * 批量保存模型（对应 jfinal {@code DbPro.batchSave(List&lt;? extends Model&gt;, int)}）。
      *
      * <p><b>语义：</b>把 {@code models} 逐条按 {@code ModelSqlBuilder.forModelSave} 生成

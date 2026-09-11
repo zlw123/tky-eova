@@ -228,6 +228,85 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
     }
 
     /**
+     * 按列名批量执行同一条 SQL（对应 jfinal
+     * {@code DbPro.batch(sql, columns, modelOrRecordList, batchSize)}）。
+     *
+     * <p>守卫与分块提交语义见接口 javadoc（逐条取自旧字节码）。</p>
+     *
+     * @param sql        含占位符的语句
+     * @param columns    列名（逗号分隔，逐段 trim）
+     * @param recordList 记录列表
+     * @param batchSize  每批条数
+     * @return 各行影响数
+     */
+    @Override
+    public int[] batch(String sql, String columns, List<EovaRecord> recordList, int batchSize) {
+        if (recordList == null || recordList.isEmpty()) {
+            return new int[0];
+        }
+        if (batchSize < 1) {
+            throw new IllegalArgumentException("The batchSize must more than 0.");
+        }
+        String[] cols = columns.split(",");
+        for (int i = 0; i < cols.length; i++) {
+            cols[i] = cols[i].trim();
+        }
+        boolean inTx = txConnection.get() != null;
+        Connection conn = inTx ? txConnection.get() : null;
+        Connection owned = null;
+        try {
+            if (conn == null) {
+                owned = dataSource.getConnection();
+                owned.setAutoCommit(false);
+                conn = owned;
+            }
+            int[] result = new int[recordList.size()];
+            int writeIdx = 0;
+            int counter = 0;
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                for (EovaRecord r : recordList) {
+                    Map<String, Object> columnsMap = r.getColumns();
+                    for (int i = 0; i < cols.length; i++) {
+                        ps.setObject(i + 1, columnsMap.get(cols[i]));
+                    }
+                    ps.addBatch();
+                    if (++counter >= batchSize) {
+                        counter = 0;
+                        int[] ret = ps.executeBatch();
+                        if (!inTx) {
+                            conn.commit();
+                        }
+                        for (int v : ret) {
+                            result[writeIdx++] = v;
+                        }
+                    }
+                }
+                if (counter != 0) {
+                    int[] ret = ps.executeBatch();
+                    if (!inTx) {
+                        conn.commit();
+                    }
+                    for (int v : ret) {
+                        result[writeIdx++] = v;
+                    }
+                }
+            }
+            return result;
+        } catch (SQLException e) {
+            if (owned != null) {
+                try {
+                    owned.rollback();
+                } catch (SQLException ignored) {
+                    // 回滚失败不掩盖原异常
+                }
+            }
+            throw new IllegalStateException("批量执行失败", e);
+        } finally {
+            closeQuietly(owned);
+        }
+    }
+
+    /**
      * 批量保存模型（对应 jfinal {@code DbPro.batchSave(List&lt;? extends Model&gt;, int)}）。
      *
      * <p>逐条按 {@code ModelSqlBuilder.forModelSave} 生成 insert 并执行；空列表返回空数组；

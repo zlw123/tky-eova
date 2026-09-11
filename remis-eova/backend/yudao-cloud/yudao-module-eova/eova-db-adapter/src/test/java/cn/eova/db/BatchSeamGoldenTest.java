@@ -48,6 +48,10 @@ class BatchSeamGoldenTest {
                 names.add(m.getParameterTypes()[0].getSimpleName() + "/" + m.getParameterCount());
             }
         }
-        assertEquals(List.of("List/2"), names, "网关必须声明 batch(List,int)");
+        // 第 70 轮 MetaController port 时新增了 batch(String,String,List,int)（jfinal 的
+        // "按列名批量执行"重载），故此处钉【实测全集】而不是单元素 —— 原有断言过于严格，
+        // 隐含假设"接口面永远只有一个 batch 重载"，属不必要约束。
+        assertEquals(List.of("List/2", "String/4"), names,
+                "网关的 batch 重载集合必须与实测一致（List,int + String,String,List,int）");
     }
 }
