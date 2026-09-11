@@ -25,6 +25,7 @@ import cn.eova.compat.jfinal.aop.LegacyInterceptor;
 import cn.eova.compat.jfinal.aop.LegacyInvocation;
 import cn.eova.compat.jfinal.kit.LegacyKv;
 import cn.eova.compat.render.LegacyRender;
+import cn.eova.compat.jfinal.kit.LegacyHandlerKit;
 import cn.eova.compat.render.DefaultLegacyRenderFactory;
 import cn.eova.compat.render.LegacyErrorRender;
 import cn.eova.compat.render.LegacyJsonRender;
@@ -98,11 +99,13 @@ class MvcFoundationGoldenTest {
         LegacyRenderManager.setRenderFactory(new LegacyRenderFactory() {
             @Override
             public LegacyRender getErrorRender(int errorCode) {
+                CALLS.add("getErrorRender:" + errorCode);
                 return new StubRender();
             }
 
             @Override
             public LegacyRender getErrorRender(int errorCode, String view) {
+                CALLS.add("getErrorRender:" + errorCode + ":" + view);
                 return new StubRender();
             }
 
@@ -918,6 +921,118 @@ class MvcFoundationGoldenTest {
         return (HttpServletRequest) Proxy.newProxyInstance(
                 MvcFoundationGoldenTest.class.getClassLoader(),
                 new Class<?>[]{HttpServletRequest.class}, h);
+    }
+
+    /**
+     * {@code LegacyHandlerKit} 的四个方法（逐字节码语义）。
+     */
+    @Test
+    @DisplayName("LegacyHandlerKit：isHandled 置位 / 404 / 查询串拼接 / 301 三头")
+    void handlerKitSemantics() {
+        // 【必须清空】CALLS 是静态共享列表：别的用例（如 renderFamilyDelegatesToFactory 的
+        // renderError(404)）会往里面放 "getErrorRender:404"，断言 contains 就会被残留满足 ——
+        // 该漏检由变异测试实测发现（把 404 改成 500 竟然仍通过）。
+        CALLS.clear();
+
+        // ① renderError404(req,resp,isHandled)：置位 + 经工厂取 404 渲染 + render()
+        boolean[] h1 = {false};
+        java.util.List<String> cts1 = new ArrayList<>();
+        LegacyHandlerKit.renderError404(probeRequest(Map.of()), outSpy(new ArrayList<>(), cts1,
+                new java.io.StringWriter()), h1);
+        assertTrue(h1[0], "isHandled 必须置 true");
+        assertTrue(CALLS.contains("getErrorRender:404"),
+                "应经工厂取【404】错误渲染（记录状态码才能抓住改码这类变异），实际：" + CALLS);
+
+        // ② renderError404(view,...)：置位 + setStatus(404) + 取视图渲染
+        boolean[] h2 = {false};
+        java.util.List<Integer> st2 = new ArrayList<>();
+        java.util.List<String> cts2 = new ArrayList<>();
+        LegacyHandlerKit.renderError404("err/404.html", probeRequest(Map.of()),
+                outSpy(st2, cts2, new java.io.StringWriter()), h2);
+        assertTrue(h2[0]);
+        assertEquals(List.of(404), st2, "该重载必须显式 setStatus(404)（与少参重载不同）");
+
+        // ③ redirect：查询串按 url 是否含 '?' 选分隔符
+        boolean[] h3 = {false};
+        List<String> redirected = new ArrayList<>();
+        LegacyHandlerKit.redirect("/a", probeRequest(Map.of("__qs", "x=1")),
+                redirectSpy(redirected, null), h3);
+        assertTrue(h3[0]);
+        assertEquals(List.of("/a?x=1"), redirected, "无 ? 时用 ?");
+
+        boolean[] h4 = {false};
+        List<String> redirected2 = new ArrayList<>();
+        LegacyHandlerKit.redirect("/a?k=v", probeRequest(Map.of("__qs", "x=1")),
+                redirectSpy(redirected2, null), h4);
+        assertEquals(List.of("/a?k=v&x=1"), redirected2, "已有 ? 时用 &");
+
+        // 无查询串时原样
+        boolean[] h5 = {false};
+        List<String> redirected3 = new ArrayList<>();
+        LegacyHandlerKit.redirect("/a", probeRequest(Map.of()), redirectSpy(redirected3, null), h5);
+        assertEquals(List.of("/a"), redirected3);
+
+        // ④ redirect301：不 sendRedirect，而是 setStatus(301) + Location + Connection
+        boolean[] h6 = {false};
+        List<String> redirected4 = new ArrayList<>();
+        List<Integer> st6 = new ArrayList<>();
+        java.util.List<String[]> headers = new ArrayList<>();
+        LegacyHandlerKit.redirect301("/b", probeRequest(Map.of("__qs", "y=2")),
+                redirectSpy(redirected4, headers, st6), h6);
+        assertTrue(h6[0]);
+        assertTrue(redirected4.isEmpty(), "301 分支【不得】调用 sendRedirect（旧字节码如此）");
+        assertEquals(List.of(301), st6);
+        assertEquals(List.of("/b?y=2"), List.of(headers.get(0)[1]), "Location 头应为拼接后的 URL");
+        assertEquals("Connection", headers.get(1)[0]);
+        assertEquals("close", headers.get(1)[1]);
+    }
+
+    /**
+     * 建只记录 sendRedirect 的响应替身。
+     *
+     * @param redirected 收集 sendRedirect 的目标
+     * @param headers    收集 setHeader（可为 null）
+     * @return 替身
+     */
+    private static jakarta.servlet.http.HttpServletResponse redirectSpy(
+            List<String> redirected, java.util.List<String[]> headers) {
+        return redirectSpy(redirected, headers, new ArrayList<>());
+    }
+
+    /**
+     * 建记录 sendRedirect / setHeader / setStatus 的响应替身。
+     *
+     * @param redirected 收集 sendRedirect
+     * @param headers    收集 setHeader（可为 null）
+     * @param status     收集 setStatus
+     * @return 替身
+     */
+    private static jakarta.servlet.http.HttpServletResponse redirectSpy(
+            List<String> redirected, java.util.List<String[]> headers, List<Integer> status) {
+        InvocationHandler h = (p, m, args) -> {
+            switch (m.getName()) {
+                case "sendRedirect":
+                    redirected.add((String) args[0]);
+                    return null;
+                case "setHeader":
+                    if (headers != null) {
+                        headers.add(new String[]{(String) args[0], (String) args[1]});
+                    }
+                    return null;
+                case "setStatus":
+                    status.add((Integer) args[0]);
+                    return null;
+                case "equals":
+                    return p == args[0];
+                case "hashCode":
+                    return System.identityHashCode(p);
+                default:
+                    return null;
+            }
+        };
+        return (jakarta.servlet.http.HttpServletResponse) Proxy.newProxyInstance(
+                MvcFoundationGoldenTest.class.getClassLoader(),
+                new Class<?>[]{jakarta.servlet.http.HttpServletResponse.class}, h);
     }
 
     /** invoke 链 */
