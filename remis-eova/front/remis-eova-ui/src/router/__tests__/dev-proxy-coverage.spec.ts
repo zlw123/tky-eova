@@ -36,6 +36,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import * as viteConfigModule from '../../../vite.config'
 import { BACKEND_ROUTE_PREFIXES } from '@/compat/backend-routes'
+import { BOOTSTRAP_ENDPOINT } from '@/compat/page-bootstrap-fetcher'
 import { isSpaOwnedPath } from '../routes'
 
 /** ported 后端的路由注册文件（相对前端工程根） */
@@ -184,8 +185,7 @@ describe('dev 代理覆盖', () => {
   })
 
   it('新增前缀后 bypass 语义仍然正确：SPA 路径放行、后端路径继续代理', () => {
-    const proxy = proxyTable() as Record<string, { bypass?: (r: { url?: string }) => unknown }>
-    // `/user/login` 归 SPA ⇒ 即便 `/user` 被代理，也必须放行
+    const proxy = proxyTable() as Record<string, { bypass?: (r: { url?: string }) => unknown }>    // `/user/login` 归 SPA ⇒ 即便 `/user` 被代理，也必须放行
     expect(proxy['/user'].bypass!({ url: '/user/login' })).toBe('/user/login')
     // `/user/doLogin` 是后端 API ⇒ 继续代理
     expect(proxy['/user'].bypass!({ url: '/user/doLogin' })).toBeUndefined()
@@ -194,5 +194,18 @@ describe('dev 代理覆盖', () => {
     // `/app` 的两类路径（r117/r118 口径）在新表里仍然成立
     expect(proxy['/app'].bypass!({ url: '/app/meta_menu' })).toBe('/app/meta_menu')
     expect(proxy['/app'].bypass!({ url: '/app/add/eova_menu_code' })).toBeUndefined()
+  })
+
+  it('★ 引导端点（`BOOTSTRAP_ENDPOINT`）落在被代理的前缀下，且**不**归 SPA', () => {
+    // 跨制品判据：端点是**后端 API**（DES-004 §3.1）⇒ 开发期必须被代理。
+    // 若有人把它改成没有代理前缀的路径（例如 `/page/bootstrap`），这里会红；
+    // 否则症状是"引导数据永远取不到"，而所有其它判据全绿（r121 已记的同一类漂移）。
+    const p = BOOTSTRAP_ENDPOINT
+    expect(isSpaOwnedPath(p), `引导端点 ${p} 不得归 SPA（它是后端 API）`).toBe(false)
+    const proxy = proxyTable()
+    expect(
+      Object.prototype.hasOwnProperty.call(proxy, firstSegment(p)),
+      `引导端点 ${p} 的首段 ${firstSegment(p)} 不在 dev 代理表里 ⇒ 开发期取不到引导数据`
+    ).toBe(true)
   })
 })
