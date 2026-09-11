@@ -4,6 +4,8 @@ package cn.eova.config;
 
 import java.net.URLClassLoader;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 import cn.eova.aop.MetaObjectIntercept;
 import cn.eova.aop.UploadIntercept;
@@ -35,6 +37,7 @@ import com.alibaba.druid.DbType;
  *   <tr><td>{@link #EOVA_INDEX}</td><td>90</td><td>{@code cn.eova.auth.AuthUri}</td></tr>
  *   <tr><td>{@link #modLoader}</td><td>94</td><td>{@code cn.eova.common.utils.io.ClassUtil}</td></tr>
  *   <tr><td>{@link #getUploadIntercept()}</td><td>125/599/603</td><td>{@code cn.eova.widget.upload.UploadUtil}（第 77 轮）</td></tr>
+ *   <tr><td>{@link #getAuthUris()}</td><td>113/614</td><td>{@code cn.eova.auth.AuthInterceptor}（第 78 轮）</td></tr>
  * </table>
  */
 public class EovaConfig {
@@ -46,6 +49,10 @@ public class EovaConfig {
     /** EOVA 首页地址（AuthUri 拼接鉴权 URI 时读取） */
     // 旧源码 EovaConfig.java:90 —— 逐字一致
     public static String EOVA_INDEX = "/";
+
+    /** URI 授权集合<角色ID, URI>（AuthInterceptor 鉴权时读取/追加；由 AuthUri.build 填充） */
+    // 旧源码 EovaConfig.java:113 —— 逐字一致
+    protected static Map<Integer, Set<String>> authUris = new HashMap<Integer, Set<String>>();
 
     /** 上传拦截器（UploadUtil/UploadController 读取；由宿主装配注入） */
     // 旧源码 EovaConfig.java:125 —— 逐字一致
@@ -204,5 +211,18 @@ public class EovaConfig {
      */
     public static void setUploadIntercept(UploadIntercept uploadIntercept) {
         EovaConfig.uploadIntercept = uploadIntercept;
+    }
+
+    /**
+     * 取 URI 授权集合（旧 EovaConfig.java:614 —— 逐字一致）。
+     *
+     * <p>第 78 轮为 port {@code AuthInterceptor} 而按旧源码逐字补入（同一 stub 的真实子集）。
+     * <b>返回的是内部可变 Map</b>（旧实现如此）：AuthInterceptor 会把角色自定义授权
+     * {@code addAll} 进取出的 Set —— 即"鉴权会改写到这份集合"，属既有语义，不得改成只读视图。</p>
+     *
+     * @return 角色ID → URI 模式集合
+     */
+    public static Map<Integer, Set<String>> getAuthUris() {
+        return authUris;
     }
 }
