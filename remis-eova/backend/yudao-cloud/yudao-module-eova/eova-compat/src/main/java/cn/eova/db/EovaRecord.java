@@ -335,6 +335,26 @@ public class EovaRecord implements LegacyJsonKit.JsonColumns, java.io.Serializab
     /**
      * 移除指定列
      */
+    /**
+     * 批量移除列（对应 jfinal {@code Record.remove(String... columns)}）。
+     *
+     * <p>旧字节码：入参为 {@code null} 时<b>直接跳过</b>（不抛错），否则逐个调用
+     * {@code remove(String)}。第 73 轮 port {@code WidgetCtrl}/{@code WidgetController}
+     * 时编译失败才补上（此前只有单参版本）。</p>
+     *
+     * @param columns 列名（可为 null）
+     * @return 本对象
+     */
+    public EovaRecord remove(String... columns) {
+        if (columns == null) {
+            return this;
+        }
+        for (String c : columns) {
+            remove(c);
+        }
+        return this;
+    }
+
     public EovaRecord remove(String column) {
         String k = norm(column);
         columns.remove(k);

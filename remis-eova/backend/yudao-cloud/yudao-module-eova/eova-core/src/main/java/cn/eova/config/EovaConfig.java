@@ -6,6 +6,7 @@ import java.net.URLClassLoader;
 import java.util.HashMap;
 
 import cn.eova.aop.MetaObjectIntercept;
+import cn.eova.aop.UserSessionIntercept;
 import cn.eova.sql.dql.dialect.QueryDialect;
 import cn.eova.aop.eova.EovaIntercept;
 import cn.eova.core.type.Convertor;
@@ -121,6 +122,27 @@ public class EovaConfig {
      */
     public static QueryDialect addQueryDialect(String ds, QueryDialect qd) {
         return queryDialectMap.put(ds, qd);
+    }
+
+    /** 会话拦截器（旧源码 EovaConfig.java:123 —— 逐字一致） */
+    private static UserSessionIntercept userSessionIntercept = null;
+
+    /**
+     * 取会话拦截器（旧 EovaConfig.java:591 —— 逐字一致）。
+     *
+     * @return 拦截器；未设置时为 null
+     */
+    public static UserSessionIntercept getUserSessionIntercept() {
+        return userSessionIntercept;
+    }
+
+    /**
+     * 设置会话拦截器（旧 EovaConfig.java:595 —— 逐字一致）。
+     *
+     * @param userSessionIntercept 拦截器
+     */
+    public static void setUserSessionIntercept(UserSessionIntercept userSessionIntercept) {
+        EovaConfig.userSessionIntercept = userSessionIntercept;
     }
 
     /** 默认的元对象业务拦截器（旧源码 EovaConfig.java:121 —— 逐字一致） */
