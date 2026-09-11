@@ -83,7 +83,16 @@ class DeclarativeUnitGoldenTest {
             "cn.eova.config.PageConst",
             "cn.eova.engine.EovaExpConfig",
             "cn.eova.common.utils.util.JsonUtil",
-            "cn.eova.mod.emi.EMI");
+            "cn.eova.mod.emi.EMI",
+            "cn.eova.config.EovaFieldAuth",
+            "cn.eova.common.Easy",
+            "cn.eova.core.menu.MenuUtil",
+            "cn.eova.sql.DbDialect",
+            "cn.eova.aop.eova.EovaIntercept",
+            "cn.eova.common.utils.io.NetUtil",
+            "cn.eova.plugin.cron4j.BaseTask",
+            "cn.eova.ext.jfinal.EovaRenderSourceFactory",
+            "cn.eova.template.common.TemplateIntercept");
 
     /**
      * <b>已声明的适配</b>：单元 FQCN → 允许在【新实现侧】额外出现在的成员。
@@ -134,7 +143,11 @@ class DeclarativeUnitGoldenTest {
             }
             // 自校验：确保比对的是旧产物，而非本次 port 的新类（否则比对退化为"新 vs 新"）
             OldImplementationLoader.assertFromOldArtifacts(oldC);
-            Class<?> newC = Class.forName(fqcn);
+            // ★ 必须**不初始化**加载：Class.forName(name) 会执行静态初始化，
+            //   而本判据只比声明面 —— r206 实测这种副作用会污染同 JVM 的其它判据
+            //   （声明面名单一扩，eova-compat 的 AES 既有缺陷用例就翻转）。
+            Class<?> newC = Class.forName(fqcn, false,
+                    DeclarativeUnitGoldenTest.class.getClassLoader());
             compared++;
 
             if (oldC.isEnum()) {
@@ -176,7 +189,8 @@ class DeclarativeUnitGoldenTest {
      * （R39/R40），不是 port 不等价；比对前归一化，避免用白名单掩盖差异。 */
     private static final Map<String, String> HOST_SUBSTITUTIONS = Map.of(
             "com.jfinal.kit.Kv", "cn.eova.compat.jfinal.kit.LegacyKv",
-            "com.jfinal.plugin.activerecord.Record", "cn.eova.db.EovaRecord");
+            "com.jfinal.plugin.activerecord.Record", "cn.eova.db.EovaRecord",
+            "com.jfinal.plugin.IPlugin", "cn.eova.compat.jfinal.plugin.LegacyPlugin");
 
     /** 归一化签名/父类里的旧宿主类型名 */
     private static String norm(String s) {
