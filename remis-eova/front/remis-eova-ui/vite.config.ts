@@ -2,6 +2,33 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { isSpaOwnedPath } from './src/router/routes'
+import { BACKEND_ROUTE_PREFIXES } from './src/compat/backend-routes'
+
+/** 后端地址（dev 代理目标） */
+const BACKEND_TARGET = 'http://127.0.0.1:8080'
+
+/**
+ * dev 代理项（**每个后端前缀都必须配**，见第 121 轮的审计）
+ *
+ * ★ 三条口径：
+ *  ① 前缀清单来自 `compat/backend-routes.ts`（其来源是 ported 后端的路由注册 + SPA 实际调用路径，
+ *     判据 `router/__tests__/dev-proxy-coverage.spec.ts` 会解析 Java 源码与扫描 SPA 源码双向核对）；
+ *  ② 每个前缀都带**同一个** `bypass`：`isSpaOwnedPath(req.url)` 为真 ⇒ 放行给 SPA。
+ *     ⇒ 前缀配宽不危险（"哪些路径归 SPA"由那一个函数说了算，单一事实来源）；
+ *  ③ **唯一不能配的前缀是 `/`**（它是 SPA 首页）。漏配其它前缀的后果是：
+ *     该前缀下的后端请求落到 Vite 的 SPA 回退（拿到 index.html、HTTP 200），
+ *     症状是"页面能打开、操作没反应"，而**构建、单测、闸门全绿**（第 108 轮同类漂移的更宽形态）。
+ */
+const proxy = Object.fromEntries(
+  BACKEND_ROUTE_PREFIXES.map((prefix) => [
+    prefix,
+    {
+      target: BACKEND_TARGET,
+      changeOrigin: true,
+      bypass: (req: { url?: string }) => (isSpaOwnedPath(req.url ?? '') ? req.url : undefined)
+    }
+  ])
+)
 
 // remis-eova-ui 构建配置：工程选型对齐 platform/fornt/yudao-ui，降低集成期摩擦
 export default defineConfig({
@@ -18,38 +45,6 @@ export default defineConfig({
   },
   server: {
     port: 9090,
-    // 阶段 2 口径 ②：旧 URL（/eova、/meta、/widget）不得加前缀，代理时原样透传。
-    //
-    // ★ 但 SPA 接管的页面**用的就是这些旧路径**（如 /eova/admin/su）⇒ 必须放行，
-    //   否则开发环境打开该页会被代理到后端（拿到后端 404/HTML），而**构建与单测全绿**。
-    //   放行规则与 router 共用 `SPA_OWNED_PATHS`（单一事实来源，见 src/router/routes.ts）。
-    proxy: {
-      '/eova': {
-        target: 'http://127.0.0.1:8080',
-        changeOrigin: true,
-        bypass: (req) => (isSpaOwnedPath(req.url ?? '') ? req.url : undefined)
-      },
-      // 同一规则必须**每个前缀都配**：`/meta` 与 `/widget` 也会承载 SPA 接管的旧路径
-      // （如 `/meta/reorder`）—— 只给 `/eova` 配 bypass 是不够的。
-      '/meta': {
-        target: 'http://127.0.0.1:8080',
-        changeOrigin: true,
-        bypass: (req) => (isSpaOwnedPath(req.url ?? '') ? req.url : undefined)
-      },
-      '/widget': {
-        target: 'http://127.0.0.1:8080',
-        changeOrigin: true,
-        bypass: (req) => (isSpaOwnedPath(req.url ?? '') ? req.url : undefined)
-      },
-      // ★ 第 118 轮：`/app` 同前缀下既可能是 SPA 菜单模版页（`/app/<menu.code>`），
-      //   也可能是**后端渲染页**（`/app/add|update|detail/<object_code>`，由冻结脚本以 iframe 弹层打开）
-      //   ⇒ 这里必须放行前者、继续代理后者。判定口径与 router 共用（`isSpaOwnedPath` → `compat/app-routes.ts`）。
-      //   忘了配这一条的后果：SPA 菜单页被代理到后端（拿到后端 404/HTML），而**构建与单测全绿**。
-      '/app': {
-        target: 'http://127.0.0.1:8080',
-        changeOrigin: true,
-        bypass: (req) => (isSpaOwnedPath(req.url ?? '') ? req.url : undefined)
-      }
-    }
+    proxy
   }
 })
