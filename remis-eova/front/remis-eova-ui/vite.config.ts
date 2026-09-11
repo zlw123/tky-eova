@@ -29,8 +29,18 @@ export default defineConfig({
         changeOrigin: true,
         bypass: (req) => (isSpaOwnedPath(req.url ?? '') ? req.url : undefined)
       },
-      '/meta': { target: 'http://127.0.0.1:8080', changeOrigin: true },
-      '/widget': { target: 'http://127.0.0.1:8080', changeOrigin: true }
+      // 同一规则必须**每个前缀都配**：`/meta` 与 `/widget` 也会承载 SPA 接管的旧路径
+      // （如 `/meta/reorder`）—— 只给 `/eova` 配 bypass 是不够的。
+      '/meta': {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true,
+        bypass: (req) => (isSpaOwnedPath(req.url ?? '') ? req.url : undefined)
+      },
+      '/widget': {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true,
+        bypass: (req) => (isSpaOwnedPath(req.url ?? '') ? req.url : undefined)
+      }
     }
   }
 })

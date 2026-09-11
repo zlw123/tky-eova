@@ -26,7 +26,9 @@ export const SPA_OWNED_PATHS: readonly string[] = [
   '/eova/admin/su',
   // 带参数的入口页写**所有权前缀**（`/eova/button/add/<menuCode>` 的 `<menuCode>` 是路径段，
   // 对应旧栈 ButtonController:36 的 `get(0)`）—— 见 ownedPrefixOf()
-  '/eova/button/add'
+  '/eova/button/add',
+  // ★ `/meta` 也是 dev 代理前缀之一 ⇒ 不登记就会被代理去后端（见本文件顶部说明）
+  '/meta/reorder'
 ]
 
 /**

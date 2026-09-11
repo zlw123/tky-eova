@@ -5,6 +5,7 @@ import Home from '@/views/Home.vue'
 import Password from '@/views/user/Password.vue'
 import Su from '@/views/admin/Su.vue'
 import ButtonAdd from '@/views/button/ButtonAdd.vue'
+import MetaReorder from '@/views/meta/MetaReorder.vue'
 
 /**
  * 路由表：阶段 2 逐页接管旧 URL。
@@ -49,6 +50,12 @@ export const routes: RouteRecordRaw[] = [
     path: '/eova/button/add/:menuCode',
     name: 'button-add',
     component: ButtonAdd
+  },
+  {
+    // 重新排序：旧路径 /meta/reorder?object=…&biz=…&mode=…（MetaController#reorder() 的三个 get 都是查询参数）
+    path: '/meta/reorder',
+    name: 'meta-reorder',
+    component: MetaReorder
   }
 ]
 
