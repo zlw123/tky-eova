@@ -12,10 +12,20 @@
   · 验证码：`conf.isCaptcha` 为真时才显示，图片来源 `/user/captcha`，点击重新拉取
     （旧实现是 `this.src='/user/captcha?'+Math.random()`，本页等价地加时间戳参数）
 
-  尚未迁移（已登记，不在本页假装完成）：
-  · 旧 `login.js` 用 EovaUI 的 `x.validate` 做前端校验（rules）—— 该库尚未纳入本工程依赖；
-  · 旧样式 `/eova/_view/index/login.css`（冻结资产，仍在 src/legacy 下，本页暂不引用）；
-  · 旧页面在 iframe 内会 `parent.location.href = location.href` 跳出框架（EWOA-LOGIN 关键词）。
+  校验（第 93 轮迁移）：旧 `login.js` 的 rules 是
+    `login_id: {label:'账号', rules:['required']}`、`login_pwd: {label:'密码', rules:['required']}`
+  —— **只对账号与密码做必填**（验证码不在 rules 里）。本页按同一规则集实现校验，
+  失败时不发请求、把提示写进 `data.msg`。
+  ⚠️ **文案待确认**：旧实现由 EovaUI 的 `x.validate.showMsg(rules)` 生成提示文本，
+  而 EovaUI（`lib/eova/eovaui.js`，vendor 资产）**尚未纳入本工程**、且其目标落点未定
+  （见 `docs/.local/ledger/frontend-vendor.jsonl` 的 targetPath 为空）。
+  ⇒ 本页当前用与旧实现同形的占位文案（`<label>不能为空`），**在拿到 EovaUI 原文案前不得声称等价**。
+
+  样式：⚠️ **无法迁移（第 93 轮实测）**——旧页面用的 `/eova/_view/index/login.css` 在旧树中存在，
+  但**前端账本里没有任何 CSS 资产**（`frontend-assets.jsonl` 的 assetType 分布：html 与 js 之外为 0；
+  旧树 webapp 下 .css 全数未被收录）。故本页暂不引用任何样式，样式迁移列为阶段 2 的阻塞前置项。
+
+  仍未迁移：iframe 跳出已实现；EovaUI 的下拉/校验库与其它 legacy 组件未纳入。
 -->
 <template>
   <div class="eova-login">
@@ -72,9 +82,39 @@ function refreshCaptcha(): void {
 }
 
 /**
- * 提交登录（逐条对齐旧 login.js 的 onSubmit 行为）
+ * 表单校验规则（与旧 login.js 的 rules 同一规则集：仅账号与密码必填）
+ *
+ * ⚠️ 文案模板待与 EovaUI `x.validate.showMsg` 原文核对（见文件头注释）。
+ */
+const rules: Record<string, { label: string; rules: string[] }> = {
+  login_id: { label: '账号', rules: ['required'] },
+  login_pwd: { label: '密码', rules: ['required'] }
+}
+
+/**
+ * 必填校验（返回首条错误文案；全部通过返回空串）
+ */
+function validate(): string {
+  for (const [field, rule] of Object.entries(rules)) {
+    if (rule.rules.includes('required')) {
+      const v = (data as Record<string, unknown>)[field]
+      if (v === undefined || v === null || String(v).trim() === '') {
+        return `${rule.label}不能为空`
+      }
+    }
+  }
+  return ''
+}
+
+/**
+ * 提交登录（逐条对齐旧 login.js 的 onSubmit 行为：先校验、再请求）
  */
 async function onSubmit(): Promise<void> {
+  const err = validate()
+  if (err !== '') {
+    data.msg = err
+    return
+  }
   try {
     const res = await axios.post('/user/doLogin', {
       login_id: data.login_id,

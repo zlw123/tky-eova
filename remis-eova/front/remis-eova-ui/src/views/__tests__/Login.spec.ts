@@ -47,6 +47,8 @@ describe('Login.vue（旧 _view/index/login.html + login.js 的行为等价）',
   it('成功：state === ok ⇒ 跳首页 /', async () => {
     post.mockResolvedValue({ data: { state: 'ok' } })
     const vm = mountLogin().vm as any
+    vm.data.login_id = 'admin'
+    vm.data.login_pwd = 'pwd'
     await vm.onSubmit()
     expect(window.location.href).toBe('/')
   })
@@ -55,6 +57,8 @@ describe('Login.vue（旧 _view/index/login.html + login.js 的行为等价）',
     post.mockResolvedValue({ data: { state: 'fail', msg: '验证码错误，请重新输入！' } })
     const w = mountLogin()
     const vm = w.vm as any
+    vm.data.login_id = 'admin'
+    vm.data.login_pwd = 'pwd'
     await vm.onSubmit()
     expect(vm.data.msg).toBe('验证码错误，请重新输入！')
     expect(window.location.href).toBe('')
@@ -65,8 +69,40 @@ describe('Login.vue（旧 _view/index/login.html + login.js 的行为等价）',
   it('网络异常：固定文案 客户端请求异常（旧 login.js 的 catch 分支）', async () => {
     post.mockRejectedValue(new Error('boom'))
     const vm = mountLogin().vm as any
+    vm.data.login_id = 'admin'
+    vm.data.login_pwd = 'pwd'
     await vm.onSubmit()
     expect(vm.data.msg).toBe('客户端请求异常')
+  })
+
+  it('必填校验：账号/密码为空时不发请求，且给出提示（旧 rules 的 required）', async () => {
+    const w = mountLogin()
+    const vm = w.vm as any
+    // 账号空
+    vm.data.login_id = ''
+    vm.data.login_pwd = 'pwd'
+    await vm.onSubmit()
+    expect(post).not.toHaveBeenCalled()
+    expect(vm.data.msg).toBe('账号不能为空')
+
+    // 密码空
+    vm.data.login_id = 'admin'
+    vm.data.login_pwd = ''
+    await vm.onSubmit()
+    expect(post).not.toHaveBeenCalled()
+    expect(vm.data.msg).toBe('密码不能为空')
+
+    // 纯空白同样视为空
+    vm.data.login_pwd = '   '
+    await vm.onSubmit()
+    expect(post).not.toHaveBeenCalled()
+
+    // 合法输入 ⇒ 发请求（且验证码不在 rules 里，故可为空）
+    vm.data.login_pwd = 'pwd'
+    post.mockResolvedValue({ data: { state: 'ok' } })
+    await vm.onSubmit()
+    expect(post).toHaveBeenCalledTimes(1)
+    expect(post.mock.calls[0][1]).toEqual({ login_id: 'admin', login_pwd: 'pwd', captcha: '' })
   })
 
   it('验证码：开关关闭时不渲染，开启时渲染且图片指向 /user/captcha', async () => {
