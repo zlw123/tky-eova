@@ -81,7 +81,9 @@ class DeclarativeUnitGoldenTest {
             "cn.eova.widget.tree.TreeNode",
             "cn.eova.widget.MetaConst",
             "cn.eova.config.PageConst",
-            "cn.eova.widget.tree.TreeNode");
+            "cn.eova.engine.EovaExpConfig",
+            "cn.eova.common.utils.util.JsonUtil",
+            "cn.eova.mod.emi.EMI");
 
     /**
      * <b>已声明的适配</b>：单元 FQCN → 允许在【新实现侧】额外出现在的成员。
@@ -230,6 +232,14 @@ class DeclarativeUnitGoldenTest {
      */
     private static void memberDiff(List<String> diffs, String fqcn, String what,
                                    Set<String> oldM, Set<String> newM) {
+        // r203：字段/方法签名里的旧宿主类型先归一化为新栈等价类型再比 —— 否则
+        // Kv -> LegacyKv 这类**已声明的适配（R39/R40）**会被误报成
+        // "缺失（旧有新无）+ 未声明的新增"（r201 实测：norm 此前只作用在
+        // diff() 那条简单比较路径上，成员路径漏了）。
+        oldM = oldM.stream().map(DeclarativeUnitGoldenTest::norm)
+                .collect(Collectors.toCollection(TreeSet::new));
+        newM = newM.stream().map(DeclarativeUnitGoldenTest::norm)
+                .collect(Collectors.toCollection(TreeSet::new));
         Set<String> declared = DECLARED_ADDITIONS.getOrDefault(fqcn + "|" + what, Set.of());
         Set<String> expected = new TreeSet<>(oldM);
         expected.addAll(declared);
