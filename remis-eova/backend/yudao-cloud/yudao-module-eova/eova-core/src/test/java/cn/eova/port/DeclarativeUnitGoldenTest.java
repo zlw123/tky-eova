@@ -68,7 +68,10 @@ class DeclarativeUnitGoldenTest {
             "cn.eova.common.vo.KeyVal",
             // 缓存常量：旧类只在方法体内引用 CacheKit，类初始化不触及它，
             // 故可在不挂 ehcache/jfinal 的情况下由旧实现直接作证常量取值
-            "cn.eova.common.base.BaseCache");
+            "cn.eova.common.base.BaseCache",
+            // r192 二分实测：本类旧侧可在无 jfinal 的 classpath 下定义 ⇒ 可跨制品比对
+            "cn.eova.core.object.config.TableConfig",
+            "cn.eova.sql.ddl.DefineConfig");
 
     /**
      * <b>已声明的适配</b>：单元 FQCN → 允许在【新实现侧】额外出现在的成员。
