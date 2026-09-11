@@ -27,7 +27,7 @@ import { describe, expect, it } from 'vitest'
 const PAGES: ReadonlyArray<{ legacy: string; spa: string }> = [
   { legacy: 'src/legacy/eova/_view/template/table/index.html', spa: 'src/views/template/TemplateTable.vue' },
   { legacy: 'src/legacy/eova/_view/template/tree/index.html', spa: 'src/views/template/TemplateTree.vue' },
-  { legacy: 'src/legacy/eova/_view/template/tree_table/index.html', spa: 'src/views/template/TreeTablePlaceholder.vue' }
+  { legacy: 'src/legacy/eova/_view/template/tree_table/index.html', spa: 'src/views/template/TemplateTreeTable.vue' }
 ]
 
 /** 共享区块：旧 include 名 → SPA 组件标签 */
@@ -35,9 +35,6 @@ const BLOCKS: ReadonlyArray<{ legacyName: string; tag: string }> = [
   { legacyName: '_block/toolbar.html', tag: '<EovaToolbar' },
   { legacyName: '_block/admin.html', tag: '<EovaAdminPanel' }
 ]
-
-/** tree_table 的真实落点（映射表里写的占位名需要纠正） */
-const TREE_TABLE_SPA = 'src/views/template/TemplateTreeTable.vue'
 
 describe('旧 HTML 的 #include ↔ SPA 组件', () => {
   it('① 三个模版页的旧 HTML 都 include 了 toolbar 与 admin（反空断言：取证面确实存在）', () => {
@@ -51,12 +48,11 @@ describe('旧 HTML 的 #include ↔ SPA 组件', () => {
   it('② 每个模版页在 SPA 里都渲染了对应的组件（漏挂 ⇒ 按钮区/超管入口静默消失）', () => {
     const missing: string[] = []
     for (const { legacy, spa } of PAGES) {
-      const target = spa.endsWith('TreeTablePlaceholder.vue') ? TREE_TABLE_SPA : spa
-      const src = readFileSync(target, 'utf-8')
+      const src = readFileSync(spa, 'utf-8')
       const legacySrc = readFileSync(legacy, 'utf-8')
       for (const { legacyName, tag } of BLOCKS) {
         if (legacySrc.includes(legacyName) && !src.includes(tag)) {
-          missing.push(`${target} 缺 ${tag}（旧 HTML include 了 ${legacyName}）`)
+          missing.push(`${spa} 缺 ${tag}（旧 HTML include 了 ${legacyName}）`)
         }
       }
     }
