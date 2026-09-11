@@ -53,7 +53,8 @@ class ControllerTxAnnotationGoldenTest {
                     name + " 必须声明 @Before(Tx.class)（事务拦截器）");
             LegacyTxConfig tc = m.getAnnotation(LegacyTxConfig.class);
             assertNotNull(tc, name + " 必须声明 @TxConfig");
-            assertEquals(Ds.EOVA, tc.value(), name + " 的事务数据源必须是 eova");
+            assertEquals("eova", Ds.EOVA);
+            assertEquals("eova", tc.value(), name + " 的事务数据源必须是 eova");
         }
     }
 

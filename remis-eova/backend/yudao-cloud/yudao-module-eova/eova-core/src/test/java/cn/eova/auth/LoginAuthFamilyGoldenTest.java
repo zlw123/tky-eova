@@ -515,7 +515,8 @@ class LoginAuthFamilyGoldenTest {
         new LoginInterceptor().intercept(invocation(ctrl));
 
         assertEquals(1, probe.calls);
-        assertEquals(LoginService.CKSID, ctrl.rec.removedCookie, "失效时必须销毁 SID Cookie");
+        assertEquals("eovasid", LoginService.CKSID);
+        assertEquals("eovasid", ctrl.rec.removedCookie, "失效时必须销毁 SID Cookie");
         assertEquals(List.of(), ctrl.rec.calls, "不得放行");
         LegacyRedirectRender redirect = assertInstanceOf(LegacyRedirectRender.class, ctrl.getRender());
         assertEquals("/user/login?back=" + ctrl.url, redirect.buildFinalUrl(),
@@ -535,7 +536,7 @@ class LoginAuthFamilyGoldenTest {
         LegacyActionException ex = assertThrows(LegacyActionException.class,
                 () -> new LoginInterceptor().intercept(invocation(ctrl)));
         assertEquals(401, ex.getErrorCode());
-        assertEquals(LoginService.CKSID, ctrl.rec.removedCookie);
+        assertEquals("eovasid", ctrl.rec.removedCookie);
         assertEquals(List.of(), ctrl.rec.calls, "不得放行");
     }
 
