@@ -81,6 +81,8 @@ class MvcFoundationGoldenTest {
             "getDate", "getParaToDate",
             // 第 77 轮：上传族接缝（getFile/getFiles + 宿主注入部件容器的两个入口）
             "getFile", "getFiles", "getMultipartRequest", "setMultipartRequest",
+            // 第 81 轮：验证码接缝（renderCaptcha / validateCaptcha）
+            "renderCaptcha", "validateCaptcha",
             // W2：渲染族
             "render", "renderTemplate", "renderJson", "renderError", "redirect",
             "getControllerKey", "getViewPath", "getControllerPath");
@@ -104,6 +106,12 @@ class MvcFoundationGoldenTest {
     @BeforeAll
     static void setUp() {
         LegacyRenderManager.setRenderFactory(new LegacyRenderFactory() {
+            @Override
+            public LegacyRender getCaptchaRender() {
+                // 第 81 轮新增的接口方法：本替身不使用验证码，返回空渲染即可
+                return new StubRender();
+            }
+
             @Override
             public LegacyRender getErrorRender(int errorCode) {
                 CALLS.add("getErrorRender:" + errorCode);
@@ -277,8 +285,8 @@ class MvcFoundationGoldenTest {
      */
     private static final Map<String, String> DECLARED_PENDING = Map.of(
             // getFile/getFiles 已于第 77 轮落地（LegacyMultipartRequest 承担落盘语义），故从待办清单移除
-            "getModel", "需 jfinal Model/Table 的绑定期语义",
-            "validateCaptcha", "需验证码服务接缝（renderCaptcha/validateCaptcha 一族）");
+            // validateCaptcha/renderCaptcha 已于第 81 轮落地（LegacyCaptchaRender + LegacyRenderFactory.getCaptchaRender），同样移除
+            "getModel", "需 jfinal Model/Table 的绑定期语义");
 
     /** 方法集钉死 */
     @Test

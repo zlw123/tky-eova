@@ -137,4 +137,14 @@ public interface LegacyRenderFactory {
      */
     LegacyRender getRedirectRender(String url, boolean withQueryString);
 
+    /**
+     * 取验证码渲染（对应旧 {@code IRenderFactory.getCaptchaRender()}）。
+     *
+     * <p>第 81 轮为 port {@code Controller.renderCaptcha()} 而补：旧 {@code Controller}
+     * 的实现就是 {@code render = renderManager.getRenderFactory().getCaptchaRender()}。</p>
+     *
+     * @return 渲染
+     */
+    LegacyRender getCaptchaRender();
+
 }

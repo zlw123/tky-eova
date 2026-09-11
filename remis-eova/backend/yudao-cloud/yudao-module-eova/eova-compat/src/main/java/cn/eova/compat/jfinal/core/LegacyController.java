@@ -123,6 +123,32 @@ public class LegacyController {
         return multipartRequest;
     }
 
+    // ---------------- 验证码（jfinal renderCaptcha/validateCaptcha 族） ----------------
+
+    /**
+     * 设置验证码渲染（逐字节等价 jfinal {@code Controller.renderCaptcha()}）。
+     *
+     * <p>旧实现只做一件事：{@code render = renderManager.getRenderFactory().getCaptchaRender();}
+     * —— 真正生成/校验在 {@link cn.eova.compat.jfinal.captcha.LegacyCaptchaRender}。</p>
+     */
+    public void renderCaptcha() {
+        this.render = LegacyRenderManager.getRenderFactory().getCaptchaRender();
+    }
+
+    /**
+     * 校验验证码（逐字节等价 jfinal {@code Controller.validateCaptcha(String)}）。
+     *
+     * <p><b>注意参数语义</b>：入参是<b>表单字段名</b>（EOVA 传 {@code "captcha"}），
+     * 旧实现是 {@code CaptchaRender.validate(this, getPara(name))}；Cookie 名固定取
+     * {@code CaptchaRender.captchaName}（{@code _jfinal_captcha}），与入参无关。</p>
+     *
+     * @param name 表单字段名
+     * @return 是否通过（通过时会移除验证码 Cookie，且缓存项已在 validate 里被移除 —— 一次性）
+     */
+    public boolean validateCaptcha(String name) {
+        return cn.eova.compat.jfinal.captcha.LegacyCaptchaRender.validate(this, getPara(name));
+    }
+
     // ---------------- 上传（jfinal getFile/getFiles 族） ----------------
 
     /**
@@ -1181,6 +1207,21 @@ public class LegacyController {
      */
     public LegacyController setCookie(String name, String value, int maxAge) {
         return doSetCookie(name, value, maxAge, null, null, null);
+    }
+
+    /**
+     * 设置 Cookie（并指定是否 HttpOnly）—— 逐字节等价 jfinal
+     * {@code setCookie(String, String, int, boolean)}：
+     * {@code doSetCookie(name, value, maxAge, null, null, Boolean.valueOf(httpOnly))}。
+     *
+     * @param name       Cookie 名
+     * @param value      值
+     * @param maxAge     最大存活秒数
+     * @param isHttpOnly 是否 HttpOnly
+     * @return this
+     */
+    public LegacyController setCookie(String name, String value, int maxAge, boolean isHttpOnly) {
+        return doSetCookie(name, value, maxAge, null, null, Boolean.valueOf(isHttpOnly));
     }
 
     /**

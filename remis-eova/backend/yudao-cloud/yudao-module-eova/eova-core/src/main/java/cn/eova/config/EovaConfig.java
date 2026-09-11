@@ -35,6 +35,7 @@ import com.alibaba.druid.DbType;
  *   <tr><th>成员</th><th>旧源码行</th><th>读取方</th></tr>
  *   <tr><td>{@link #EOVA_DBTYPE}</td><td>97</td><td>{@code cn.eova.common.utils.xx}（4 处方言判断）</td></tr>
  *   <tr><td>{@link #EOVA_INDEX}</td><td>90</td><td>{@code cn.eova.auth.AuthUri}</td></tr>
+ *   <tr><td>{@link #EOVA_INDEX_H5}</td><td>91</td><td>{@code cn.eova.user.UserController}（第 81 轮：移动端跳转）</td></tr>
  *   <tr><td>{@link #modLoader}</td><td>94</td><td>{@code cn.eova.common.utils.io.ClassUtil}</td></tr>
  *   <tr><td>{@link #getUploadIntercept()}</td><td>125/599/603</td><td>{@code cn.eova.widget.upload.UploadUtil}（第 77 轮）</td></tr>
  *   <tr><td>{@link #getAuthUris()}</td><td>113/614</td><td>{@code cn.eova.auth.AuthInterceptor}（第 78 轮）</td></tr>
@@ -57,6 +58,9 @@ public class EovaConfig {
     /** 上传拦截器（UploadUtil/UploadController 读取；由宿主装配注入） */
     // 旧源码 EovaConfig.java:125 —— 逐字一致
     private static UploadIntercept uploadIntercept = null;
+
+    /** EOVA 移动端首页地址（旧 EovaConfig.java:91 —— 逐字一致） */
+    public static String EOVA_INDEX_H5 = "/h5";
 
     /** Mod 包的类加载器（ClassUtil 扫描 jar 内类名时读取；由宿主装配注入） */
     // 旧源码 EovaConfig.java:94 —— 逐字一致

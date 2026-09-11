@@ -91,6 +91,11 @@ public class DefaultLegacyRenderFactory implements LegacyRenderFactory {
     }
 
     @Override
+    public LegacyRender getCaptchaRender() {
+        return new cn.eova.compat.jfinal.captcha.LegacyCaptchaRender();
+    }
+
+    @Override
     public LegacyRender getRedirectRender(String url) {
         return new LegacyRedirectRender(url);
     }
