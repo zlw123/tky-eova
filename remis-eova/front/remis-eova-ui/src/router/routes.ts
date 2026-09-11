@@ -33,7 +33,8 @@ export const SPA_OWNED_PATHS: readonly string[] = [
   '/meta/field',
   '/eova/menu/add',
   '/meta/edit',
-  '/meta/import'
+  '/meta/import',
+  '/eova/role/auth'
 ]
 
 /**

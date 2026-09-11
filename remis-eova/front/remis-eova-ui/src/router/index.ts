@@ -11,6 +11,7 @@ import MetaField from '@/views/meta/MetaField.vue'
 import MenuAdd from '@/views/menu/MenuAdd.vue'
 import MetaEdit from '@/views/meta/MetaEdit.vue'
 import MetaImport from '@/views/meta/MetaImport.vue'
+import RoleAuth from '@/views/role/RoleAuth.vue'
 
 /**
  * 路由表：阶段 2 逐页接管旧 URL。
@@ -91,6 +92,12 @@ export const routes: RouteRecordRaw[] = [
     path: '/meta/import',
     name: 'meta-import',
     component: MetaImport
+  },
+  {
+    // 功能权限分配：旧路径 /eova/role/auth/<rid>（AuthController#index() 的 `get(0)` 就是那个 rid）
+    path: '/eova/role/auth/:rid',
+    name: 'role-auth',
+    component: RoleAuth
   }
 ]
 
