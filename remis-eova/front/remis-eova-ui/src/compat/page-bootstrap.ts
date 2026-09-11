@@ -23,6 +23,8 @@
  * - 缺关键字段时**抛错**（由页面显式声明回退），不得拿空串去拼 URL。
  */
 
+import { getDefaultBootstrapFetcher } from './page-bootstrap-fetcher'
+
 /** 元对象描述（字段名沿用旧 `MetaObject` 的对外字段） */
 export interface BootstrapObject {
   code: string
@@ -117,9 +119,11 @@ export function readUrlParams(search?: string): UrlParams {
 /** 装配选项 */
 export interface LoadBootstrapOptions {
   /**
-   * 服务端引导数据来源（返回 JSON 字符串）。未提供 ⇒ 只返回 URL 参数并告警。
+   * 服务端引导数据来源（返回 JSON 字符串）。未提供 ⇒ 用**默认来源**（若已安装），
+   * 否则只返回 URL 参数并告警。
    *
-   * 端点形态见 DES-004 §3.1（`POST /api/page/bootstrap`）。
+   * 端点形态见 DES-004 §3.1（`POST /api/page/bootstrap`）；
+   * 默认来源由 `page-bootstrap-fetcher.ts` 的 `setDefaultBootstrapFetcher` 在启动期安装。
    */
   fetcher?: (ctx: { url: UrlParams }) => Promise<string | null>
   /** 路径（端点用于判定该页需要哪些引导数据；默认取当前 pathname） */
@@ -145,7 +149,9 @@ export async function loadPageBootstrap(options: LoadBootstrapOptions = {}): Pro
   const url = readUrlParams(options.search)
   const base: PageBootstrap = { fromServer: false, url }
 
-  if (!options.fetcher) {
+  // 默认来源（第 124 轮）：未显式传 fetcher 时用它；两者都没有才走"未提供"告警
+  const fetcher = options.fetcher ?? getDefaultBootstrapFetcher() ?? undefined
+  if (!fetcher) {
     warn(
       '[page-bootstrap] 未提供服务端引导数据来源 ⇒ 仅 URL 参数可用。' +
         '受影响的是含 `#(object.*)`/`#(menu.*)`/`#(btn.ui)`/`#(loginUser.*)` 的页面' +
@@ -156,7 +162,7 @@ export async function loadPageBootstrap(options: LoadBootstrapOptions = {}): Pro
 
   let json: string | null
   try {
-    json = await options.fetcher({ url })
+    json = await fetcher({ url })
   } catch (e) {
     warn(`[page-bootstrap] 拉取引导数据失败（不阻塞页面，走降级）：${(e as Error).message}`)
     return base

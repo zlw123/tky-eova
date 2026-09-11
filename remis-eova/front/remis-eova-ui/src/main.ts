@@ -6,6 +6,7 @@ import { loadLegacyRuntime } from './compat/legacy-runtime'
 import { getEovaUI } from './compat/eova-runtime'
 import { installWindowUrls } from './compat/ui-urls'
 import { loadUiConf } from './compat/ui-conf'
+import { createBootstrapFetcher, setDefaultBootstrapFetcher } from './compat/page-bootstrap-fetcher'
 
 /**
  * 应用启动（阶段 2）
@@ -25,6 +26,10 @@ async function bootstrap(): Promise<void> {
   await loadLegacyRuntime()
   installWindowUrls()
   await loadUiConf()
+
+  // 页面引导数据的默认来源（DES-004 §3.1：POST /api/page/bootstrap）。
+  // 端点未落地时该请求会失败 ⇒ 各页**响亮告警并降级为"仅 URL 参数"**（不静默假装成功）。
+  setDefaultBootstrapFetcher(createBootstrapFetcher())
 
   const app = createApp(App)
   app.use(getEovaUI() as Parameters<typeof app.use>[0])
