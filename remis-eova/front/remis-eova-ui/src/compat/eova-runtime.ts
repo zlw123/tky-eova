@@ -96,11 +96,22 @@ export interface EovaDom {
   [k: string]: unknown
 }
 
+/** `x.json` 面（EovaTools.JsonTool） */
+export interface EovaJson {
+  /** `JSON.parse` 的包装：解析失败时 `console.error` 并返回 **null**（不是抛错） */
+  toObj: (text: string) => unknown
+  /** `JSON.stringify(v, null, space)`（默认 `space = 0`） */
+  toStr: (value: unknown, space?: number) => string | undefined
+}
+
 /** `EovaTools` 面（只声明本工程实际用到的部分） */
 export interface EovaTools {
   validate: EovaValidate
   isEmpty: (value: unknown) => boolean
   dom: EovaDom
+  json: EovaJson
+  /** 打日志（制品实现即 `console.log`） */
+  log: (message: unknown) => void
   [k: string]: unknown
 }
 

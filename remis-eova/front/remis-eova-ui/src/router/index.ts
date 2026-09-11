@@ -8,6 +8,7 @@ import ButtonAdd from '@/views/button/ButtonAdd.vue'
 import MetaReorder from '@/views/meta/MetaReorder.vue'
 import MenuAuth from '@/views/menu/MenuAuth.vue'
 import MetaField from '@/views/meta/MetaField.vue'
+import MenuAdd from '@/views/menu/MenuAdd.vue'
 
 /**
  * 路由表：阶段 2 逐页接管旧 URL。
@@ -70,6 +71,12 @@ export const routes: RouteRecordRaw[] = [
     path: '/meta/field',
     name: 'meta-field',
     component: MetaField
+  },
+  {
+    // 创建菜单：旧路径 /eova/menu/add（MenuController#add() 渲染，父页菜单树以弹层 iframe 打开它）
+    path: '/eova/menu/add',
+    name: 'menu-add',
+    component: MenuAdd
   }
 ]
 

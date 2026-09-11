@@ -30,7 +30,8 @@ export const SPA_OWNED_PATHS: readonly string[] = [
   // ★ `/meta` 也是 dev 代理前缀之一 ⇒ 不登记就会被代理去后端（见本文件顶部说明）
   '/meta/reorder',
   '/eova/menu/auth',
-  '/meta/field'
+  '/meta/field',
+  '/eova/menu/add'
 ]
 
 /**
