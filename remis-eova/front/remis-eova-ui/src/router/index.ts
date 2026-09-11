@@ -13,6 +13,7 @@ import MetaEdit from '@/views/meta/MetaEdit.vue'
 import MetaImport from '@/views/meta/MetaImport.vue'
 import RoleAuth from '@/views/role/RoleAuth.vue'
 import AppTemplateHost from '@/views/template/AppTemplateHost.vue'
+import Sse from '@/views/test/Sse.vue'
 
 /**
  * 路由表：阶段 2 逐页接管旧 URL。
@@ -99,6 +100,14 @@ export const routes: RouteRecordRaw[] = [
     path: '/eova/role/auth/:rid',
     name: 'role-auth',
     component: RoleAuth
+  },
+  {
+    // SSE 演示页：旧路径 **/test/sse**（★ 不是 /sse —— 那个是 SSE 推送通道本身）
+    //   取证：`TestController#sse()`（demo/…/ctrl/TestController.java:22-25）render("/eova/sse/index.html")，
+    //   而 `/test` 是 demo `AppRoutes:17` 注册的前缀；页面里的 EventSource 连的才是 `/sse`。
+    path: '/test/sse',
+    name: 'test-sse',
+    component: Sse
   },
   {
     // ★ 菜单模版页：旧路径 /app/<menu.code>（Menu.getUrl() 对 template 非空的菜单返回它；

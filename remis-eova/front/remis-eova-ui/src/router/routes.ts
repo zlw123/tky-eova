@@ -40,7 +40,10 @@ export const SPA_OWNED_PATHS: readonly string[] = [
   '/eova/menu/add',
   '/meta/edit',
   '/meta/import',
-  '/eova/role/auth'
+  '/eova/role/auth',
+  // SSE 演示页：旧路径 /test/sse（`TestController#sse()` 渲染 `_view/sse/index.html`）
+  // ★ `/test` 是后端前缀（已配代理）⇒ 不登记就会被代理去后端（拿到后端 HTML）
+  '/test/sse'
 ]
 
 /**
