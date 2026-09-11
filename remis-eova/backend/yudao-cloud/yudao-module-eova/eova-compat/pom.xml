@@ -68,6 +68,13 @@
             <groupId>com.alibaba</groupId>
             <artifactId>druid</artifactId>
         </dependency>
+        <!-- cron4j：旧栈的定时任务底座（it.sauronsoftware.cron4j:cron4j:2.2.5，与旧工程同版本）。
+             LegacyCron4jPlugin（Cron4jPlugin 等价接缝）需要 Scheduler/Task，
+             故本模块必须直接依赖它 —— 此前它只在 eova-core 的依赖里。 -->
+        <dependency>
+            <groupId>it.sauronsoftware.cron4j</groupId>
+            <artifactId>cron4j</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
