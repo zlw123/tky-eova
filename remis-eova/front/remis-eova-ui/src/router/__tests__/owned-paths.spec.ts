@@ -75,6 +75,11 @@ describe('router · isSpaOwnedPath（dev 代理放行规则）', () => {
     expect(isSpaOwnedPath('/')).toBe(true)
     expect(isSpaOwnedPath('/eova/meta/field')).toBe(false)
     expect(isSpaOwnedPath('/meta/table/x')).toBe(false)
-    expect(isSpaOwnedPath('/widget/data')).toBe(false)
+    // ★ `/widget` 是**整体归 SPA** 的（第 123 轮迁了组件演示页）：后端在 `/widget` 之下只有那一个页面
+    //   （`WidgetController` 在 `/api/widget`，不在 `/widget/**`）⇒ 子路径归 SPA 不吞任何后端页面。
+    expect(isSpaOwnedPath('/widget')).toBe(true)
+    expect(isSpaOwnedPath('/widget/data')).toBe(true)
+    // 前缀不同则仍归后端（前缀规则要求 `p + '/'`，不做模糊匹配）
+    expect(isSpaOwnedPath('/widgetx/data')).toBe(false)
   })
 })

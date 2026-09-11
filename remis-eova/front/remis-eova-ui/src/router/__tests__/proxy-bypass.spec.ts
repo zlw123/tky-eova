@@ -20,6 +20,40 @@ import { describe, expect, it } from 'vitest'
 import * as viteConfigModule from '../../../vite.config'
 import { SPA_OWNED_PATHS, isSpaOwnedPath } from '../routes'
 
+/**
+ * 探针路径（覆盖各前缀下的**两类**情形：归 SPA 的旧页面 vs 后端路径）
+ *
+ * 这份探针**不假设**"某前缀下一定有后端路径"：第 123 轮把 `/widget` 整体给了 SPA，
+ * 若还按老样例断言"`/widget/**` 必须继续代理"，就会把正确的行为判成失败。
+ */
+const PROBES: readonly string[] = [
+  '/eova/admin/su',
+  '/eova/admin/showUserData',
+  '/eova/lib/eova/eovaui.js',
+  '/meta/reorder',
+  '/meta/table/x',
+  '/app/meta_menu',
+  '/app/add/eova_object_code',
+  '/app/live',
+  '/user/login',
+  '/user/doLogin',
+  '/widget',
+  '/widget/anything',
+  '/test/sse',
+  '/test/msg',
+  '/api/home/menu'
+]
+
+/**
+ * 路径的首段（`/user/doLogin` ⇒ `/user`）
+ *
+ * @param p 路径
+ * @returns 首段
+ */
+function firstSegmentOf(p: string): string {
+  return '/' + (p.split('?')[0].split('/').filter((s) => s !== '')[0] ?? '')
+}
+
 /** 取代理表（`defineConfig` 在对象入参时原样返回） */
 function proxyTable(): Record<string, { bypass?: (req: { url?: string }) => unknown }> {
   const cfg = (viteConfigModule as { default?: unknown }).default ?? viteConfigModule
@@ -60,13 +94,19 @@ describe('vite dev 代理 · bypass 覆盖', () => {
       if (owned) {
         expect(bypass({ url: owned }), `${prefix} 的 bypass 未放行 SPA 路径 ${owned}`).toBe(owned)
       }
-      // 后端路径 ⇒ 返回 undefined（继续走代理）
-      // ★ 样例取**两段**：`/app/__x__` 是"菜单模版页"（1 段非动作名）本就该放行，
-      //   两段才在所有前缀下都确定是后端路径。
-      expect(
-        bypass({ url: prefix + '/__definitely_backend__/x' }),
-        `${prefix} 的 bypass 误放行了后端路径`
-      ).toBeUndefined()
+      // ★ 不再假设"某前缀下的某样例一定是后端路径"——那会随所有权变化而失真
+      //   （第 123 轮 `/widget` 整体归 SPA 后，`/widget/**` 就该放行）。
+      //   改为断言**同一个口径**：bypass 与 isSpaOwnedPath 对同一批探针给出同一结论。
+      for (const p of PROBES) {
+        if (firstSegmentOf(p) !== prefix) {
+          continue
+        }
+        const owned = isSpaOwnedPath(p)
+        expect(
+          bypass({ url: p }),
+          `${prefix} 对 ${p} 的 bypass 与 isSpaOwnedPath 不一致（owned=${owned}）`
+        ).toBe(owned ? p : undefined)
+      }
     }
   })
 

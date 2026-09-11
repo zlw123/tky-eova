@@ -14,6 +14,7 @@ import MetaImport from '@/views/meta/MetaImport.vue'
 import RoleAuth from '@/views/role/RoleAuth.vue'
 import AppTemplateHost from '@/views/template/AppTemplateHost.vue'
 import Sse from '@/views/test/Sse.vue'
+import Widget from '@/views/widget/Widget.vue'
 
 /**
  * 路由表：阶段 2 逐页接管旧 URL。
@@ -100,6 +101,13 @@ export const routes: RouteRecordRaw[] = [
     path: '/eova/role/auth/:rid',
     name: 'role-auth',
     component: RoleAuth
+  },
+  {
+    // EovaUI 组件演示页：旧路径 **/widget**（demo `AppController#widget()` 渲染 `_view/widget/index.html`）
+    //   ★ 该 URL 同时是 dev 代理前缀之一（`BACKEND_ROUTE_PREFIXES`）⇒ 必须登记所有权才会 bypass 给 SPA
+    path: '/widget',
+    name: 'widget',
+    component: Widget
   },
   {
     // SSE 演示页：旧路径 **/test/sse**（★ 不是 /sse —— 那个是 SSE 推送通道本身）
