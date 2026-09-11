@@ -32,4 +32,86 @@ public interface LegacyRenderFactory {
      */
     LegacyRender getErrorRender(int errorCode);
 
+    /**
+     * 取错误渲染（指定错误页视图）。
+     *
+     * @param errorCode HTTP 状态码
+     * @param view      错误页视图
+     * @return 错误渲染
+     */
+    LegacyRender getErrorRender(int errorCode, String view);
+
+    /**
+     * 取视图渲染（对应旧 {@code getRender(view)}）。
+     *
+     * @param view 视图名
+     * @return 渲染
+     */
+    LegacyRender getRender(String view);
+
+    /**
+     * 取模板渲染（对应旧 {@code getTemplateRender(view)}）。
+     *
+     * @param view 视图名
+     * @return 渲染
+     */
+    LegacyRender getTemplateRender(String view);
+
+    /**
+     * 取"输出全部请求属性"的 JSON 渲染。
+     *
+     * @return 渲染
+     */
+    LegacyRender getJsonRender();
+
+    /**
+     * 取输出指定请求属性的 JSON 渲染。
+     *
+     * @param attrs 属性名数组
+     * @return 渲染
+     */
+    LegacyRender getJsonRender(String[] attrs);
+
+    /**
+     * 取输出给定 JSON 文本的渲染。
+     *
+     * @param jsonText JSON 文本
+     * @return 渲染
+     */
+    LegacyRender getJsonRender(String jsonText);
+
+    /**
+     * 取输出单个对象的 JSON 渲染。
+     *
+     * @param object 对象
+     * @return 渲染
+     */
+    LegacyRender getJsonRender(Object object);
+
+    /**
+     * 取输出"名 - 对象"单键 JSON 的渲染。
+     *
+     * @param attr   键名
+     * @param object 值
+     * @return 渲染
+     */
+    LegacyRender getJsonRender(String attr, Object object);
+
+    /**
+     * 取跳转渲染（对应旧 {@code getRedirectRender(url)}）。
+     *
+     * @param url 目标 URL
+     * @return 渲染
+     */
+    LegacyRender getRedirectRender(String url);
+
+    /**
+     * 取跳转渲染。
+     *
+     * @param url             目标 URL
+     * @param withQueryString 是否附带原查询串
+     * @return 渲染
+     */
+    LegacyRender getRedirectRender(String url, boolean withQueryString);
+
 }

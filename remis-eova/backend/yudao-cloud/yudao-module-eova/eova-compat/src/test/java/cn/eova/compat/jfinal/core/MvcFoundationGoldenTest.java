@@ -25,6 +25,8 @@ import cn.eova.compat.jfinal.aop.LegacyInterceptor;
 import cn.eova.compat.jfinal.aop.LegacyInvocation;
 import cn.eova.compat.jfinal.kit.LegacyKv;
 import cn.eova.compat.render.LegacyRender;
+import cn.eova.compat.render.LegacyJsonRender;
+import cn.eova.compat.render.LegacyRedirectRender;
 import cn.eova.compat.render.LegacyRenderFactory;
 import cn.eova.compat.render.LegacyRenderManager;
 import cn.eova.testkit.OldImplementationLoader;
@@ -54,6 +56,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class MvcFoundationGoldenTest {
 
+    /** 记录工厂被调用的轨迹（验证 Controller 的 render 族确实经工厂） */
+    private static final List<String> CALLS = java.util.Collections.synchronizedList(new ArrayList<>());
+
     /** W1a 已实现的非私有方法名 */
     private static final List<String> W1A_METHODS = List.of(
             "_clear_", "setHttpServletRequest", "setHttpServletResponse", "setUrlPara",
@@ -63,6 +68,8 @@ class MvcFoundationGoldenTest {
             // W1b：toLong 族 + Cookie 族
             "getParaToLong", "getLong", "getCookie", "getCookieObject",
             "doSetCookie", "setCookie", "removeCookie",
+            // W2：渲染族
+            "render", "renderTemplate", "renderJson", "renderError", "redirect",
             "getControllerKey", "getViewPath", "getControllerPath");
 
     /**
@@ -83,12 +90,76 @@ class MvcFoundationGoldenTest {
     /** 挂渲染工厂替身（toInt/toBoolean 失败路径要构造错误渲染） */
     @BeforeAll
     static void setUp() {
-        LegacyRenderManager.setRenderFactory(errorCode -> new StubRender());
+        LegacyRenderManager.setRenderFactory(new LegacyRenderFactory() {
+            @Override
+            public LegacyRender getErrorRender(int errorCode) {
+                return new StubRender();
+            }
+
+            @Override
+            public LegacyRender getErrorRender(int errorCode, String view) {
+                return new StubRender();
+            }
+
+            @Override
+            public LegacyRender getRender(String view) {
+                CALLS.add("getRender:" + view);
+                return new StubRender();
+            }
+
+            @Override
+            public LegacyRender getTemplateRender(String view) {
+                CALLS.add("getTemplateRender:" + view);
+                return new StubRender();
+            }
+
+            @Override
+            public LegacyRender getJsonRender() {
+                CALLS.add("getJsonRender()");
+                return new StubRender();
+            }
+
+            @Override
+            public LegacyRender getJsonRender(String[] attrs) {
+                CALLS.add("getJsonRender(String[])");
+                return new StubRender();
+            }
+
+            @Override
+            public LegacyRender getJsonRender(String jsonText) {
+                CALLS.add("getJsonRender(String)");
+                return new StubRender();
+            }
+
+            @Override
+            public LegacyRender getJsonRender(Object object) {
+                CALLS.add("getJsonRender(Object)");
+                return new StubRender();
+            }
+
+            @Override
+            public LegacyRender getJsonRender(String attr, Object object) {
+                CALLS.add("getJsonRender(String,Object)");
+                return new StubRender();
+            }
+
+            @Override
+            public LegacyRender getRedirectRender(String url) {
+                CALLS.add("getRedirectRender:" + url);
+                return new StubRender();
+            }
+
+            @Override
+            public LegacyRender getRedirectRender(String url, boolean withQueryString) {
+                CALLS.add("getRedirectRender:" + url + ":" + withQueryString);
+                return new StubRender();
+            }
+        });
     }
 
     /** 方法集钉死 */
     @Test
-    @DisplayName("方法集钉死（W1a + W1b）")
+    @DisplayName("方法集钉死（W1a + W1b + W2）")
     void w1aMethodSetIsPinned() {
         List<String> actual = new ArrayList<>();
         for (Method m : LegacyController.class.getDeclaredMethods()) {
@@ -318,6 +389,173 @@ class MvcFoundationGoldenTest {
         assertNull(c.getCookie("Tt"), "找不到时必须走缺省值；大小写敏感，不得 equalsIgnoreCase");
         assertEquals("d", c.getCookie("Tt", "d"));
         assertNull(c.getCookieObject("TT"));
+    }
+
+    /** render 族确实经工厂转发；renderError 直接抛异常 */
+    @Test
+    @DisplayName("render 族：经工厂转发；renderError 直接抛 ActionException（不设 render）")
+    void renderFamilyDelegatesToFactory() {
+        CALLS.clear();
+        LegacyController c = new LegacyController();
+        c.render("v1");
+        c.renderTemplate("v2");
+        c.renderJson();
+        c.renderJson("raw");
+        c.renderJson(new Object());
+        c.renderJson(new String[]{"a"});
+        c.renderJson("k", new Object());
+        c.redirect("/r1");
+        c.redirect("/r2", true);
+        assertEquals(List.of("getRender:v1", "getTemplateRender:v2", "getJsonRender()",
+                        "getJsonRender(String)", "getJsonRender(Object)", "getJsonRender(String[])",
+                        "getJsonRender(String,Object)", "getRedirectRender:/r1",
+                        "getRedirectRender:/r2:true"),
+                CALLS, "每个方法都必须转发到工厂的对应方法");
+
+        // renderJson(Object) 的分支：入参已是 Render 时直接使用，不经工厂
+        CALLS.clear();
+        StubRender r = new StubRender();
+        c.renderJson(r);
+        assertEquals(r, c.getRender(), "入参已是 Render 时应直接使用");
+        assertTrue(CALLS.isEmpty(), "该分支不得调用工厂");
+
+        // renderError 直接抛
+        LegacyActionException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                LegacyActionException.class, () -> c.renderError(404));
+        assertEquals(404, ex.getErrorCode());
+        assertTrue(ex.getErrorRender() != null);
+    }
+
+    /** LegacyRedirectRender 的 URL 构建规则（全部为行为断言，不读 protected 字段） */
+    @Test
+    @DisplayName("LegacyRedirectRender：单参不附带查询串；上下文前缀与绝对 URL 规则")
+    void redirectRenderUrlRules() {
+        LegacyRedirectRender.setContextPath("/app");
+
+        // 单参构造：即使请求有查询串也【不】附带（旧字节码 withQueryString=false）
+        LegacyRedirectRender r1 = new LegacyRedirectRender("/a");
+        r1.setContext(probeRequest(Map.of("__qs", "x=1")), null);
+        assertEquals("/app/a", r1.buildFinalUrl(),
+                "单参构造不附带查询串 —— 这一点若凭直觉会写成 true");
+
+        // 两参构造 withQueryString=true：附带查询串
+        LegacyRedirectRender r2 = new LegacyRedirectRender("/a", true);
+        r2.setContext(probeRequest(Map.of("__qs", "x=1")), null);
+        assertEquals("/app/a?x=1", r2.buildFinalUrl(), "无 ? 时用 ?");
+
+        LegacyRedirectRender r3 = new LegacyRedirectRender("/a?k=v", true);
+        r3.setContext(probeRequest(Map.of("__qs", "x=1")), null);
+        assertEquals("/app/a?k=v&x=1", r3.buildFinalUrl(), "已有 ? 时用 &");
+
+        // 绝对 URL 不补上下文前缀（协议出现在 index <= 5 处）
+        LegacyRedirectRender r4 = new LegacyRedirectRender("http://x/y");
+        r4.setContext(probeRequest(Map.of()), null);
+        assertEquals("http://x/y", r4.buildFinalUrl());
+        LegacyRedirectRender r5 = new LegacyRedirectRender("https://x/y");
+        r5.setContext(probeRequest(Map.of()), null);
+        assertEquals("https://x/y", r5.buildFinalUrl());
+
+        // 上下文路径为 "" 或 "/" 时归一为 null（旧实现如此）
+        LegacyRedirectRender.setContextPath("/");
+        LegacyRedirectRender r6 = new LegacyRedirectRender("/a");
+        r6.setContext(probeRequest(Map.of()), null);
+        assertEquals("/a", r6.buildFinalUrl(), "上下文为 \"/\" 时应归一为 null");
+        LegacyRedirectRender.setContextPath("");
+        LegacyRedirectRender r7 = new LegacyRedirectRender("/a");
+        r7.setContext(probeRequest(Map.of()), null);
+        assertEquals("/a", r7.buildFinalUrl(), "上下文为 \"\" 时应归一为 null");
+
+        LegacyRedirectRender.setContextPath("/app");
+    }
+
+    /** LegacyJsonRender：走真实 render() 路径，捕获写出内容 */
+    @Test
+    @DisplayName("LegacyJsonRender：attrs 分支 / 排除项分支 / contentType")
+    void jsonRenderBuildRules() {
+        assertTrue(LegacyJsonRender.EXCLUDED_ATTRS.contains("_res"),
+                "排除项初值含 _res（逐字取自旧字节码）");
+        assertEquals(6, LegacyJsonRender.EXCLUDED_ATTRS.size(), "初值恰为 6 项");
+
+        Map<String, Object> attrs = new LinkedHashMap<>();
+        attrs.put("a", "1");
+        attrs.put("_res", "hdr");
+
+        // attrs 分支：只取指定项
+        java.io.StringWriter sb1 = new java.io.StringWriter();
+        LegacyJsonRender r1 = new LegacyJsonRender(new String[]{"a"});
+        r1.setContext(probeRequest(attrs), writerSpy(sb1));
+        r1.render();
+        assertTrue(sb1.toString().contains("\"a\""), "attrs 分支应输出 a，实际：" + sb1);
+        assertTrue(!sb1.toString().contains("_res"), "attrs 分支只取指定项");
+
+        // 无 attrs 分支：取全部但跳过排除项
+        java.io.StringWriter sb2 = new java.io.StringWriter();
+        LegacyJsonRender r2 = new LegacyJsonRender();
+        r2.setContext(probeRequest(attrs), writerSpy(sb2));
+        r2.render();
+        assertTrue(sb2.toString().contains("\"a\""), "实际：" + sb2);
+        assertTrue(!sb2.toString().contains("_res"), "无 attrs 分支必须跳过排除项 _res");
+
+        // 直接给定 JSON 文本时不再构建
+        java.io.StringWriter sb3 = new java.io.StringWriter();
+        LegacyJsonRender r3 = new LegacyJsonRender("{\"z\":1}");
+        r3.setContext(probeRequest(Map.of()), writerSpy(sb3));
+        r3.render();
+        assertEquals("{\"z\":1}", sb3.toString(), "给定文本应原样写出");
+    }
+
+    /**
+     * 建把 {@code getWriter()} 接到给定缓冲的响应替身。
+     *
+     * @param sb 输出缓冲
+     * @return 替身
+     */
+    private static jakarta.servlet.http.HttpServletResponse writerSpy(java.io.Writer sb) {
+        InvocationHandler h = (p, m, args) -> {
+            switch (m.getName()) {
+                case "getWriter":
+                    return new java.io.PrintWriter(sb);
+                case "setContentType":
+                    return null;
+                case "equals":
+                    return p == args[0];
+                case "hashCode":
+                    return System.identityHashCode(p);
+                default:
+                    return null;
+            }
+        };
+        return (jakarta.servlet.http.HttpServletResponse) Proxy.newProxyInstance(
+                MvcFoundationGoldenTest.class.getClassLoader(),
+                new Class<?>[]{jakarta.servlet.http.HttpServletResponse.class}, h);
+    }
+
+    /**
+     * 建一个只提供 getAttribute/getAttributeNames 的请求替身。
+     *
+     * @param attrs 属性表
+     * @return 替身
+     */
+    private static HttpServletRequest probeRequest(Map<String, Object> attrs) {
+        InvocationHandler h = (p, m, args) -> {
+            switch (m.getName()) {
+                case "getAttribute":
+                    return attrs.get(args[0]);
+                case "getAttributeNames":
+                    return java.util.Collections.enumeration(new ArrayList<>(attrs.keySet()));
+                case "getQueryString":
+                    return attrs.get("__qs");
+                case "equals":
+                    return p == args[0];
+                case "hashCode":
+                    return System.identityHashCode(p);
+                default:
+                    return null;
+            }
+        };
+        return (HttpServletRequest) Proxy.newProxyInstance(
+                MvcFoundationGoldenTest.class.getClassLoader(),
+                new Class<?>[]{HttpServletRequest.class}, h);
     }
 
     /** invoke 链 */

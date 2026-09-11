@@ -645,6 +645,114 @@ public class LegacyController {
         return render;
     }
 
+    /**
+     * 设置视图渲染（旧字节码：{@code render = factory.getRender(view)}）。
+     *
+     * @param view 视图名
+     */
+    public void render(String view) {
+        this.render = LegacyRenderManager.getRenderFactory().getRender(view);
+    }
+
+    /**
+     * 设置模板渲染（旧字节码：{@code render = factory.getTemplateRender(view)}）。
+     *
+     * @param view 视图名
+     */
+    public void renderTemplate(String view) {
+        this.render = LegacyRenderManager.getRenderFactory().getTemplateRender(view);
+    }
+
+    /**
+     * 设置"输出全部请求属性"的 JSON 渲染。
+     */
+    public void renderJson() {
+        this.render = LegacyRenderManager.getRenderFactory().getJsonRender();
+    }
+
+    /**
+     * 设置输出指定请求属性的 JSON 渲染。
+     *
+     * @param attrs 属性名数组
+     */
+    public void renderJson(String[] attrs) {
+        this.render = LegacyRenderManager.getRenderFactory().getJsonRender(attrs);
+    }
+
+    /**
+     * 设置输出给定 JSON 文本的渲染。
+     *
+     * @param jsonText JSON 文本
+     */
+    public void renderJson(String jsonText) {
+        this.render = LegacyRenderManager.getRenderFactory().getJsonRender(jsonText);
+    }
+
+    /**
+     * 设置输出单个对象的 JSON 渲染。
+     *
+     * <p>旧字节码有一处分支：若入参<b>本身已是 {@code Render}</b> 则直接用它，
+     * 否则交给工厂造。该分支原样保留。</p>
+     *
+     * @param object 对象，或已构造好的渲染
+     */
+    public void renderJson(Object object) {
+        this.render = (object instanceof LegacyRender)
+                ? (LegacyRender) object
+                : LegacyRenderManager.getRenderFactory().getJsonRender(object);
+    }
+
+    /**
+     * 设置输出"名 - 对象"单键 JSON 的渲染。
+     *
+     * @param attr   键名
+     * @param object 值
+     */
+    public void renderJson(String attr, Object object) {
+        this.render = LegacyRenderManager.getRenderFactory().getJsonRender(attr, object);
+    }
+
+    /**
+     * <b>抛</b>出带错误渲染的异常（旧字节码：本方法不设置 {@code render}，而是直接抛）。
+     *
+     * @param errorCode HTTP 状态码
+     */
+    public void renderError(int errorCode) {
+        throw new LegacyActionException(errorCode,
+                LegacyRenderManager.getRenderFactory().getErrorRender(errorCode));
+    }
+
+    /**
+     * <b>抛</b>出带错误渲染的异常（指定错误页视图）。
+     *
+     * @param errorCode HTTP 状态码
+     * @param view      错误页视图
+     */
+    public void renderError(int errorCode, String view) {
+        throw new LegacyActionException(errorCode,
+                LegacyRenderManager.getRenderFactory().getErrorRender(errorCode, view));
+    }
+
+    /**
+     * 设置跳转渲染。
+     *
+     * @param url 目标 URL
+     */
+    public void redirect(String url) {
+        this.render = LegacyRenderManager.getRenderFactory().getRedirectRender(url);
+    }
+
+    /**
+     * 设置跳转渲染（可指定是否附带原查询串）。
+     *
+     * @param url             目标 URL
+     * @param withQueryString 是否附带原查询串
+     */
+    public void redirect(String url, boolean withQueryString) {
+        this.render = LegacyRenderManager.getRenderFactory()
+                .getRedirectRender(url, withQueryString);
+    }
+
     // ---------------- Cookie ----------------
 
     /**
