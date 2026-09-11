@@ -205,6 +205,15 @@ class MenuUtilBuildMenuLiveTest {
         assertEquals(new HashSet<Integer>(), unexpected,
                 "★ 结果里不得出现既未授权、也不是授权项祖先的菜单：" + unexpected);
 
+        // ★ 反方向（r226 补）：授权项的**祖先链必须都保留**。
+        //   只写单向断言时，"丢掉祖先"这类退化会让结果更小、子集关系照样成立
+        //   ⇒ 变异不会被捕获（r225 实测 M2/M5 漏网即此因）。两个方向合起来
+        //   才是旧实现的契约：**结果 == 授权项 ∪ 其祖先链**。
+        Set<Integer> missing = new HashSet<>(allowed);
+        missing.removeAll(got);
+        assertEquals(new HashSet<Integer>(), missing,
+                "★ 授权项及其祖先链必须全部保留：" + missing);
+
         // 顶层哨兵边界：parent_id == 0 的菜单若要出现，必须自己是授权项或授权项的祖先（已由上面覆盖）
         assertFalse(got.contains(0), "0 是哨兵（parent_id==0 终止），不得作为菜单 id 出现");
     }
