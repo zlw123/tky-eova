@@ -61,9 +61,12 @@
     <!-- 模版尚未迁移 ⇒ 明确报出（**不降级**成已迁移模版） -->
     <div v-else-if="state === 'unmigrated'" class="eova-admins" data-eova-template="unmigrated">
       <div class="eova-tools_box">
-        模版 <b>{{ template }}</b>（菜单 <b>{{ menuCode }}</b>）尚未迁移到 SPA。
-        已迁移：{{ migrated.join('、') }}；未迁移：{{ unmigrated.join('、') }}。<br />
-        此处**不降级**渲染成已迁移模版：按错模版渲染出来的页面看起来是能用的，比报错更危险。
+        模版 <b>{{ template }}</b>（菜单 <b>{{ menuCode }}</b>）{{
+          unmigrated.includes(template) ? '尚未迁移到 SPA' : '不在已知模版清单内'
+        }}。 已迁移：{{ migrated.join('、') }}；未迁移：{{
+          unmigrated.length > 0 ? unmigrated.join('、') : '（无）'
+        }}。<br />
+        此处<b>不降级</b>渲染成已迁移模版：按错模版渲染出来的页面看起来是能用的，比报错更危险。
       </div>
     </div>
 

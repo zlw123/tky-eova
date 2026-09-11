@@ -14,6 +14,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AppTemplateHost from '../AppTemplateHost.vue'
 import TemplateTable from '../TemplateTable.vue'
 import TemplateTree from '../TemplateTree.vue'
+import TemplateTreeTable from '../TemplateTreeTable.vue'
 import type { PageBootstrap } from '@/compat/page-bootstrap'
 import { setEovaMe, setEovaTools, type EovaMe, type EovaTools } from '@/compat/eova-runtime'
 
@@ -126,15 +127,18 @@ describe('AppTemplateHost.vue（AppController#index 的分派等价）', () => {
     expect(w.findComponent(TemplateTable).exists()).toBe(false)
   })
 
-  it('④ 未迁移模版（tree_table）⇒ 报出模版名与清单，**不降级**成已迁移模版', async () => {
-    boot.value = makeBootstrap({ menu: { code: 'menu_x', template: 'tree_table' } as never })
+  it('④ 未迁移/未知模版 ⇒ 报出模版名与清单，**不降级**成已迁移模版', async () => {
+    // ★ 三个列表模版都已迁（r120）⇒ 用"引导数据里出现没见过的模版名"来走这条分支
+    boot.value = makeBootstrap({ menu: { code: 'menu_x', template: 'weird_tpl' } as never })
     const w = mount(AppTemplateHost, mountOpts)
     await flushPromises()
     expect(stateOf(w)).toBe('unmigrated')
-    expect(w.text()).toContain('tree_table')
+    expect(w.text()).toContain('weird_tpl')
+    expect(w.text()).toContain('不在已知模版清单内')
     expect(w.text()).toContain('不降级')
     expect(w.findComponent(TemplateTable).exists()).toBe(false)
     expect(w.findComponent(TemplateTree).exists()).toBe(false)
+    expect(w.findComponent(TemplateTreeTable).exists()).toBe(false)
   })
 
   it('⑤ template=table ⇒ 渲染 TemplateTable 并把引导数据传下去（只取一次）', async () => {
@@ -150,6 +154,18 @@ describe('AppTemplateHost.vue（AppController#index 的分派等价）', () => {
     // ★ 只取一次：宿主取给分派用，模版页**不再**自己取（否则同页两次请求）
     expect(boot.calls).toBe(1)
     void bs
+  })
+
+  it('⑤ template=tree_table ⇒ 渲染 TemplateTreeTable（不是另外两个）', async () => {
+    boot.value = makeBootstrap({
+      menu: { code: 'menu_x', template: 'tree_table', conf: {} } as never
+    })
+    const w = mount(AppTemplateHost, mountOpts)
+    await flushPromises()
+    expect(stateOf(w)).toBeUndefined()
+    expect(w.findComponent(TemplateTreeTable).exists()).toBe(true)
+    expect(w.findComponent(TemplateTable).exists()).toBe(false)
+    expect(w.findComponent(TemplateTree).exists()).toBe(false)
   })
 
   it('⑤ template=tree ⇒ 渲染 TemplateTree（不是 TemplateTable）', async () => {

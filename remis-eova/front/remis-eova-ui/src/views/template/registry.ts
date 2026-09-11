@@ -14,9 +14,11 @@
 import type { Component } from 'vue'
 import TemplateTable from './TemplateTable.vue'
 import TemplateTree from './TemplateTree.vue'
+import TemplateTreeTable from './TemplateTreeTable.vue'
 
 /** 模版名 → 组件（键必须与 `MIGRATED_TEMPLATES` 完全一致） */
 export const TEMPLATE_COMPONENTS: Record<string, Component> = {
   table: TemplateTable,
-  tree: TemplateTree
+  tree: TemplateTree,
+  tree_table: TemplateTreeTable
 }

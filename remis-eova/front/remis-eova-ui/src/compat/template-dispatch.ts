@@ -27,7 +27,7 @@
  * |---|---|---|
  * | `table` | `_view/template/table/index.html` + `index.js`（318 行） | **已迁移**（`TemplateTable.vue`） |
  * | `tree` | `_view/template/tree/index.html`(66) + `index.js`(292) | **已迁移**（`TemplateTree.vue`，第 119 轮） |
- * | `tree_table` | `_view/template/tree_table/index.html`(92) + `index.js`(211) | 未迁移（登记） |
+ * | `tree_table` | `_view/template/tree_table/index.html`(92) + `index.js`(212) | **已迁移**（`TemplateTreeTable.vue`，第 120 轮） |
  *
  * 未迁移的模版**不做静默降级**（不"先按 table 渲染"）：由宿主明确告知"该模版尚未迁移"，
  * 因为按错的模版渲染出来的页面**看起来是能用的**，这比报错危险得多。
@@ -36,12 +36,16 @@
 import type { PageBootstrap } from './page-bootstrap'
 
 /** 已迁移的模版名（有对应 SPA 组件；组件表见 `views/template/registry.ts`） */
-export const MIGRATED_TEMPLATES: readonly string[] = ['table', 'tree']
+export const MIGRATED_TEMPLATES: readonly string[] = ['table', 'tree', 'tree_table']
 
 /**
- * 旧栈存在、但尚未迁移的模版名（登记在案，不得静默降级成已迁移模版）
+ * 旧栈存在、但尚未迁移的模版名（登记在案，不得静默降级成已迁移模版）。
+ *
+ * ★ 第 120 轮起为**空**：三个列表模版（`table`/`tree`/`tree_table`）全部迁完。
+ * 仍保留该常量与宿主里的 `unmigrated` 分支 —— 因为"引导数据里出现一个没见过的模版名"
+ * 这件事本身要继续被明确报出（不得降级渲染成任一已迁移模版）。
  */
-export const UNMIGRATED_TEMPLATES: readonly string[] = ['tree_table']
+export const UNMIGRATED_TEMPLATES: readonly string[] = []
 
 /** 模版名的取值来源（判据必须能分辨"取到了"与"没取到"） */
 export type TemplateSource = 'bootstrap' | 'missing'
