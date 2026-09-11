@@ -7,22 +7,37 @@
  */
 import { describe, expect, it } from 'vitest'
 import { routePathsOf } from './helpers'
-import { SPA_OWNED_PATHS, isSpaOwnedPath } from '../routes'
+import { SPA_OWNED_PATHS, isSpaOwnedPath, ownedPrefixOf } from '../routes'
 import { routes } from '../index'
 
 describe('router · SPA 拥有的路径', () => {
   it('router 里**每一条**路由都在 SPA_OWNED_PATHS 内（漏登记 ⇒ dev 代理会把它送去后端）', () => {
     const declared = new Set(SPA_OWNED_PATHS)
     for (const p of routePathsOf(routes)) {
-      expect(declared.has(p), `路由 ${p} 未登记到 SPA_OWNED_PATHS`).toBe(true)
+      const owned = ownedPrefixOf(p)
+      expect(declared.has(owned), `路由 ${p}（所有权前缀 ${owned}）未登记到 SPA_OWNED_PATHS`).toBe(true)
     }
   })
 
   it('SPA_OWNED_PATHS 里**每一条**都有对应路由（多登记 ⇒ 该路径既不给 SPA 也不给后端）', () => {
-    const routed = new Set(routePathsOf(routes))
+    const routed = new Set(routePathsOf(routes).map(ownedPrefixOf))
     for (const p of SPA_OWNED_PATHS) {
       expect(routed.has(p), `SPA_OWNED_PATHS 里的 ${p} 没有对应路由`).toBe(true)
     }
+  })
+
+  it('ownedPrefixOf：去掉动态段及其后的内容（带参数路由与所有权前缀对齐）', () => {
+    expect(ownedPrefixOf('/eova/button/add/:menuCode')).toBe('/eova/button/add')
+    expect(ownedPrefixOf('/a/:b/c')).toBe('/a')
+    expect(ownedPrefixOf('/user/login')).toBe('/user/login')
+    expect(ownedPrefixOf('/')).toBe('/')
+  })
+
+  it('带参数的入口页：具体 URL 归 SPA，且**同前缀的后端路径仍归后端**', () => {
+    expect(isSpaOwnedPath('/eova/button/add/menu_x')).toBe(true)
+    // 反例：不能因为 /eova/button/add 归 SPA 就把整个 /eova/button 吞掉
+    expect(isSpaOwnedPath('/eova/button/quick/menu_x')).toBe(false)
+    expect(isSpaOwnedPath('/button/doAdd')).toBe(false)
   })
 
   it('本页的口径：旧 URL 不加前缀（/eova/admin/su、/user/login、/user/password 逐字一致）', () => {

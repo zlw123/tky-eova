@@ -75,6 +75,12 @@ export interface PageBootstrap {
   btnList?: BootstrapButton[]
   loginUser?: BootstrapLoginUser
   isQuery?: boolean
+  /**
+   * **页面自有引导值**（DES-004 §2 的"页面自有"家族：`role`、`parent_id`、`where`、`rid`、
+   * `login_id`/`login_pwd` 等）。这些值在旧栈里由各页面自己的控制器 `set(...)`，
+   * 形态各异，故用一张**开放字典**承载，不逐个建字段。
+   */
+  pageParams?: Record<string, unknown>
   /** 契约版本（端点上线后用于兼容判断） */
   version?: number
 }
@@ -179,6 +185,7 @@ export async function loadPageBootstrap(options: LoadBootstrapOptions = {}): Pro
     btnList: p['btnList'] as BootstrapButton[] | undefined,
     loginUser: p['loginUser'] as BootstrapLoginUser | undefined,
     isQuery: p['isQuery'] as boolean | undefined,
+    pageParams: p['pageParams'] as Record<string, unknown> | undefined,
     version: p['version'] as number | undefined
   }
 }
@@ -218,4 +225,27 @@ export function buttonListOf(bs: PageBootstrap): BootstrapButton[] | null {
     return null
   }
   return bs.btnList ?? []
+}
+
+/**
+ * 取页面自有引导值（`pageParams[key]`），缺则用**显式回退**；两者都缺则抛错。
+ *
+ * 与 `requireObjectCode` 同一纪律：缺关键值时不返回空串 —— 旧栈里这些值是**渲染期就插好**的，
+ * 分离后拿空串去提交，会变成"后端收到空值却看不出是前端没取到"。
+ *
+ * @param bs 引导数据
+ * @param key 键（旧 `set(...)` 的名字，如 `role`）
+ * @param fallback 可声明的回退值（页面明确知道旧默认/旧常量时用）
+ * @returns 该引导值（字符串形态）
+ */
+export function bootstrapParam(bs: PageBootstrap, key: string, fallback?: string): string {
+  const raw = bs.pageParams?.[key]
+  const v = raw == null || String(raw).trim() === '' ? fallback : String(raw)
+  if (v == null || v.trim() === '') {
+    throw new Error(
+      `[page-bootstrap] 缺少页面引导值 ${key}（引导数据没有，且页面未声明回退值）。` +
+        '旧栈里该值是渲染期插值，缺它提交上去只会得到"空值"而看不出原因。'
+    )
+  }
+  return v
 }

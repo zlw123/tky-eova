@@ -4,6 +4,7 @@ import Login from '@/views/Login.vue'
 import Home from '@/views/Home.vue'
 import Password from '@/views/user/Password.vue'
 import Su from '@/views/admin/Su.vue'
+import ButtonAdd from '@/views/button/ButtonAdd.vue'
 
 /**
  * 路由表：阶段 2 逐页接管旧 URL。
@@ -42,6 +43,12 @@ export const routes: RouteRecordRaw[] = [
     path: '/eova/admin/su',
     name: 'admin-su',
     component: Su
+  },
+  {
+    // 快速添加按钮：旧路径 /eova/button/add/<menuCode>（ButtonController#add() 的 `get(0)` 就是它）
+    path: '/eova/button/add/:menuCode',
+    name: 'button-add',
+    component: ButtonAdd
   }
 ]
 

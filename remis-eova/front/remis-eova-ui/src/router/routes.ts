@@ -23,8 +23,31 @@ export const SPA_OWNED_PATHS: readonly string[] = [
   '/placeholder',
   '/user/login',
   '/user/password',
-  '/eova/admin/su'
+  '/eova/admin/su',
+  // 带参数的入口页写**所有权前缀**（`/eova/button/add/<menuCode>` 的 `<menuCode>` 是路径段，
+  // 对应旧栈 ButtonController:36 的 `get(0)`）—— 见 ownedPrefixOf()
+  '/eova/button/add'
 ]
+
+/**
+ * 把路由 path 归一化为**所有权前缀**：去掉动态段（`:xxx`）与其后的内容。
+ *
+ * 例：`/eova/button/add/:menuCode` → `/eova/button/add`（与 `SPA_OWNED_PATHS` 里的写法一致）。
+ *
+ * @param path 路由 path
+ * @returns 所有权前缀
+ */
+export function ownedPrefixOf(path: string): string {
+  const segs = path.split('/').filter((s) => s !== '')
+  const keep: string[] = []
+  for (const s of segs) {
+    if (s.startsWith(':')) {
+      break
+    }
+    keep.push(s)
+  }
+  return '/' + keep.join('/')
+}
 
 /**
  * 判断某请求路径是否应由 SPA 处理（而非代理给后端）。
