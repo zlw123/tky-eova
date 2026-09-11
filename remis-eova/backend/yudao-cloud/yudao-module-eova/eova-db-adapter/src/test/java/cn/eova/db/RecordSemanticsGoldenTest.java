@@ -320,7 +320,9 @@ class RecordSemanticsGoldenTest {
         String table = "sp6_probe";
         int before = gw.find("select * from " + table).size();
         try {
-            gw.tx(() -> {
+            // 显式标注目标类型：第 74 轮网关同时有 tx(Atom) 与 tx(LegacyIAtom) 两个重载，
+            // 裸 lambda 会歧义（本行是"新增接缝迫使既有判据显式化"的实例）
+            gw.tx((EovaDbGateway.Atom<Void>) () -> {
                 EovaRecord r = new EovaRecord();
                 r.set("id", 990002);
                 r.set("k", "tx_probe");

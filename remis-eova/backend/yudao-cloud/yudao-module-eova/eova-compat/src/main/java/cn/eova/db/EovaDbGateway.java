@@ -7,6 +7,8 @@ package cn.eova.db;
 
 import java.util.List;
 
+import cn.eova.compat.jfinal.plugin.activerecord.LegacyIAtom;
+
 import javax.sql.DataSource;
 
 /**
@@ -104,6 +106,36 @@ public interface EovaDbGateway {
      * @return 是否成功
      */
     boolean save(String table, EovaRecord record);
+
+    /**
+     * 插入一行并指定主键列（对应 jfinal {@code DbPro.save(String tableName, String primaryKey, Record record)}）。
+     *
+     * <p><b>已声明的适配：</b>旧实现把 {@code primaryKey} 用于<b>生成键/主键列的识别</b>
+     * （影响 {@code forModelSave} 与自增键回填）；本网关的插入语义与主键自增回填
+     * 统一按 {@code id} 列处理（见 {@link #insertReturningKey}），
+     * 故本重载等价于 {@link #save(String, EovaRecord)}。
+     * EOVA 全树使用该重载的调用点其主键均为 {@code id}，故该适配在当前用法下等价。</p>
+     *
+     * @param table      表名
+     * @param primaryKey 主键列名
+     * @param record     记录
+     * @return 是否成功
+     */
+    boolean save(String table, String primaryKey, EovaRecord record);
+
+    /**
+     * 按<b>指定主键列</b>删除（对应 jfinal
+     * {@code DbPro.deleteById(String tableName, String primaryKey, Object idValue)}）。
+     *
+     * <p>SQL 形态取自旧制品实测（{@code MysqlDialect.forDbDeleteById}）：
+     * {@code delete from `表` where `主键` = ?}（多主键用 {@code  and } 连接，表名与主键 trim）。</p>
+     *
+     * @param table      表名
+     * @param primaryKey 主键列名（可逗号分隔）
+     * @param idValue    主键值
+     * @return 是否删除了行
+     */
+    boolean deleteById(String table, String primaryKey, Object idValue);
 
     /**
      * 按默认主键 {@code id} 更新（仅提交已修改字段）
@@ -359,6 +391,19 @@ public interface EovaDbGateway {
      * @return 各行影响数（长度 = models.size()）
      */
     int[] batchSave(List<? extends EovaModel<?>> models, int batchSize);
+
+    /**
+     * 事务执行（<b>布尔驱动</b>版，对应 jfinal {@code DbPro.tx(IAtom)}）。
+     *
+     * <p><b>与 {@link #tx(Atom)} 的语义不同，两者不可合并：</b>
+     * 本方法按<b>返回值</b>决定提交/回滚（true 提交、false 回滚），
+     * 而 {@code tx(Atom)} 是<b>异常驱动</b>（正常返回即提交）。
+     * 逐条语义见 {@link cn.eova.compat.jfinal.plugin.activerecord.LegacyIAtom}。</p>
+     *
+     * @param atom 事务体
+     * @return 事务体的返回值（true=已提交，false=已回滚）
+     */
+    boolean tx(LegacyIAtom atom);
 
     /**
      * 事务执行；抛出异常则回滚，正常返回则提交

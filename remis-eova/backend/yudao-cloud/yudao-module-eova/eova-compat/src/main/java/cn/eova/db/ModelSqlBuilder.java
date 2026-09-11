@@ -187,6 +187,37 @@ public final class ModelSqlBuilder {
     }
 
     /** 供验证判据构造属性映射（保序） */
+    /**
+     * 去掉 SQL 中的 ORDER BY 子句（对应 jfinal {@code Dialect.replaceOrderBy(String)}）。
+     *
+     * <p><b>正则逐字取自旧制品常量池</b>（{@code Dialect$Holder.ORDER_BY_PATTERN}）：
+     * {@code order\s+by\s+[^,\s]+(\s+asc|\s+desc)?(\s*,\s*[^,\s]+(\s+asc|\s+desc)?)*}，
+     * 编译标志 {@code CASE_INSENSITIVE | MULTILINE}，替换为空串。</p>
+     *
+     * <p><b>三条实测行为（直接跑旧制品得到，勿凭直觉"修正"）：</b></p>
+     * <ol>
+     *   <li>{@code "select * from t order by id desc"} ⇒ {@code "select * from t "}
+     *       —— <b>保留 order 前的空格</b>（模式不含前导空格）；</li>
+     *   <li>子查询中的 {@code order by} 也会被去掉，且列名模式 {@code [^,\s]+}
+     *       会<b>吞掉紧跟的 {@code )}</b>：{@code "select * from (select * from t order by id) x order by y"}
+     *       ⇒ {@code "select * from (select * from t  x "}；</li>
+     *   <li>没有 ORDER BY 时原样返回。</li>
+     * </ol>
+     *
+     * @param sql 原 SQL
+     * @return 去掉 ORDER BY 后的 SQL
+     */
+    public static String replaceOrderBy(String sql) {
+        return ORDER_BY_PATTERN.matcher(sql).replaceAll("");
+    }
+
+    /** ORDER BY 模式（逐字取自旧制品 {@code Dialect$Holder} 的常量池） */
+    private static final java.util.regex.Pattern ORDER_BY_PATTERN =
+            java.util.regex.Pattern.compile(
+                    "order\\s+by\\s+[^,\\s]+(\\s+asc|\\s+desc)?"
+                            + "(\\s*,\\s*[^,\\s]+(\\s+asc|\\s+desc)?)*",
+                    java.util.regex.Pattern.CASE_INSENSITIVE | java.util.regex.Pattern.MULTILINE);
+
     public static Map<String, Object> orderedMap() {
         return new LinkedHashMap<>();
     }

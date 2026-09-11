@@ -7,6 +7,8 @@ package cn.eova.db;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import cn.eova.compat.jfinal.plugin.activerecord.LegacyIAtom;
+import cn.eova.compat.jfinal.plugin.activerecord.LegacyNestedTransactionHelpException;
 import cn.eova.compat.table.EovaTableMapping;
 import cn.eova.compat.table.TableMetadata;
 import java.sql.PreparedStatement;
@@ -369,6 +371,61 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
     }
 
     /**
+     * 指定主键列的插入（对应 jfinal {@code DbPro.save(tableName, primaryKey, record)}）。
+     * 已声明适配见接口 javadoc（本网关按 id 列处理生成键）。
+     *
+     * @param table      表名
+     * @param primaryKey 主键列名
+     * @param record     记录
+     * @return 是否成功
+     */
+    @Override
+    public boolean save(String table, String primaryKey, EovaRecord record) {
+        return save(table, record);
+    }
+
+    /**
+     * 按指定主键列删除（对应 jfinal {@code DbPro.deleteById(tableName, primaryKey, idValue)}）。
+     *
+     * <p>SQL 形态与旧制品实测一致：{@code delete from `表` where `主键` = ?}。</p>
+     *
+     * @param table      表名
+     * @param primaryKey 主键列名（可逗号分隔）
+     * @param idValue    主键值
+     * @return 是否删除了行
+     */
+    @Override
+    public boolean deleteById(String table, String primaryKey, Object idValue) {
+        return delete(deleteByIdSql(table, primaryKey), idValue) > 0;
+    }
+
+    /**
+     * 生成"按主键删除"的 SQL（对应旧制品 {@code MysqlDialect.forDbDeleteById} 的实测输出）。
+     *
+     * <p><b>为什么抽成包内静态方法：</b>它需要真实库才能端到端验证，而 SQL 形态本身是契约。
+     * 抽出来判据才能在没有数据库时也把"表名/主键 trim、反引号、多主键用 {@code  and } 连接"
+     * 逐字钉住 —— 第 74 轮实测：不抽出来时，"去掉 trim"的变异**逃过**了判据。</p>
+     *
+     * @param table      表名（会 trim）
+     * @param primaryKey 主键列名（逗号分隔，各段 trim）
+     * @return 删除 SQL
+     */
+    static String deleteByIdSql(String table, String primaryKey) {
+        String[] pks = primaryKey.split(",");
+        for (int i = 0; i < pks.length; i++) {
+            pks[i] = pks[i].trim();
+        }
+        StringBuilder sql = new StringBuilder("delete from `").append(table.trim()).append("` where ");
+        for (int i = 0; i < pks.length; i++) {
+            if (i > 0) {
+                sql.append(" and ");
+            }
+            sql.append('`').append(pks[i]).append("` = ?");
+        }
+        return sql.toString();
+    }
+
+    /**
      * 按指定主键列查询（对应 jfinal {@code DbPro.findById(tableName, primaryKey, idValue)}）。
      *
      * <p>SQL 形态与 jfinal 5.2.6 的 {@code MysqlDialect.forDbFindById} <b>实测输出</b>一致：
@@ -383,18 +440,32 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
      */
     @Override
     public EovaRecord findById(String table, String primaryKey, Object idValue) {
+        return findFirst(findByIdSql(table, primaryKey), idValue);
+    }
+
+    /**
+     * 生成"按主键查询"的 SQL（对应旧制品 {@code MysqlDialect.forDbFindById} 的实测输出）。
+     *
+     * <p><b>空格教训：</b>旧制品产出 {@code where `id` = ?}（{@code where} 与反引号之间<b>有空格</b>）。
+     * 我最初照 javap 注释里的 `` ` where `` 字面拼接，漏掉了那个<b>尾随空格</b>，
+     * 得到 {@code where`id`} —— 直到第 74 轮把 SQL 构造抽出来断言才暴露（javap 的注释显示会吃掉尾随空格，
+     * 本工程在 {@code Captcha.toString} 上栽过同类问题）。</p>
+     *
+     * @param table      表名（会 trim）
+     * @param primaryKey 主键列名（逗号分隔，各段 trim）
+     * @return 查询 SQL
+     */
+    static String findByIdSql(String table, String primaryKey) {
+        StringBuilder sql = new StringBuilder("select * from `")
+                .append(table.trim()).append("` where ");
         String[] pks = primaryKey.split(",");
         for (int i = 0; i < pks.length; i++) {
-            pks[i] = pks[i].trim();
-        }
-        StringBuilder sql = new StringBuilder("select * from `").append(table.trim()).append("` where");
-        for (int i = 0; i < pks.length; i++) {
             if (i > 0) {
-                sql.append(" and");
+                sql.append(" and ");
             }
-            sql.append('`').append(pks[i]).append("` = ?");
+            sql.append('`').append(pks[i].trim()).append("` = ?");
         }
-        return findFirst(sql.toString(), idValue);
+        return sql.toString();
     }
 
     /**
@@ -489,6 +560,67 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
             return result;
         } catch (SQLException e) {
             throw new IllegalStateException("批量执行失败", e);
+        }
+    }
+
+    /**
+     * 事务执行（布尔驱动版，对应 jfinal {@code DbPro.tx(IAtom)}）。
+     *
+     * <p>语义逐条取自旧字节码，见 {@link cn.eova.compat.jfinal.plugin.activerecord.LegacyIAtom}。
+     * 关键点：<b>嵌套分支返回 false 时抛 {@link LegacyNestedTransactionHelpException}</b>
+     * （消息逐字取自旧常量池），由最外层捕获后回滚并<b>静默返回 false</b>。</p>
+     *
+     * @param atom 事务体
+     * @return 事务体返回值
+     */
+    @Override
+    public boolean tx(LegacyIAtom atom) {
+        if (txConnection.get() != null) {
+            // 嵌套：并入当前事务（不提交、不关闭）
+            try {
+                if (atom.run()) {
+                    return true;
+                }
+                throw new LegacyNestedTransactionHelpException(
+                        "Notice the outer transaction that the nested transaction return false");
+            } catch (SQLException e) {
+                throw new EovaActiveRecordException(e.toString(), e);
+            }
+        }
+        Connection c = null;
+        try {
+            c = dataSource.getConnection();
+            c.setAutoCommit(false);
+            txConnection.set(c);
+            boolean result = atom.run();
+            if (result) {
+                c.commit();
+            } else {
+                c.rollback();
+            }
+            return result;
+        } catch (LegacyNestedTransactionHelpException e) {
+            // 旧实现：回滚 + logNothing + 返回 false（静默）
+            if (c != null) {
+                try {
+                    c.rollback();
+                } catch (SQLException ignored) {
+                    // 回滚失败不掩盖原意
+                }
+            }
+            return false;
+        } catch (Throwable t) {
+            if (c != null) {
+                try {
+                    c.rollback();
+                } catch (SQLException ignored) {
+                    // 回滚失败不掩盖原异常
+                }
+            }
+            throw wrap(t);
+        } finally {
+            txConnection.remove();
+            closeQuietly(c);
         }
     }
 
