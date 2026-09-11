@@ -37,6 +37,13 @@ export interface BootstrapObject {
 export interface BootstrapMenu {
   code: string
   name?: string
+  /**
+   * 模版名（旧 `Menu.getTemplate()`，`AppController#index()` 用它决定渲染哪个模版页）。
+   *
+   * ★ 第 118 轮补：`/app/:menuCode` 的分派**只**认这个字段（见 `template-dispatch.ts`）——
+   * 缺它就无法知道该渲染 `table` 还是 `tree`，而在前端**没有任何等价来源**可推。
+   */
+  template?: string
   [k: string]: unknown
 }
 

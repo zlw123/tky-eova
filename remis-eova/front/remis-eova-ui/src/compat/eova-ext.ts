@@ -153,3 +153,37 @@ export function setUzooPage(
 export function getUzooPage(target: Record<string, unknown> = globalThis as never): Record<string, unknown> {
   return getUzoo(target).page
 }
+
+/**
+ * 把页面 setup 暴露的对象挂到 `uzoo.app`（旧页面结尾的 `return uzoo.app = {…}`）。
+ *
+ * 语义（与旧实现一致）：**整体替换**，不是合并 —— 旧实现就是一次赋值，
+ * 而 `uzoo.app` 的初值是冻结资产 `eova.meta.js` 里的 `{}`。
+ *
+ * ★ 为什么必须保留这个全局点：外部脚本（演示工程的 `eova.vue.config.js` 与自定义按钮脚本）
+ * 通过 `uzoo.app.data.value.xxx` 读写页面数据；不挂就等于**扩展机制静默失效**
+ * （r107 已因"扩展点漏调"抓到过一次真实回归）。
+ *
+ * ⚠️ 待决项（不在本函数解决）：旧栈的 `me.vue.mount(app, code)` / `me.vue.app(code, def)`
+ * 是围绕 `createApp` + `mount` 的"自定义 app"机制，而 SPA 路由页不做 `createApp`
+ * ⇒ 其等价形态需要显式口径（见 `eova-ext.ts` 文件头与 DES-002-R4 的待用户口径清单）。
+ *
+ * @param app setup 返回的对象
+ * @param target 目标全局对象
+ */
+export function setUzooApp(
+  app: Record<string, unknown>,
+  target: Record<string, unknown> = globalThis as never
+): void {
+  getUzoo(target).app = app
+}
+
+/**
+ * 取 `uzoo.app`（页面 setup 暴露的对象）。
+ *
+ * @param target 目标全局对象
+ * @returns 页面暴露对象
+ */
+export function getUzooApp(target: Record<string, unknown> = globalThis as never): Record<string, unknown> {
+  return getUzoo(target).app
+}

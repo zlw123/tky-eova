@@ -27,12 +27,19 @@ export type LayerCallback = (data?: unknown) => void
 
 /** `me.layer` 面（第 102 轮按 `eovaui.js` 实际导出补齐；只声明本工程会用到的部分） */
 export interface EovaLayer {
-  /** 打开 iframe 弹层（宽高：===1 ⇒ 视口；<1 ⇒ 视口 × 比例；否则像素） */
+  /**
+   * 打开 iframe 弹层（宽高：===1 ⇒ 视口；<1 ⇒ 视口 × 比例；否则像素）
+   *
+   * ★ 第 118 轮把宽高类型从 `number` 放宽到 `number | string`：旧各模版页把它们**原样透传**
+   * （`const LW = conf.layer_width || 720`，`conf` 来自菜单配置 JSON），
+   * 而 `me.layer.open` 内部是 `< 1` / `=== 1` 的比较（字符串会被 JS 强制转数值）。
+   * 写死 `number` 会逼调用方加类型断言 —— 那会把"类型不准"藏进类型系统里。
+   */
   open: (
     title: string,
     url: string,
-    width?: number,
-    height?: number,
+    width?: number | string,
+    height?: number | string,
     done?: LayerCallback,
     confirm?: LayerCallback,
     opts?: Record<string, unknown>
@@ -115,6 +122,26 @@ export interface EovaStr {
   [k: string]: unknown
 }
 
+/** `x.axios` 面（EovaTools.AxiosTool） */
+export interface EovaAxios {
+  /**
+   * 下载（导出用）：`download(url, data, fileName, type)`。
+   *
+   * 取证（第 118 轮，从冻结制品 `eova-tools.umd.js` 抽取）：
+   * `class As { download = async (n, t, e, i) => { … en.post(n, t, { responseType: 'blob',
+   * headers: { 'Content-Type': … } }) … a.download = e; a.click() … } }`
+   * —— 即 4 个形参 `(url, data, fileName, type)`，POST 拿 blob 后造 `<a download>` 点名下载。
+   * 调用点：旧 `template/table/index.js:182`（`onExport`）。
+   */
+  download: (
+    url: string,
+    data: unknown,
+    fileName: string,
+    /** 导出类型（'xlsx'/'csv'）—— 旧栈可缺省：内置按钮走方法表时是无参调用 */
+    type?: string
+  ) => Promise<unknown>
+}
+
 /** `EovaTools` 面（只声明本工程实际用到的部分） */
 export interface EovaTools {
   validate: EovaValidate
@@ -122,6 +149,8 @@ export interface EovaTools {
   dom: EovaDom
   json: EovaJson
   str: EovaStr
+  /** 下载工具（导出）—— 见 `EovaAxios.download` 的取证 */
+  axios: EovaAxios
   /** 打日志（制品实现即 `console.log`） */
   log: (message: unknown) => void
   [k: string]: unknown

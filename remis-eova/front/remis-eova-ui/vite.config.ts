@@ -40,6 +40,15 @@ export default defineConfig({
         target: 'http://127.0.0.1:8080',
         changeOrigin: true,
         bypass: (req) => (isSpaOwnedPath(req.url ?? '') ? req.url : undefined)
+      },
+      // ★ 第 118 轮：`/app` 同前缀下既可能是 SPA 菜单模版页（`/app/<menu.code>`），
+      //   也可能是**后端渲染页**（`/app/add|update|detail/<object_code>`，由冻结脚本以 iframe 弹层打开）
+      //   ⇒ 这里必须放行前者、继续代理后者。判定口径与 router 共用（`isSpaOwnedPath` → `compat/app-routes.ts`）。
+      //   忘了配这一条的后果：SPA 菜单页被代理到后端（拿到后端 404/HTML），而**构建与单测全绿**。
+      '/app': {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true,
+        bypass: (req) => (isSpaOwnedPath(req.url ?? '') ? req.url : undefined)
       }
     }
   }

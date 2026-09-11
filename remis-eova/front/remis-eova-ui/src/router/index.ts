@@ -12,6 +12,7 @@ import MenuAdd from '@/views/menu/MenuAdd.vue'
 import MetaEdit from '@/views/meta/MetaEdit.vue'
 import MetaImport from '@/views/meta/MetaImport.vue'
 import RoleAuth from '@/views/role/RoleAuth.vue'
+import AppTemplateHost from '@/views/template/AppTemplateHost.vue'
 
 /**
  * 路由表：阶段 2 逐页接管旧 URL。
@@ -98,6 +99,18 @@ export const routes: RouteRecordRaw[] = [
     path: '/eova/role/auth/:rid',
     name: 'role-auth',
     component: RoleAuth
+  },
+  {
+    // ★ 菜单模版页：旧路径 /app/<menu.code>（Menu.getUrl() 对 template 非空的菜单返回它；
+    //   AppController#index() 的 `String menuCode = get(0)` 就是这一段）
+    //   渲染哪一个模版页由**引导数据里的 menu.template** 决定 ⇒ 由宿主分派（见 AppTemplateHost.vue）。
+    //
+    //   ⚠️ `/app` 不能进 `SPA_OWNED_PATHS`：同前缀下还有后端渲染页（/app/add|update|detail/<object_code>），
+    //   归属规则见 `compat/app-routes.ts`；漂移由 `__tests__/owned-paths.spec.ts` 与
+    //   `compat/__tests__/app-routes.spec.ts` 的接线 canary 钉住。
+    path: '/app/:menuCode',
+    name: 'app-template',
+    component: AppTemplateHost
   }
 ]
 

@@ -11,11 +11,15 @@ import { SPA_OWNED_PATHS, isSpaOwnedPath, ownedPrefixOf } from '../routes'
 import { routes } from '../index'
 
 describe('router · SPA 拥有的路径', () => {
-  it('router 里**每一条**路由都在 SPA_OWNED_PATHS 内（漏登记 ⇒ dev 代理会把它送去后端）', () => {
-    const declared = new Set(SPA_OWNED_PATHS)
+  it('router 里**每一条**路由都被 SPA 所有权规则覆盖（漏登记/漏接线 ⇒ dev 代理会把它送去后端）', () => {
     for (const p of routePathsOf(routes)) {
-      const owned = ownedPrefixOf(p)
-      expect(declared.has(owned), `路由 ${p}（所有权前缀 ${owned}）未登记到 SPA_OWNED_PATHS`).toBe(true)
+      // 把动态段换成具体值得到一条真实可访问的 URL，再问**运行时那条规则**（与 vite 代理共用同一个函数）。
+      // 例：`/app/:menuCode` ⇒ `/app/sample`（不能换成动作名 —— 那些按规则本来就该归后端）。
+      const sample = p.replace(/:([A-Za-z_$][\w$]*)/g, 'sample')
+      expect(
+        isSpaOwnedPath(sample),
+        `路由 ${p}（样例 URL ${sample}）未被 SPA 所有权规则覆盖 ⇒ 打开该页会拿到后端响应`
+      ).toBe(true)
     }
   })
 

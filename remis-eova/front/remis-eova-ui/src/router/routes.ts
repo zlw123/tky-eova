@@ -15,7 +15,13 @@
  * 让漂移在测试里立刻暴露。
  *
  * 命名注意：这里只声明**路径所有权**，不声明组件（组件在 `router/index.ts` 里懒/直引）。
+ *
+ * ★ 第 118 轮：`/app/**` 的归属**不在这张清单里**（它不能用"前缀"规则表达，见 `isSpaOwnedPath`），
+ *   由 `compat/app-routes.ts` 的动作表判定；清单与它的接线一致性由
+ *   `__tests__/owned-paths.spec.ts` 与 `compat/__tests__/app-routes.spec.ts` 共同钉住。
  */
+// ★ 用**相对**路径：本文件被 `vite.config.ts` 直接 import，而配置文件加载期没有 `@` 别名
+import { isSpaOwnedAppPage } from '../compat/app-routes'
 
 /** SPA 拥有的路径（router 与 dev 代理共用；新增路由必须同时出现在这里） */
 export const SPA_OWNED_PATHS: readonly string[] = [
@@ -64,10 +70,20 @@ export function ownedPrefixOf(path: string): string {
  * 不做前缀模糊匹配 —— `/eova/admin/su` 归 SPA 不代表 `/eova/admin/showUserData` 也归 SPA
  * （后者是后端渲染页，仍应走代理）。
  *
+ * ★ 第 118 轮增补：`/app/**` **不在** `SPA_OWNED_PATHS` 里，也不能用上面的"前缀"规则 ——
+ *   同一个 `/app` 前缀下既有 SPA 菜单模版页（`/app/<menu.code>`，1 段），
+ *   也有**后端渲染页**（`/app/add|update|detail/<object_code>`，2 段；由冻结脚本
+ *   `eova.template.js:31/50` 以 `me.layer.open` 弹 iframe）。
+ *   它们靠"段数 + 动作名"区分，规则与取证见 `src/compat/app-routes.ts`。
+ *   ⇒ 归属判定委托给 `isSpaOwnedAppPage`，**共用同一份动作表**（单一事实来源）。
+ *
  * @param url 请求 URL（可带查询串）
  * @returns 是否由 SPA 处理
  */
 export function isSpaOwnedPath(url: string): boolean {
+  if (isSpaOwnedAppPage(url)) {
+    return true
+  }
   const path = url.split('?')[0].split('#')[0]
   return SPA_OWNED_PATHS.some((p) => path === p || (p !== '/' && path.startsWith(p + '/')))
 }
