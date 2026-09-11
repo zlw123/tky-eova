@@ -27,13 +27,14 @@
     ④ 非 ok ⇒ `me.layer.no(ret.msg)`
     ⑤ 异常 ⇒ `me.layer.msg('客户端请求异常: ' + error.message)`
 
-  ★ `objectCode` 的来源（本轮登记为待核）
+  ★ `objectCode` 的来源（第 105 轮已收敛到统一契约）
   · 旧栈由服务端渲染：`setAttr("objectCode", x.conf.get("su.object.code", "eova_user_code"))`
     （`AdminController#su()`），模板里写 `#(objectCode)`。
   · 而 `su.object.code` 在 `eova_config` 里是 **`is_server = 1`** ⇒ 不在客户端 `me.conf` 白名单内
     （见 DES-003 §2.3），故**不能**从 `me.conf` 读。
-  · 本页口径：`objectCode` 作为**可注入参数**（查询串 `?object=` 优先，否则用文档默认值
-    `eova_user_code`，即库种子数据里 `su.object.code` 的实际值）。来源方案与 `me.conf` 一并待决。
+  · **现口径**：走 `DES-004` 的页面引导数据接缝 —— `requireObjectCode(bs, 'eova_user_code')`：
+    引导数据（端点就绪后）> URL 查询串 `?object=` > **显式声明的回退值**（库种子数据里
+    `su.object.code` 的实际值）。第 104 轮的页内临时取值已删除，改为统一接缝。
   · 另注：`AdminController#su()` 在渲染前会调用 `reLogin()`（**GET 有副作用**）；
     分离后该副作用不再由前端 GET 触发，是否需要在后端保留由后端侧决定（登记）。
 
@@ -88,9 +89,15 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import axios from 'axios'
 import { getEovaMe, getEovaTools } from '@/compat/eova-runtime'
+import {
+  loadPageBootstrap,
+  readUrlParams,
+  requireObjectCode,
+  type PageBootstrap
+} from '@/compat/page-bootstrap'
 
 /**
  * 查询表单数据（旧 `data = reactive({})`）
@@ -119,14 +126,14 @@ const queryHeight = ref(0)
 const tableHeight = ref(500)
 
 /**
- * 元对象编码（旧栈由服务端 `#(objectCode)` 渲染，见文件头"来源待核"）
+ * 元对象编码（旧栈由服务端 `#(objectCode)` 渲染）
  *
- * 取值：查询串 `object` 优先；否则用 `su.object.code` 的文档默认值。
+ * 取值优先级（统一契约，见 DES-004）：引导数据 `object.code` > URL 查询串 `?object=` >
+ * **本页显式声明的回退值** `eova_user_code`（库种子数据里 `su.object.code` 的实际值）。
+ * 缺到连回退都没有时 `requireObjectCode` 会**抛错** —— 拿空串拼 `/api/meta/table/` 只会 404 且难定位。
  */
-const objectCode = (() => {
-  const p = new URLSearchParams(window.location.search).get('object')
-  return p && p.trim() !== '' ? p : 'eova_user_code'
-})()
+const bootstrap = ref<PageBootstrap>({ fromServer: false, url: readUrlParams() })
+const objectCode = computed(() => requireObjectCode(bootstrap.value, 'eova_user_code'))
 
 /** 查询（旧 `onQuery`：把查询表单数据交给表格） */
 function onQuery(): void {
@@ -176,11 +183,13 @@ async function onSubmit(id?: unknown): Promise<void> {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   // 监听弹层「确认」通知（旧实现挂在 onMounted）
   getEovaMe().cross.on('eova-layer-ok', (id) => {
     onSubmit(id)
   })
+  // 装配页面引导数据（旧栈是渲染期插值；端点未就绪时降级为"仅 URL 参数"并告警）
+  bootstrap.value = await loadPageBootstrap()
 })
 
 defineExpose({
@@ -193,6 +202,7 @@ defineExpose({
   refTable,
   queryHeight,
   tableHeight,
+  bootstrap,
   objectCode,
   onQuery,
   doResize,
