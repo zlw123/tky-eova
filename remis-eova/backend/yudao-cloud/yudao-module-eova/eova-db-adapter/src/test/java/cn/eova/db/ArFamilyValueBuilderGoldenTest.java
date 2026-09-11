@@ -618,6 +618,59 @@ class ArFamilyValueBuilderGoldenTest {
     }
 
     @Test
+    @DisplayName("写路径边界（第 88 轮补强）：escapeSql 有前置非空判据 + save/delete 差分不受关键字配置影响")
+    void writePathEscapingBoundaryIsDiscriminating() {
+        EovaDataSource.map().clear();
+        EovaDataSource.register("h2ds2", "jdbc:h2:mem:t2", null);
+        cn.eova.tools.x.conf.addConfig("db.keyword", "eova_dict.value");
+        FakeJdbc jdbc = new FakeJdbc();
+        JdbcEovaDbGateway gw = new JdbcEovaDbGateway(jdbc.dataSource(), "h2ds2");
+
+        // ① 【前置非空判据】先证明"转义在这个配置下确实会改 SQL" —— 否则后面的差分断言是空判据
+        String raw = "insert into eova_dict (value) values (?)";
+        String escaped = gw.escapeSql(raw);
+        assertFalse(escaped.equals(raw), "前置条件：该配置下 escapeSql 必须改变 SQL：" + escaped);
+        assertTrue(escaped.contains("`value`"), "前置条件：转义形态来自 DefineDialect.escape：" + escaped);
+
+        // ② save：有配置时下发的 SQL 必须与无配置时【逐字相同】（即 save 链路不转义）
+        jdbc.sqls.clear();
+        EovaRecord r = new EovaRecord();
+        r.set("value", "v");
+        gw.save("eova_dict", r);
+        String withKeyword = jdbc.sqls.get(0);
+        assertFalse(withKeyword.contains("`value`"),
+                "save 下发的 SQL 不得含转义后的列名（旧 EovaDbPro 不覆写 save 链路）：" + withKeyword);
+
+        cn.eova.tools.x.conf.getProps().remove("db.keyword");
+        jdbc.sqls.clear();
+        EovaRecord r2 = new EovaRecord();
+        r2.set("value", "v");
+        gw.save("eova_dict", r2);
+        assertEquals(withKeyword, jdbc.sqls.get(0), "save 的 SQL 不得受 db.keyword 影响");
+
+        // ③ delete 同理：SQL 里【含关键字列】才可能被转义，故探针必须带 value 列
+        cn.eova.tools.x.conf.addConfig("db.keyword", "eova_dict.value");
+        jdbc.sqls.clear();
+        gw.delete("delete from eova_dict where value = ?", "v");
+        assertFalse(jdbc.sqls.get(0).contains("`value`"),
+                "delete(sql) 链路不得转义（旧 EovaDbPro 未覆写 delete 分支）：" + jdbc.sqls.get(0));
+        String deleteWithKeyword = jdbc.sqls.get(0);
+
+        // 对比对象必须【同一条语句】（第 88 轮自己踩到：拿 deleteById 的 SQL 去比 delete(sql) 的 SQL）
+        cn.eova.tools.x.conf.getProps().remove("db.keyword");
+        jdbc.sqls.clear();
+        gw.delete("delete from eova_dict where value = ?", "v");
+        assertEquals(deleteWithKeyword, jdbc.sqls.get(0),
+                "delete(sql) 的 SQL 不得受 db.keyword 影响");
+
+        // ④ update 路径仍然转义（对照组：证明判据能区分两条路径）
+        jdbc.sqls.clear();
+        gw.update("update eova_dict set value = ? where value = ?", "a", "b");
+        assertTrue(jdbc.sqls.get(0).contains("`value`"), "update 必须转义：" + jdbc.sqls.get(0));
+        cn.eova.tools.x.conf.getProps().remove("db.keyword");
+    }
+
+    @Test
     @DisplayName("网关：ds 名为 null 时 escapeSql 直接返回原 SQL（不触库、不抛异常）")
     void escapeSqlNullDs() {
         JdbcEovaDbGateway gw = new JdbcEovaDbGateway(new FakeJdbc().dataSource());

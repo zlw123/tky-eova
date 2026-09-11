@@ -97,8 +97,13 @@ class LegacyCaptchaGoldenTest {
         long oldExpireAt = (Long) oldGetExpireAt.invoke(oldObj);
         long newExpireAt = newObj.getExpireAt();
 
-        assertEquals(oldExpireAt - before, newExpireAt - before,
-                "两侧的 expireAt 相对同一基准的偏移必须一致（容差内）");
+        // 【第 88 轮修正】原断言要求两侧偏移【严格相等】—— 而 expireAt 取的是各自构造时刻的
+        // System.currentTimeMillis()，两次调用之间必然可能跨毫秒（实测偶发 37000 vs 37001 差 1ms）。
+        // 语义是"公式 = now + expireTime*1000"，不是"两次调用落在同一毫秒"，故改为：
+        // ① 两侧都与 before 基准相差不超过一个很小的窗口；② 各自落在 [before,after]+expireTime 窗口内。
+        long drift = Math.abs((oldExpireAt - before) - (newExpireAt - before));
+        assertTrue(drift <= 50,
+                "两侧的 expireAt 公式必须一致（允许跨毫秒漂移 ≤50ms），实测差 " + drift + "ms");
         assertTrue(newExpireAt >= before + seconds * 1000L
                         && newExpireAt <= after + seconds * 1000L,
                 "expireAt 必须落在 [before+" + seconds + "000, after+" + seconds + "000] 区间内");

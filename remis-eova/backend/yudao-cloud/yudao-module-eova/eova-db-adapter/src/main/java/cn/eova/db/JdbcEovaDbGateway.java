@@ -867,8 +867,10 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
      */
     @Override
     public int delete(String sql, Object... paras) {
-        // 与 DbPro.delete 同构：就是 update 的执行路径（删除也是 update 语句）
-        return update(sql, paras);
+        // 与 DbPro.delete 同构的执行路径，但【不】转义：旧 EovaDbPro 只覆写了
+        // update(Config, Connection, String, Object...)，delete 家族走的是 jfinal 自己的
+        // delete(config, conn, ...) 分支 ⇒ 不经过被覆写的 update（第 88 轮与 save 同类缺陷一并修正）
+        return execute(false, sql, paras);
     }
 
     @Override
