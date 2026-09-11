@@ -92,7 +92,10 @@ class DeclarativeUnitGoldenTest {
             "cn.eova.common.utils.io.NetUtil",
             "cn.eova.plugin.cron4j.BaseTask",
             "cn.eova.ext.jfinal.EovaRenderSourceFactory",
-            "cn.eova.template.common.TemplateIntercept");
+            "cn.eova.template.common.TemplateIntercept",
+            "cn.eova.plugin.cron4j.EovaCronPlugin",
+            "cn.eova.common.utils.web.WebUtil",
+            "cn.eova.interceptor.CrossDomainInterceptor");
 
     /**
      * <b>已声明的适配</b>：单元 FQCN → 允许在【新实现侧】额外出现在的成员。
@@ -190,7 +193,13 @@ class DeclarativeUnitGoldenTest {
     private static final Map<String, String> HOST_SUBSTITUTIONS = Map.of(
             "com.jfinal.kit.Kv", "cn.eova.compat.jfinal.kit.LegacyKv",
             "com.jfinal.plugin.activerecord.Record", "cn.eova.db.EovaRecord",
-            "com.jfinal.plugin.IPlugin", "cn.eova.compat.jfinal.plugin.LegacyPlugin");
+            "com.jfinal.plugin.IPlugin", "cn.eova.compat.jfinal.plugin.LegacyPlugin",
+            "com.jfinal.plugin.cron4j.Cron4jPlugin",
+            "cn.eova.compat.jfinal.plugin.cron4j.LegacyCron4jPlugin",
+            "com.jfinal.aop.Interceptor", "cn.eova.compat.jfinal.aop.LegacyInterceptor",
+            "com.jfinal.aop.Invocation", "cn.eova.compat.jfinal.aop.LegacyInvocation",
+            // Java 17 / Jakarta EE 9+ 迁移：javax.servlet -> jakarta.servlet
+            "javax.servlet", "jakarta.servlet");
 
     /** 归一化签名/父类里的旧宿主类型名 */
     private static String norm(String s) {
