@@ -79,6 +79,8 @@ class MvcFoundationGoldenTest {
             "doSetCookie", "setCookie", "removeCookie",
             // 第 59 轮：Date 族（阻塞它的 TypeConverter 已于第 57 轮 port）
             "getDate", "getParaToDate",
+            // 第 77 轮：上传族接缝（getFile/getFiles + 宿主注入部件容器的两个入口）
+            "getFile", "getFiles", "getMultipartRequest", "setMultipartRequest",
             // W2：渲染族
             "render", "renderTemplate", "renderJson", "renderError", "redirect",
             "getControllerKey", "getViewPath", "getControllerPath");
@@ -274,8 +276,7 @@ class MvcFoundationGoldenTest {
      * 每项都写明了阻塞它的接缝，防止它变成"永远不做的借口"。</p>
      */
     private static final Map<String, String> DECLARED_PENDING = Map.of(
-            "getFile", "需 com.jfinal.upload.UploadFile 接缝（LegacyUploadFile 已有，只差 getFile 族的 request 解析）",
-            "getFiles", "需 com.jfinal.upload.UploadFile 接缝（同上）",
+            // getFile/getFiles 已于第 77 轮落地（LegacyMultipartRequest 承担落盘语义），故从待办清单移除
             "getModel", "需 jfinal Model/Table 的绑定期语义",
             "validateCaptcha", "需验证码服务接缝（renderCaptcha/validateCaptcha 一族）");
 
@@ -308,9 +309,14 @@ class MvcFoundationGoldenTest {
 
         int compared = 0;
         List<String> problems = new ArrayList<>();
+        List<String> newSeamMembers = new ArrayList<>();
         for (Method m : LegacyController.class.getDeclaredMethods()) {
             if (m.isSynthetic() || m.isBridge() || Modifier.isPrivate(m.getModifiers())) {
                 continue;
+            }
+            if (NEW_SEAM_MEMBERS.containsKey(m.getName())) {
+                newSeamMembers.add(m.getName());
+                continue;  // 旧实现没有的宿主注入点，见 NEW_SEAM_MEMBERS
             }
             // _clear_ 在旧实现里是 protected，getMethods() 取不到，故按声明方法再找一次
             Method oldM = findOld(oldCls, m);
@@ -325,9 +331,24 @@ class MvcFoundationGoldenTest {
                     m.getName() + " 返回类型必须一致");
             compared++;
         }
+        assertEquals(new ArrayList<>(new TreeSet<>(NEW_SEAM_MEMBERS.keySet())),
+                new ArrayList<>(new TreeSet<>(newSeamMembers)),
+                "『旧实现没有的新增接缝成员』必须与登记表逐项一致 —— 新增即登记，不得静默扩张声明面");
         assertTrue(problems.isEmpty(), "声明面差异：\n  " + String.join("\n  ", problems));
         assertTrue(compared >= 25, "至少比对 25 个方法，实际 " + compared + "（防空洞）");
     }
+
+    /**
+     * <b>旧实现没有、但新栈必需的宿主注入点</b>（声明面比对的显式豁免表）。
+     *
+     * <p>为什么需要这张表：旧 {@code Controller} 的 multipart 是<b>自己从原始请求解析</b>的
+     * （{@code getFiles(uploadPath)} 内部 {@code new MultipartRequest(request, uploadPath)}），
+     * 故它没有任何"注入上传部件"的成员；新栈由 Spring 解析 multipart，宿主必须有一个入口把
+     * 解析结果交给控制器。这张表把这类成员<b>显式登记</b>，而不是让判据放宽成"找不到就跳过"。</p>
+     */
+    private static final Map<String, String> NEW_SEAM_MEMBERS = Map.of(
+            "setMultipartRequest", "宿主注入上传部件容器（Spring 解析 multipart 的落点，第 77 轮）",
+            "getMultipartRequest", "上者的对称读取口（供判据与宿主自检）");
 
     /** getPara(String) 空串归一 */
     @Test
@@ -1482,6 +1503,10 @@ class MvcFoundationGoldenTest {
         }
         if (n.equals("com.jfinal.render.Render")) {
             return "cn.eova.compat.render.LegacyRender";
+        }
+        if (n.equals("com.jfinal.upload.UploadFile")) {
+            // 第 77 轮：上传文件类型接缝（字段/构造/getFile() 语义等价，类型名不同）
+            return "cn.eova.compat.jfinal.upload.LegacyUploadFile";
         }
         if (n.equals("com.jfinal.core.Controller")) {
             return "cn.eova.compat.jfinal.core.LegacyController";

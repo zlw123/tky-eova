@@ -78,6 +78,15 @@ public class LegacyController {
 
     private String rawData;
 
+    /**
+     * 上传部件容器（宿主/框架在 action 执行前注入）。
+     *
+     * <p>对应旧实现"按需把 request 包成 {@code MultipartRequest}"的那一半：新栈的
+     * multipart <b>解析</b>由 Spring 完成，而<b>落盘</b>语义（最终目录/命名/白名单）
+     * 在 {@link cn.eova.compat.jfinal.upload.LegacyMultipartRequest} 内，故此处只持有句柄。</p>
+     */
+    private cn.eova.compat.jfinal.upload.LegacyMultipartRequest multipartRequest;
+
     /** 待渲染对象；{@code render*} 族只负责赋值，真正渲染由框架在 action 返回后进行 */
     private LegacyRender render;
 
@@ -93,6 +102,96 @@ public class LegacyController {
         urlParaArray = null;
         render = null;
         rawData = null;
+        multipartRequest = null;
+    }
+
+    /**
+     * 注入上传部件容器（宿主在 action 执行前调用）。
+     *
+     * @param multipartRequest 部件容器
+     */
+    public void setMultipartRequest(cn.eova.compat.jfinal.upload.LegacyMultipartRequest multipartRequest) {
+        this.multipartRequest = multipartRequest;
+    }
+
+    /**
+     * 取上传部件容器。
+     *
+     * @return 部件容器；未注入时为 null
+     */
+    public cn.eova.compat.jfinal.upload.LegacyMultipartRequest getMultipartRequest() {
+        return multipartRequest;
+    }
+
+    // ---------------- 上传（jfinal getFile/getFiles 族） ----------------
+
+    /**
+     * 取全部上传文件（等价 jfinal {@code Controller.getFiles()}）。
+     *
+     * <p>旧实现用<b>无参</b>构造包装 request，而无参构造用的是
+     * {@code UploadConfig.baseUploadPath} 本身作为上传目录，故此处同构。</p>
+     *
+     * @return 上传文件列表（不可变）
+     */
+    public java.util.List<cn.eova.compat.jfinal.upload.LegacyUploadFile> getFiles() {
+        return getFiles(cn.eova.compat.jfinal.upload.LegacyUploadConfig.getBaseUploadPath());
+    }
+
+    /**
+     * 按上传目录取全部上传文件（等价 jfinal {@code Controller.getFiles(uploadPath)}）。
+     *
+     * @param uploadPath 上传目录
+     * @return 上传文件列表（不可变）
+     */
+    public java.util.List<cn.eova.compat.jfinal.upload.LegacyUploadFile> getFiles(String uploadPath) {
+        if (multipartRequest == null) {
+            // 旧栈此处会 new MultipartRequest(request, uploadPath)：非 multipart 请求由 COS 报错。
+            // 新栈由 Spring 拦截，宿主若未注入部件容器即为接线缺陷，故【响亮】抛出而不是静默空列表。
+            throw new IllegalStateException("multipart 部件容器未注入（宿主应在 action 前调用 "
+                    + "setMultipartRequest）：controller=" + getClass().getName());
+        }
+        return multipartRequest.getFiles(uploadPath);
+    }
+
+    /**
+     * 取第一个上传文件（等价 jfinal {@code Controller.getFile()}）。
+     *
+     * @return 第一个上传文件；无上传时为 null
+     */
+    public cn.eova.compat.jfinal.upload.LegacyUploadFile getFile() {
+        java.util.List<cn.eova.compat.jfinal.upload.LegacyUploadFile> files = getFiles();
+        return files.isEmpty() ? null : files.get(0);
+    }
+
+    /**
+     * 按参数名取上传文件（等价 jfinal {@code Controller.getFile(parameterName)}）。
+     *
+     * @param parameterName 表单参数名
+     * @return 命中的第一个上传文件；无命中为 null
+     */
+    public cn.eova.compat.jfinal.upload.LegacyUploadFile getFile(String parameterName) {
+        for (cn.eova.compat.jfinal.upload.LegacyUploadFile file : getFiles()) {
+            // 旧字节码：uploadFile.getParameterName().equals(parameterName)（注意 null 参数会 NPE，属既有语义）
+            if (file.getParameterName().equals(parameterName)) {
+                return file;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 按参数名 + 上传目录取上传文件（等价 jfinal {@code Controller.getFile(parameterName, uploadPath)}）。
+     *
+     * <p><b>注意调用顺序与旧字节码一致</b>：先 {@code getFiles(uploadPath)}（触发落盘、丢弃返回值），
+     * 再 {@code getFile(parameterName)}（在已解析列表里按参数名过滤）。</p>
+     *
+     * @param parameterName 表单参数名
+     * @param uploadPath    上传目录
+     * @return 命中的第一个上传文件；无命中为 null
+     */
+    public cn.eova.compat.jfinal.upload.LegacyUploadFile getFile(String parameterName, String uploadPath) {
+        getFiles(uploadPath);
+        return getFile(parameterName);
     }
 
     // ---------------- 上下文注入（宿主/框架调用） ----------------

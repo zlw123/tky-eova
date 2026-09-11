@@ -6,6 +6,7 @@ import java.net.URLClassLoader;
 import java.util.HashMap;
 
 import cn.eova.aop.MetaObjectIntercept;
+import cn.eova.aop.UploadIntercept;
 import cn.eova.aop.UserSessionIntercept;
 import cn.eova.sql.dql.dialect.QueryDialect;
 import cn.eova.aop.eova.EovaIntercept;
@@ -33,6 +34,7 @@ import com.alibaba.druid.DbType;
  *   <tr><td>{@link #EOVA_DBTYPE}</td><td>97</td><td>{@code cn.eova.common.utils.xx}（4 处方言判断）</td></tr>
  *   <tr><td>{@link #EOVA_INDEX}</td><td>90</td><td>{@code cn.eova.auth.AuthUri}</td></tr>
  *   <tr><td>{@link #modLoader}</td><td>94</td><td>{@code cn.eova.common.utils.io.ClassUtil}</td></tr>
+ *   <tr><td>{@link #getUploadIntercept()}</td><td>125/599/603</td><td>{@code cn.eova.widget.upload.UploadUtil}（第 77 轮）</td></tr>
  * </table>
  */
 public class EovaConfig {
@@ -44,6 +46,10 @@ public class EovaConfig {
     /** EOVA 首页地址（AuthUri 拼接鉴权 URI 时读取） */
     // 旧源码 EovaConfig.java:90 —— 逐字一致
     public static String EOVA_INDEX = "/";
+
+    /** 上传拦截器（UploadUtil/UploadController 读取；由宿主装配注入） */
+    // 旧源码 EovaConfig.java:125 —— 逐字一致
+    private static UploadIntercept uploadIntercept = null;
 
     /** Mod 包的类加载器（ClassUtil 扫描 jar 内类名时读取；由宿主装配注入） */
     // 旧源码 EovaConfig.java:94 —— 逐字一致
@@ -177,5 +183,26 @@ public class EovaConfig {
      */
     public static Convertor addConvertor(String ds, Convertor cv) {
         return convertorMap.put(ds, cv);
+    }
+
+    /**
+     * 取上传拦截器（旧 EovaConfig.java:599 —— 逐字一致）。
+     *
+     * <p>第 77 轮为 port {@code UploadUtil}/{@code UploadController} 而按旧源码逐字补入
+     * （同一 stub 的真实子集）。</p>
+     *
+     * @return 上传拦截器；未设置时为 null
+     */
+    public static UploadIntercept getUploadIntercept() {
+        return uploadIntercept;
+    }
+
+    /**
+     * 设置上传拦截器（旧 EovaConfig.java:603 —— 逐字一致）。
+     *
+     * @param uploadIntercept 上传拦截器
+     */
+    public static void setUploadIntercept(UploadIntercept uploadIntercept) {
+        EovaConfig.uploadIntercept = uploadIntercept;
     }
 }
