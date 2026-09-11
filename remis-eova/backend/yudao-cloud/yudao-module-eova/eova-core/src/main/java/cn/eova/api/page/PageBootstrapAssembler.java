@@ -81,6 +81,12 @@ public class PageBootstrapAssembler {
         // ★ 元对象编码由**菜单配置**推导（旧 `menu.getMenuConfig().getStr("object_code")`）
         String objectCode = menu.getMenuConfig().getStr("object_code");
         MetaObject object = sm.meta.getMeta(objectCode);
+        // ★ 防御性分支（第 157 轮取证）：**当前 ported 的 `MetaService#getMeta` 会先 NPE** ——
+        //   它的实现是 `MetaObject.dao.getByCode(code)` 之后直接 `object.setFields(...)`
+        //   （`service/MetaService.java:49-52`），元对象编码不存在时 `object` 为 null ⇒ 在 `getMeta` 内部就抛 NPE，
+        //   走不到这里。保留本分支的理由：① 旧 `AppController#index()` 同样没有该检查（失败形态是 NPE）；
+        //   ② 将来若 `getMeta` 改为返回 null（或加了缓存语义），这里能给出**可读的失败文案**而不是 NPE。
+        //   ⇒ 它不是"可达的验收分支"，不得据此声称"已处理元对象不存在"。
         if (object == null) {
             return fail("元对象不存在: " + objectCode);
         }
