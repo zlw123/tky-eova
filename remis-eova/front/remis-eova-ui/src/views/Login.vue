@@ -16,14 +16,14 @@
     `login_id: {label:'账号', rules:['required']}`、`login_pwd: {label:'密码', rules:['required']}`
   —— **只对账号与密码做必填**（验证码不在 rules 里）。本页按同一规则集实现校验，
   失败时不发请求、把提示写进 `data.msg`。
-  ⚠️ **文案待确认**：旧实现由 EovaUI 的 `x.validate.showMsg(rules)` 生成提示文本，
-  而 EovaUI（`lib/eova/eovaui.js`，vendor 资产）**尚未纳入本工程**、且其目标落点未定
-  （见 `docs/.local/ledger/frontend-vendor.jsonl` 的 targetPath 为空）。
-  ⇒ 本页当前用与旧实现同形的占位文案（`<label>不能为空`），**在拿到 EovaUI 原文案前不得声称等价**。
+  ✅ **文案已实证（第 94 轮）**：旧实现的提示由 EovaTools 生成，其模板在
+  `lib/eova/lib/eova-tools.umd.js` 中为 `i.msg = `${i.label}不能为空``（required 分支）
+  —— 与本页 `${rule.label}不能为空` **逐字一致**（`账号不能为空` / `密码不能为空`）。
+  （该文件属 vendor 资产，第 94 轮已补 `targetPath` 并落地到 `src/legacy/**`，故可核。）
 
-  样式：⚠️ **无法迁移（第 93 轮实测）**——旧页面用的 `/eova/_view/index/login.css` 在旧树中存在，
-  但**前端账本里没有任何 CSS 资产**（`frontend-assets.jsonl` 的 assetType 分布：html 与 js 之外为 0；
-  旧树 webapp 下 .css 全数未被收录）。故本页暂不引用任何样式，样式迁移列为阶段 2 的阻塞前置项。
+  样式（第 94 轮已可迁移）：旧页面的 `/eova/_view/index/login.css` 已补进账本并落地到
+  `src/legacy/eova/_view/index/login.css`（第 93 轮发现"账本无 CSS"，r94 补账 8 个）。
+  本页暂以 `@import` 方式引用该冻结文件，保持"只引用、不修改"。
 
   仍未迁移：iframe 跳出已实现；EovaUI 的下拉/校验库与其它 legacy 组件未纳入。
 -->
@@ -50,6 +50,8 @@
 </template>
 
 <script setup lang="ts">
+// 样式取自冻结资产（第 94 轮已补账落地；只引用，不修改 src/legacy 下任何文件）
+import '../legacy/eova/_view/index/login.css'
 import { computed, onMounted, reactive, ref } from 'vue'
 import axios from 'axios'
 
@@ -82,9 +84,10 @@ function refreshCaptcha(): void {
 }
 
 /**
- * 表单校验规则（与旧 login.js 的 rules 同一规则集：仅账号与密码必填）
+ * 表单校验规则（与旧 login.js 的 rules 同一规则集：仅账号与密码必填）。
  *
- * ⚠️ 文案模板待与 EovaUI `x.validate.showMsg` 原文核对（见文件头注释）。
+ * 文案模板逐字取自旧制品：`lib/eova/lib/eova-tools.umd.js` 的 required 分支
+ * `i.msg = \`${i.label}不能为空\``。
  */
 const rules: Record<string, { label: string; rules: string[] }> = {
   login_id: { label: '账号', rules: ['required'] },

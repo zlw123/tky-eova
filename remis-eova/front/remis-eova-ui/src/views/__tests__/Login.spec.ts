@@ -75,6 +75,7 @@ describe('Login.vue（旧 _view/index/login.html + login.js 的行为等价）',
     expect(vm.data.msg).toBe('客户端请求异常')
   })
 
+  // 文案逐字取自旧制品 eova-tools.umd.js：i.msg = `${i.label}不能为空`
   it('必填校验：账号/密码为空时不发请求，且给出提示（旧 rules 的 required）', async () => {
     const w = mountLogin()
     const vm = w.vm as any
