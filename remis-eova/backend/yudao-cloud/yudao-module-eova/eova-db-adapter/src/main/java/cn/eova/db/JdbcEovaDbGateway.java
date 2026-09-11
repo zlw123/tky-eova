@@ -5,6 +5,12 @@
  */
 package cn.eova.db;
 
+import com.alibaba.druid.DbType;
+import cn.eova.tools.x;
+import cn.eova.sql.ddl.DefineDialectFactory;
+import cn.eova.sql.ddl.dialect.DefineDialect;
+import cn.eova.config.EovaDataSource;
+import cn.eova.common.utils.db.SqlUtil;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import cn.eova.compat.jfinal.plugin.activerecord.LegacyIAtom;
@@ -45,6 +51,16 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
 
     private final DataSource dataSource;
 
+    /**
+     * 数据源名（可为 null）。
+     *
+     * <p>第 79 轮加入：旧栈 {@code EovaDbPro}（{@code extends DbPro}）的方言专属行为
+     * （Oracle 序列、PG 主键强转、dm/h2 的关键字转义）都以 {@code this.getConfig().getName()}
+     * 为入口。新栈没有 jfinal 的 Config，故由宿主在构造时把 ds 名交给网关；
+     * <b>未提供时这些行为不启用</b>（等价于旧栈"拿不到方言"）。</p>
+     */
+    private final String ds;
+
     /** 事务中绑定的连接；非事务时为 null */
     private final ThreadLocal<Connection> txConnection = new ThreadLocal<>();
 
@@ -56,12 +72,32 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
     }
 
     /**
-     * 构造网关
+     * 构造网关（不带数据源名 ⇒ 不启用方言专属行为）。
      *
      * @param dataSource 数据源
      */
     public JdbcEovaDbGateway(DataSource dataSource) {
+        this(dataSource, null);
+    }
+
+    /**
+     * 构造网关（携带数据源名 ⇒ 启用 Oracle 序列 / 关键字转义等旧 EovaDbPro 行为）。
+     *
+     * @param dataSource 数据源
+     * @param ds         数据源名（对应旧 {@code Config.getName()}），可为 null
+     */
+    public JdbcEovaDbGateway(DataSource dataSource, String ds) {
         this.dataSource = dataSource;
+        this.ds = ds;
+    }
+
+    /**
+     * 取数据源名。
+     *
+     * @return 数据源名；未提供时为 null
+     */
+    public String ds() {
+        return ds;
     }
 
     // ---------------- 查询 ----------------
@@ -115,17 +151,38 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
     /** 执行查询并装配为 EovaRecord 列表 */
     /** 记录级查询（私有辅助；与接口的"单列查询"query 区分，故另起名） */
     private List<EovaRecord> queryRecords(String sql, Object... paras) {
+        // 旧 EovaDbPro.find/query 都先过关键字转义（save/delete 不过）
+        final String escaped = escapeSql(sql);
         return withConnection(conn -> {
             List<EovaRecord> out = new ArrayList<>();
-            try (PreparedStatement ps = bind(conn, sql, paras);
+            try (PreparedStatement ps = bind(conn, escaped, paras);
                  ResultSet rs = ps.executeQuery()) {
                 ResultSetMetaData md = rs.getMetaData();
                 int n = md.getColumnCount();
-                while (rs.next()) {
-                    EovaRecord r = new EovaRecord();
+                // 旧栈的分支：Oracle 数据源由 EovaOracleDialect 挂 OracleRecordBuilder，
+                // 走"精准类型"装配（NUMBER 分档 / CLOB/BLOB / 业务转换器，且 null 列不入 map）；
+                // 其余方言走 jfinal 默认 RecordBuilder（getObject 原样 + null 也入 map）。
+                boolean oracle = isOracle();
+                String[] labels = null;
+                int[] types = null;
+                if (oracle) {
+                    labels = new String[n + 1];
+                    types = new int[n + 1];
+                    EovaRecordValueBuilder.buildLabelNamesAndTypes(md, labels, types);
                     for (int i = 1; i <= n; i++) {
                         // 列名小写化：对应 CaseInsensitiveContainerFactory(true)
-                        r.set(md.getColumnLabel(i).toLowerCase(), rs.getObject(i));
+                        labels[i] = labels[i].toLowerCase();
+                    }
+                }
+                while (rs.next()) {
+                    EovaRecord r = new EovaRecord();
+                    if (oracle) {
+                        EovaRecordValueBuilder.buildValue(ds, rs, md, n, labels, types, r.getColumns());
+                    } else {
+                        for (int i = 1; i <= n; i++) {
+                            // 列名小写化：对应 CaseInsensitiveContainerFactory(true)
+                            r.set(md.getColumnLabel(i).toLowerCase(), rs.getObject(i));
+                        }
                     }
                     // 从库读出的行不算"已修改"
                     r.getModifyFlag().clear();
@@ -133,7 +190,59 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
                 }
             }
             return out;
-        }, "查询失败: " + sql);
+        }, "查询失败: " + escaped);
+    }
+
+    /**
+     * 是否 Oracle 数据源（旧 {@code EovaDataSource.getDbType(ds) == DbType.oracle}）。
+     *
+     * @return true 表示 Oracle
+     */
+    private boolean isOracle() {
+        return ds != null && EovaDataSource.getDbType(ds) == DbType.oracle;
+    }
+
+    /**
+     * SQL 关键字转义（逐字节等价旧 {@code EovaDbPro.escape(Config, String)}）。
+     *
+     * <p><b>旧实现的调用点只有 {@code find}/{@code query}/{@code update} 三个受保护重载</b>
+     * （{@code save}/{@code delete} 家族<b>不</b>转义）—— 本网关据此只在读/改路径调用，
+     * 见 {@link #update(String, Object...)} 与各查询入口。</p>
+     *
+     * @param sql 原始 SQL
+     * @return 转义后的 SQL（未命中任何条件时原样返回）
+     */
+    String escapeSql(String sql) {
+        if (ds == null) {
+            return sql;
+        }
+        // 获取DDL方言
+        DefineDialect dd = DefineDialectFactory.getDialect(ds);
+        DbType dbType = EovaDataSource.getDbType(ds);
+
+        // 系统关键字转义
+        if (dbType == DbType.dm) {
+            String[] fields = {"eova_dict.object", "dicts.object"};
+            for (String field : fields) {
+                sql = SqlUtil.escapeSqlKeyword(dd, sql, field);
+            }
+        } else if (dbType == DbType.h2) {
+            String[] fields = {"eova_dict.value", "eova_config.value", "eova_widget.value", "dicts.value"};
+            for (String field : fields) {
+                sql = SqlUtil.escapeSqlKeyword(dd, sql, field);
+            }
+        }
+
+        // 用户自定义数据源关键字
+        String s = x.conf.get("db.keyword");
+        if (!x.isEmpty(s)) {
+            String[] fields = s.split(",");
+            for (String field : fields) {
+                sql = SqlUtil.escapeSqlKeyword(dd, sql, field);
+            }
+        }
+
+        return sql;
     }
 
     // ---------------- 写操作 ----------------
@@ -141,7 +250,32 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
     /** 插入一行 */
     @Override
     public boolean save(String table, EovaRecord record) {
+        return insert(table, null, record);
+    }
+
+    /**
+     * INSERT 骨架（含 Oracle 序列表达式内联）。
+     *
+     * <p><b>为什么序列要"内联"而不是当参数绑定（第 79 轮实测 jfinal 字节码）：</b>
+     * {@code OracleDialect.forDbSave} 的规则是 —— 某列的值是 {@code String}、
+     * <b>是主键列</b>、且以 {@code ".nextval"} 结尾 ⇒ 把该字符串<b>原样拼进 SQL</b>
+     * （得到 {@code values (?, seq_x.nextval)}），否则才写 {@code ?} 并加入参数表。
+     * 若把 {@code seq_x.nextval} 当参数绑定，Oracle 会把它当<b>字面量字符串</b>处理 ——
+     * 这正是旧栈"主键为空则自动填序列"能生效的机制。</p>
+     *
+     * @param table      表名
+     * @param primaryKey 主键列（可逗号分隔；null/空表示不做序列内联）
+     * @param record     记录
+     * @return 是否成功
+     */
+    private boolean insert(String table, String primaryKey, EovaRecord record) {
         Map<String, Object> cols = record.getColumns();
+        List<String> pKeys = new ArrayList<>();
+        if (primaryKey != null) {
+            for (String k : primaryKey.split(",")) {
+                pKeys.add(k.trim().toLowerCase());
+            }
+        }
         StringBuilder names = new StringBuilder();
         StringBuilder marks = new StringBuilder();
         List<Object> args = new ArrayList<>();
@@ -151,8 +285,15 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
                 marks.append(", ");
             }
             names.append(e.getKey());
-            marks.append('?');
-            args.add(e.getValue());
+            Object v = e.getValue();
+            if (v instanceof String && pKeys.contains(e.getKey().toLowerCase())
+                    && ((String) v).endsWith(".nextval")) {
+                // 序列表达式：原样拼进 SQL（不进参数表）—— 与 OracleDialect.forDbSave 一致
+                marks.append(v);
+            } else {
+                marks.append('?');
+                args.add(v);
+            }
         }
         String sql = "insert into " + table + " (" + names + ") values (" + marks + ")";
         return update(sql, args.toArray()) > 0;
@@ -205,11 +346,13 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
     /** 执行更新/DDL；返回受影响行数 */
     @Override
     public int update(String sql, Object... paras) {
+        // 旧 EovaDbPro.update(Config, Connection, String, Object...) 会先做关键字转义
+        final String escaped = escapeSql(sql);
         return withConnection(conn -> {
-            try (PreparedStatement ps = bind(conn, sql, paras)) {
+            try (PreparedStatement ps = bind(conn, escaped, paras)) {
                 return ps.executeUpdate();
             }
-        }, "执行失败: " + sql);
+        }, "执行失败: " + escaped);
     }
 
     // ---------------- 事务 ----------------
@@ -381,7 +524,15 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
      */
     @Override
     public boolean save(String table, String primaryKey, EovaRecord record) {
-        return save(table, record);
+        // 逐行等价旧 EovaDbPro.save：
+        //   boolean isOracle = EovaDataSource.getDbType(ds) == DbType.oracle;
+        //   if (isOracle && !primaryKey.contains(",") && record.get(primaryKey) == null)
+        //       record.set(primaryKey, SqlUtil.getSequence(ds, table));
+        boolean oracle = isOracle();
+        if (oracle && !primaryKey.contains(",") && record.get(primaryKey) == null) {
+            record.set(primaryKey, SqlUtil.getSequence(ds, table));
+        }
+        return insert(table, primaryKey, record);
     }
 
     /**
