@@ -7,6 +7,7 @@ import Su from '@/views/admin/Su.vue'
 import ButtonAdd from '@/views/button/ButtonAdd.vue'
 import MetaReorder from '@/views/meta/MetaReorder.vue'
 import MenuAuth from '@/views/menu/MenuAuth.vue'
+import MetaField from '@/views/meta/MetaField.vue'
 
 /**
  * 路由表：阶段 2 逐页接管旧 URL。
@@ -63,6 +64,12 @@ export const routes: RouteRecordRaw[] = [
     path: '/eova/menu/auth/:id',
     name: 'menu-auth',
     component: MenuAuth
+  },
+  {
+    // 元字段个性化：旧路径 /meta/field?object=…&mode=…（MetaController#field() 的两个 get 都是查询参数）
+    path: '/meta/field',
+    name: 'meta-field',
+    component: MetaField
   }
 ]
 

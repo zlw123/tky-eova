@@ -249,3 +249,76 @@ export function bootstrapParam(bs: PageBootstrap, key: string, fallback?: string
   }
   return v
 }
+
+/**
+ * 按优先级取第一个**非空**字符串（引导值 > URL 参数 > 显式回退 …）。
+ *
+ * 为什么单独抽出来：这类"优先级"在页面里遍布（`object.code`、`role`、`menu_code`…），
+ * 而**只在"某一侧恒为空"的条件下测**是测不出顺序的 —— 变异实验证明：
+ * 把 `bootstrap ?? url` 颠倒成 `url ?? bootstrap`，若判据里的引导数据永远为空，则**无人发现**。
+ * 故把优先级抽成纯函数，判据可以直接构造"两侧都有且不同"的输入。
+ *
+ * 语义：逐项按 `String(v).trim() !== ''` 判定；全为空 ⇒ 返回 `''`（**不抛错**，
+ * 由调用方决定是抛错还是告警 —— 见 `requireObjectCode` 与各页的告警分支）。
+ *
+ * @param values 候选值（按优先级从高到低）
+ * @returns 第一个非空字符串；全空则 `''`
+ */
+export function pickBootstrapString(...values: unknown[]): string {
+  for (const v of values) {
+    if (v == null) {
+      continue
+    }
+    const str = String(v)
+    if (str.trim() !== '') {
+      return str
+    }
+  }
+  return ''
+}
+
+/** `object.code` 的取值来源（判据靠它区分"优先级到底走对了没有"） */
+export type ObjectCodeSource = 'bootstrap' | 'url' | 'fallback' | 'missing'
+
+/** `resolveObjectCode` 的结果 */
+export interface ResolvedObjectCode {
+  /** 取到的编码（`missing` 时为空串） */
+  code: string
+  /** 该值来自哪一层 —— ★ 判据必须断言它，否则"优先级颠倒"在引导数据为空时不可观测 */
+  source: ObjectCodeSource
+}
+
+/**
+ * 解析元对象编码（元对象族页面的共用口径）。
+ *
+ * 优先级：**引导数据的 `object.code` > URL 参数 `object` > 显式回退**；都没有 ⇒ `missing`。
+ *
+ * ★ 为什么单独抽成纯函数（第 110 轮实测教训）：
+ *   变异实验表明，把页面里的 `bootstrap ?? url` 颠倒成 `url ?? bootstrap` **不会被任何判据发现** ——
+ *   因为组件测试里引导数据恒为空（端点未就绪），两种顺序结果相同（**等价变异**）。
+ *   把决策与"来源"一起抽出来，判据就能构造"两侧都有且不同"的输入并断言 `source`。
+ *
+ * @param bs 引导数据
+ * @param urlObject URL 参数里的 `object`
+ * @param fallback 页面显式声明的回退值
+ * @returns 编码与其来源
+ */
+export function resolveObjectCode(
+  bs: PageBootstrap,
+  urlObject?: string,
+  fallback?: string
+): ResolvedObjectCode {
+  const fromBootstrap = pickBootstrapString(bs.object?.code)
+  if (fromBootstrap !== '') {
+    return { code: fromBootstrap, source: 'bootstrap' }
+  }
+  const fromUrl = pickBootstrapString(urlObject)
+  if (fromUrl !== '') {
+    return { code: fromUrl, source: 'url' }
+  }
+  const fromFallback = pickBootstrapString(fallback)
+  if (fromFallback !== '') {
+    return { code: fromFallback, source: 'fallback' }
+  }
+  return { code: '', source: 'missing' }
+}
