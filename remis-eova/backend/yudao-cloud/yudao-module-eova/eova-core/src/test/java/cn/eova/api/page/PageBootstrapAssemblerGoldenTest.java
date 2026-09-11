@@ -112,7 +112,10 @@ class PageBootstrapAssemblerGoldenTest {
     @DisplayName("① 载荷键集合与 DES-004 §3.1 一致（state/object/menu/menuCode/btnList/loginUser/isQuery）")
     void payloadKeys() {
         LegacyKv kv = PageBootstrapAssembler.of(menu(), "meta_hotel", metaObject(), new ArrayList<>(), user(1, "admin", 1), true);
-        assertEquals(PageBootstrapAssembler.STATE_OK, kv.get("state"));
+        // ★ 断言**字面量**（旧栈 `Ret.ok` 的 state 取值），不拿常量自比 —— 否则改常量两边一起变、判据恒真
+        //   （R74 已记；前端是按字面量 'ok' 判成功的：`p['state'] !== 'ok'` ⇒ 后端改常量就会断链而无人发现）。
+        assertEquals("ok", kv.get("state"));
+        assertEquals("ok", PageBootstrapAssembler.STATE_OK);
         assertEquals("meta_hotel", kv.get("menuCode"));
         assertTrue((Boolean) kv.get("isQuery"));
         for (String key : new String[] {"state", "object", "menu", "menuCode", "btnList", "loginUser", "isQuery"}) {
@@ -180,11 +183,13 @@ class PageBootstrapAssemblerGoldenTest {
     @DisplayName("⑥ 取不到时给 state='no' + 明确文案；未登录文案逐字沿用旧 renderMsg（不做静默降级）")
     void failures() {
         LegacyKv notLogin = PageBootstrapAssembler.fail(PageBootstrapAssembler.MSG_NOT_LOGIN);
-        assertEquals(PageBootstrapAssembler.STATE_NO, notLogin.get("state"));
+        // 同上：断言字面量 'no'（旧栈 Ret.fail 的取值；前端按 `state !== 'ok'` 走失败分支）
+        assertEquals("no", notLogin.get("state"));
+        assertEquals("no", PageBootstrapAssembler.STATE_NO);
         assertEquals("请先登录", notLogin.get("msg"), "未登录文案必须逐字沿用旧 AppController#index() 的 renderMsg");
 
         LegacyKv missing = PageBootstrapAssembler.fail("元对象不存在: x");
-        assertEquals(PageBootstrapAssembler.STATE_NO, missing.get("state"));
+        assertEquals("no", missing.get("state"));
         assertTrue(String.valueOf(missing.get("msg")).contains("元对象不存在"));
         // 失败载荷不得带 object/btnList（否则前端会当成"部分引导数据"用）
         assertFalse(notLogin.containsKey("object"));
