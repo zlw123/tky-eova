@@ -68,7 +68,7 @@ class PageBootstrapAssemblerDbTest {
             st.execute("create table if not exists eova_menu (id int primary key, code varchar(64), name varchar(64),"
                     + " template varchar(32), config varchar(2048))");
             st.execute("create table if not exists eova_object (id int primary key, code varchar(64), name varchar(64),"
-                    + " pk_name varchar(64), table_name varchar(64), data_source varchar(32))");
+                    + " pk_name varchar(64), table_name varchar(64), view_name varchar(64), data_source varchar(32))");
             st.execute("create table if not exists eova_field (id int primary key, object_code varchar(64),"
                     + " name varchar(64), cn varchar(64), num int)");
             st.execute("create table if not exists eova_button (id int primary key, menu_code varchar(64),"
@@ -84,7 +84,9 @@ class PageBootstrapAssemblerDbTest {
             // ★ 菜单的 config 列存 {"object_code":"meta_hotel"} —— 旧 index() 正是从它推导元对象编码
             st.execute("insert into eova_menu values (1, 'menu_hotel', '酒店管理', 'table',"
                     + " '{\"object_code\":\"meta_hotel\"}')");
-            st.execute("insert into eova_object values (1, 'meta_hotel', '酒店', 'hotel_id', 'meta_hotel', 'eova')");
+            st.execute("insert into eova_object values (1, 'meta_hotel', '酒店', 'hotel_id', 'meta_hotel', 'meta_hotel_view', 'eova')");
+            // ★ `view_name` 刻意与 `table_name` **不同**：否则 `table` 取自哪一列不可观测
+            //   （r170 实测：view_name 为空时 `getView()` 会回退到表名 ⇒ "从 view 取" 与 "从 table 取" 等价）
             st.execute("insert into eova_field values (1, 'meta_hotel', 'name', '名称', 1)");
 
             // 两个角色各自的按钮：rid=1 有两条，rid=9 只有一条（DES-004 验收 2 的角色面）
