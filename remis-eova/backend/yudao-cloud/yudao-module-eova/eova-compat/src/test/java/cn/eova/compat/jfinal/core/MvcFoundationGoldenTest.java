@@ -42,6 +42,9 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * 决策 3 地基波（W1a）判据：{@code LegacyController} 参数族 + {@code LegacyInvocation} 链语义。
@@ -74,6 +77,8 @@ class MvcFoundationGoldenTest {
             // W1b：toLong 族 + Cookie 族
             "getParaToLong", "getLong", "getCookie", "getCookieObject",
             "doSetCookie", "setCookie", "removeCookie",
+            // 第 59 轮：Date 族（阻塞它的 TypeConverter 已于第 57 轮 port）
+            "getDate", "getParaToDate",
             // W2：渲染族
             "render", "renderTemplate", "renderJson", "renderError", "redirect",
             "getControllerKey", "getViewPath", "getControllerPath");
@@ -269,9 +274,8 @@ class MvcFoundationGoldenTest {
      * 每项都写明了阻塞它的接缝，防止它变成"永远不做的借口"。</p>
      */
     private static final Map<String, String> DECLARED_PENDING = Map.of(
-            "getDate", "需 jfinal core.converter.TypeConverter（17 个内建转换器）",
-            "getFile", "需 com.jfinal.upload.UploadFile 接缝",
-            "getFiles", "需 com.jfinal.upload.UploadFile 接缝",
+            "getFile", "需 com.jfinal.upload.UploadFile 接缝（LegacyUploadFile 已有，只差 getFile 族的 request 解析）",
+            "getFiles", "需 com.jfinal.upload.UploadFile 接缝（同上）",
             "getModel", "需 jfinal Model/Table 的绑定期语义",
             "validateCaptcha", "需验证码服务接缝（renderCaptcha/validateCaptcha 一族）");
 
@@ -923,6 +927,112 @@ class MvcFoundationGoldenTest {
         return (jakarta.servlet.http.HttpServletResponse) Proxy.newProxyInstance(
                 MvcFoundationGoldenTest.class.getClassLoader(),
                 new Class<?>[]{jakarta.servlet.http.HttpServletResponse.class}, h);
+    }
+
+    /**
+     * <b>Date 族（第 59 轮）</b>：签名对齐旧制品 + 行为矩阵 + 错误消息逐字钉死。
+     *
+     * <p><b>为什么不做"旧实例 vs 新实例"的活体比对：</b>本 testkit 已明令
+     * {@code createWithOldJFinal} 不得用于 EOVA 类比对（挂载 jfinal 后旧 EOVA 类
+     * 会静默返回错值），而 {@code com.jfinal.core.Controller} 是抽象类，
+     * 无法在只挂 jfinal 的加载器里实例化。故改用三条<b>制品级</b>证据：</p>
+     * <ol>
+     *   <li>签名逐项对齐（返回类型、形参类型、throws）—— 从旧制品反射读取；</li>
+     *   <li>错误消息的<b>两个字面量片段从旧 class 常量池里读出</b>，
+     *       而不是我照 javap 注释手抄（javap 注释里的空白不可数，本工程栽过）；</li>
+     *   <li>行为矩阵：blank / 合法 / 非法 三类输入逐一断言。</li>
+     * </ol>
+     *
+     * @throws Exception 反射/读 jar 失败
+     */
+    @Test
+    @DisplayName("getDate 族：签名对齐旧制品 + 常量池消息钉死 + blank/合法/非法矩阵")
+    void dateFamilyMatchesOldArtifact() throws Exception {
+        ClassLoader jf = OldImplementationLoader.createForJFinalOnly();
+        Class<?> oldCls = Class.forName("com.jfinal.core.Controller", false, jf);
+        OldImplementationLoader.assertFromJar(oldCls, OldImplementationLoader.oldJFinalJar());
+
+        // ① 签名对齐：5 个方法逐一比对返回类型 / 形参 / throws
+        String[] names = {"getDate", "getDate", "getParaToDate", "getParaToDate", "getParaToDate"};
+        int[] arity = {1, 2, 1, 2, 0};
+        int checked = 0;
+        for (int i = 0; i < names.length; i++) {
+            final int idx = i;
+            Method mine = java.util.Arrays.stream(LegacyController.class.getMethods())
+                    .filter(m -> m.getName().equals(names[idx]) && m.getParameterCount() == arity[idx])
+                    .findFirst().orElseThrow();
+            Method old = findOld(oldCls, mine);
+            assertNotNull(old, "旧制品应有 " + mine);
+            assertEquals(old.getReturnType().getName(), mine.getReturnType().getName(),
+                    mine + " 返回类型必须一致");
+            for (int k = 0; k < arity[i]; k++) {
+                assertEquals(normalize(old.getParameterTypes()[k].getName()),
+                        normalize(mine.getParameterTypes()[k].getName()),
+                        mine + " 第 " + k + " 个形参类型必须一致");
+            }
+            assertEquals(old.getExceptionTypes().length, mine.getExceptionTypes().length,
+                    mine + " 的 throws 子句必须一致（旧实现声明为 0 个受检异常）");
+            checked++;
+        }
+        assertEquals(5, checked, "必须核到 5 个 Date 方法（防判据空洞）");
+
+        // ② 错误消息字面量：从旧 class 文件的常量池读，不手抄
+        //    （javap 反汇编注释里的空白不可数 —— 本工程在 Captcha.toString 上栽过，
+        //     所以消息片段必须以【制品字节】为准）
+        String oldClassText;
+        try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(
+                OldImplementationLoader.oldJFinalJar().toFile())) {
+            java.util.zip.ZipEntry entry = zip.getEntry("com/jfinal/core/Controller.class");
+            assertNotNull(entry, "旧制品里必须有 com/jfinal/core/Controller.class");
+            try (java.io.InputStream in = zip.getInputStream(entry)) {
+                oldClassText = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.ISO_8859_1);
+            }
+        }
+        assertTrue(oldClassText.contains("Can not parse the parameter \""),
+                "旧常量池里应有消息前缀（javap 显示的 \\\" 是【显示转义】，常量池存的是真实引号）");
+        assertTrue(oldClassText.contains("\" to Date value."),
+                "旧常量池里应有消息后缀");
+
+        // ③ 行为矩阵（用 List：早先写成 Map<"d", …> 且五组输入共用同一个键，
+        //    塌成 1 组 —— 矩阵计数断言当场抓出。保留注释以免后人重犯）
+        List<String> values = List.of("2024-01-02 03:04:05", "2024-01-02", "abc", "   ", "");
+        int cells = 0;
+        for (String raw : values) {
+            String v = raw.isEmpty() ? null : raw;
+            Map<String, String[]> params = new LinkedHashMap<>();
+            params.put("d", new String[]{v});
+            LegacyController c = new LegacyController();
+            c.setHttpServletRequest(spy(new LinkedHashMap<>(), params));
+            if (v == null || v.trim().isEmpty()) {
+                assertNull(c.getDate("d"),
+                        "blank/null 必须回落 null（空值判定用 StrKit.isBlank，不是 isEmpty）：" + raw);
+                java.util.Date def = new java.util.Date(1234567890L);
+                assertSame(def, c.getDate("d", def), "blank 时必须原样回落【同一个】缺省实例");
+                cells += 2;
+                continue;
+            }
+            if ("abc".equals(v)) {
+                try {
+                    java.util.Date r = c.getDate("d");
+                    fail("非法日期必须抛异常，而不是返回：" + r);
+                } catch (LegacyActionException e) {
+                    assertEquals(400, e.getErrorCode(), "必须是 400");
+                    assertNotNull(e.getErrorRender(), "必须带 400 错误渲染");
+                    assertTrue(e.getMessage().startsWith("Can not parse the parameter \""),
+                            "消息前缀必须逐字一致，实际：" + e.getMessage());
+                    assertTrue(e.getMessage().endsWith("\" to Date value."),
+                            "消息后缀必须逐字一致，实际：" + e.getMessage());
+                    assertTrue(e.getMessage().contains("\"" + v + "\""),
+                            "消息必须内插【原始值】（不可改成参数名），实际：" + e.getMessage());
+                    cells++;
+                }
+                continue;
+            }
+            java.util.Date parsed = c.getDate("d");
+            assertNotNull(parsed, "合法日期必须解析成功：" + v);
+            cells++;
+        }
+        assertEquals(7, cells, "矩阵必须逐格断言（防判据空洞），实际 " + cells);
     }
 
     /**

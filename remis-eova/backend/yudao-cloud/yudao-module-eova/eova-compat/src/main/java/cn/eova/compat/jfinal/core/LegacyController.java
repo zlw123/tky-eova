@@ -5,8 +5,10 @@
  */
 package cn.eova.compat.jfinal.core;
 
+import java.util.Date;
 import java.util.Map;
 
+import cn.eova.compat.jfinal.core.converter.LegacyTypeConverter;
 import cn.eova.compat.jfinal.kit.LegacyStrKit;
 import cn.eova.compat.jfinal.kit.LegacyKv;
 import cn.eova.compat.render.LegacyRender;
@@ -29,11 +31,12 @@ import jakarta.servlet.http.HttpServletResponse;
  *   <tr><th>批次</th><th>内容</th><th>状态</th></tr>
  *   <tr><td>W1a</td><td>请求/参数/属性/Kv/rawData/Cookie 无关部分 + {@code render(Render)} 赋值语义</td>
  *       <td><b>本批已实现</b></td></tr>
- *   <tr><td>W1b</td><td>{@code getLong}/{@code getDate}（{@code toLong}/{@code toDate} 字节码待读）、
- *       {@code getFile}、{@code getModel}、{@code getCookie} 族</td><td>待</td></tr>
+ *   <tr><td>W1b</td><td>{@code getLong}/{@code getCookie} 族（已完成）；{@code getDate} 族
+ *       （第 59 轮完成 —— 阻塞它的 {@code TypeConverter} 已在第 57 轮 port）；
+ *       剩余 {@code getFile}/{@code getModel}</td><td>部分待</td></tr>
  *   <tr><td>W2</td><td>{@code render(String)} / {@code renderJson} / {@code renderText} /
  *       {@code renderHtml} / {@code renderError} / {@code renderTemplate} / {@code redirect}
- *       （全部经渲染工厂）</td><td>待</td></tr>
+ *       （全部经渲染工厂）</td><td><b>已完成</b></td></tr>
  * </table>
  *
  * <p><b>本批已逐条取自旧字节码的语义（含 4 处易错点）：</b>
@@ -398,6 +401,88 @@ public class LegacyController {
      */
     public Long getParaToLong(String name, Long defaultValue) {
         return toLong(request.getParameter(name), defaultValue);
+    }
+
+    /**
+     * 转 Date。
+     *
+     * <p>旧字节码（{@code Controller.toDate}）：blank 回落缺省；否则交给
+     * {@code TypeConverter.me().convert(Date.class, value)}；
+     * 任何异常都转成 400，消息为
+     * {@code Can not parse the parameter "X" to Date value.}。</p>
+     *
+     * <p><b>与 toInt/toLong 的差异（不许统一）：</b>本方法【没有】trim，
+     * 也【没有】{@code "N"} 取负前缀；空值判定用 {@code StrKit.isBlank}
+     * （空白串同样回落缺省），而不是 {@code isEmpty}。</p>
+     *
+     * @param value        原始值
+     * @param defaultValue 缺省值
+     * @return Date
+     */
+    private Date toDate(String value, Date defaultValue) {
+        try {
+            if (LegacyStrKit.isBlank(value)) {
+                return defaultValue;
+            }
+            return LegacyTypeConverter.me().convert(Date.class, value);
+        } catch (Exception e) {
+            throw new LegacyActionException(400,
+                    LegacyRenderManager.getRenderFactory().getErrorRender(400),
+                    "Can not parse the parameter \"" + value + "\" to Date value.");
+        }
+    }
+
+    /**
+     * 取参数转 Date。
+     *
+     * @param name 参数名
+     * @return Date
+     */
+    public Date getParaToDate(String name) {
+        return toDate(request.getParameter(name), null);
+    }
+
+    /**
+     * 取参数转 Date，缺省回落。
+     *
+     * @param name         参数名
+     * @param defaultValue 缺省值
+     * @return Date
+     */
+    public Date getParaToDate(String name, Date defaultValue) {
+        return toDate(request.getParameter(name), defaultValue);
+    }
+
+    /**
+     * 取 urlPara 转 Date。
+     *
+     * <p>旧字节码走 {@code getPara()}（urlPara 第 0 段），不是 request 参数。</p>
+     *
+     * @return Date
+     */
+    public Date getParaToDate() {
+        return toDate(getPara(), null);
+    }
+
+    /**
+     * 取参数转 Date（别名，供 EOVA 的 {@code BaseController} 使用）。
+     *
+     * @param name 参数名
+     * @return Date
+     */
+    public Date getDate(String name) {
+        return getParaToDate(name);
+    }
+
+    /**
+     * 取参数转 Date，缺省回落（别名）。
+     *
+     * @param name         参数名
+     * @param defaultValue 缺省值
+     * @return Date
+     */
+    public Date getDate(String name, Date defaultValue) {
+        return getParaToDate(name, defaultValue);
     }
 
     /**
