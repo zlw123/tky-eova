@@ -33,8 +33,14 @@ import org.slf4j.LoggerFactory;
  *       （slf4j 无 fatal 级别）—— 原样保留该降级。</li>
  *   <li>日志器名沿用 <b>{@code com.jfinal.kit.LogKit}</b>：jfinal 的 LogKit 以自身类取
  *       日志器，沿用同名可让既有日志配置（级别/输出/过滤）继续生效。属"保留可运维性"的对齐。</li>
- *   <li>{@code synchronizeLog()} / {@code logNothing(Throwable)} 不声明 ——
- *       EOVA 无调用方；不声明会让将来若真需要时编译期报错，而不是静默留空。</li>
+ *   <li>{@code synchronizeLog()} 不声明 —— EOVA 无调用方；
+ *       不声明会让将来若真需要时编译期报错，而不是静默留空。</li>
+ *   <li>{@code logNothing(Throwable)} 于第 62 轮<b>补声明</b>：字节码为<b>空体</b>
+ *       （{@code 0: return}），语义就是"显式地什么都不做"——
+ *       用于标记"此处有意吞掉异常"。新调用方是 {@code LegacyTx}：
+ *       最外层事务遇到 {@code NestedTransactionHelpException} 时，
+ *       旧实现正是"回滚 + {@code logNothing} + 静默返回"。原先"EOVA 无调用方"的理由
+ *       随该接缝落地而失效。</li>
  * </ol>
  *
  * <p><b>已声明的适配：</b>底层实现由"jfinal 可插拔 Log（旧工程用 log4j 1.2.17）"
@@ -48,6 +54,18 @@ public final class LegacyLogKit {
     private static final Logger LOG = LoggerFactory.getLogger("com.jfinal.kit.LogKit");
 
     private LegacyLogKit() {
+    }
+
+    /**
+     * 显式"什么都不做"（旧实现为空体，仅作意图标记）。
+     *
+     * <p>用于标记"此处<b>有意</b>吞掉异常"，使吞异常这件事在代码里可见、
+     * 且不会触发"空 catch 块"的告警。见 {@code LegacyTx} 最外层事务的静默回滚分支。</p>
+     *
+     * @param t 被有意忽略的可抛物
+     */
+    public static void logNothing(Throwable t) {
+        // 旧字节码：0: return —— 空体是【语义】，不是遗漏
     }
 
     /** trace 级 */

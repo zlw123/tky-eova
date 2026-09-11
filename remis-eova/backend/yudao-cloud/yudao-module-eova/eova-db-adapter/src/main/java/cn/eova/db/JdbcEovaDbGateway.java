@@ -209,6 +209,21 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
 
     // ---------------- 事务 ----------------
 
+    /**
+     * 当前线程是否已处于本网关的事务中。
+     *
+     * <p>对应旧 jfinal 的 {@code Config.getThreadLocalConnection() != null} ——
+     * {@code LegacyTx} 用它区分"最外层"与"嵌套层"，两者对
+     * {@code NestedTransactionHelpException} 的处理<b>相反</b>：最外层回滚并吞掉，
+     * 嵌套层向上传播、交由最外层回滚整个外层事务。</p>
+     *
+     * @return 已处于事务中
+     */
+    @Override
+    public boolean inTransaction() {
+        return txConnection.get() != null;
+    }
+
     /** 事务执行；异常回滚、正常提交 */
     @Override
     public <T> T tx(Atom<T> atom) {

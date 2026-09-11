@@ -242,4 +242,22 @@ public interface EovaDbGateway {
      * 事务执行；抛出异常则回滚，正常返回则提交
      */
     <T> T tx(Atom<T> atom);
+
+    /**
+     * 当前线程是否已处于本网关的事务中（旧 {@code Config.getThreadLocalConnection() != null}）。
+     *
+     * <p><b>为什么需要它：</b>jfinal 的事务拦截器 {@code Tx} 的行为在"最外层"与"嵌套"
+     * 两种情形下<b>不同</b> —— 最外层负责提交/回滚并<b>吞掉</b>
+     * {@code NestedTransactionHelpException}（静默回滚），嵌套层则只参与外层事务、
+     * 并把该异常<b>向上传播</b>，交由最外层回滚。
+     * 若接缝无法区分这两种情形，嵌套时的语义就会反转（内层吞掉 → 外层照常提交）。</p>
+     *
+     * <p>默认实现返回 {@code false}（供测试替身使用）；真实实现由
+     * {@code JdbcEovaDbGateway} 依据其线程绑定连接回答。</p>
+     *
+     * @return 是处于事务中
+     */
+    default boolean inTransaction() {
+        return false;
+    }
 }
