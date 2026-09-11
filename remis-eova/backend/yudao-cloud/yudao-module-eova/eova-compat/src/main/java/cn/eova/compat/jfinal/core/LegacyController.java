@@ -698,6 +698,19 @@ public class LegacyController {
      */
     public LegacyKv getKv() {
         LegacyKv kv = new LegacyKv();
+        // 【补上的保真分支】旧字节码开头有：
+        //   if (request instanceof JsonRequest) {
+        //       JsonRequest jr = (JsonRequest) request;
+        //       if (jr.getJSONObject() != null) kv.putAll(jr.getJSONObject());
+        //   }
+        // 我此前实现 getKv 时漏了这一支（当时还没有 JsonRequest 接缝）。
+        if (request instanceof cn.eova.compat.jfinal.core.paragetter.LegacyJsonRequest) {
+            cn.eova.compat.jfinal.core.paragetter.LegacyJsonRequest jr =
+                    (cn.eova.compat.jfinal.core.paragetter.LegacyJsonRequest) request;
+            if (jr.getJSONObject() != null) {
+                kv.putAll(jr.getJSONObject());
+            }
+        }
         for (Map.Entry<String, String[]> e : getParaMap().entrySet()) {
             String[] arr = e.getValue();
             String v = (arr != null && arr.length > 0) ? arr[0] : null;

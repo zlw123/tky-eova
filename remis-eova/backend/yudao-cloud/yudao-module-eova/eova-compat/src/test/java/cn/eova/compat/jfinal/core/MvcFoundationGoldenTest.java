@@ -395,6 +395,36 @@ class MvcFoundationGoldenTest {
         assertEquals(new TreeSet<>(Arrays.asList("a", "b", "empty")), new TreeSet<>(kv.keySet()));
     }
 
+    /**
+     * {@code getKv()} 的 <b>{@code instanceof JsonRequest} 保真分支</b>。
+     *
+     * <p>该分支是我在第 58 轮<b>补上</b>的：W1a 实现 {@code getKv} 时还没有
+     * {@code JsonRequest} 接缝，故漏了旧字节码开头这一支。补上之后必须有判据 ——
+     * 否则"补了什么"无人看守。</p>
+     */
+    @Test
+    @DisplayName("getKv：JSON 请求体（LegacyJsonRequest）的字段会并入 Kv")
+    void getKvMergesJsonRequestFields() {
+        // 普通请求：只有参数
+        LegacyController plain = controller(Map.of("a", "1"));
+        assertEquals("1", plain.getKv().get("a"));
+        assertNull(plain.getKv().get("fromJson"), "普通请求不应有 JSON 字段");
+
+        // JSON 请求：JSON 字段并入（且随后被参数表覆盖/补充）
+        LegacyController c = new LegacyController();
+        jakarta.servlet.http.HttpServletRequest json = new cn.eova.compat.jfinal.core.paragetter
+                .LegacyJsonRequest("{\"fromJson\":\"J\",\"a\":\"json-a\"}",
+                spy(new LinkedHashMap<>(), Map.of("a", new String[]{"1"})));
+        c.setHttpServletRequest(json);
+        LegacyKv kv = c.getKv();
+        assertEquals("J", kv.get("fromJson"), "JSON 字段必须并入 Kv（该分支此前缺失）");
+        // 【次序要点】同名键最终取 JSON 值 —— 因为 LegacyJsonRequest.createParaMap
+        // 是"先 putAll(被包装请求的参数) ，再遍历 jsonObject（后者覆盖前者）"，
+        // 故"JSON 优先"在 map 层与 getParameter 层【一致】。
+        // 我第一版把期望写成参数值 "1"，被本判据当场纠正。
+        assertEquals("json-a", kv.get("a"), "同名键取 JSON 值（createParaMap 里 JSON 后写覆盖）");
+    }
+
     /** keepPara */
     @Test
     @DisplayName("keepPara：单值存 String、多值存数组、缺失不动作")
