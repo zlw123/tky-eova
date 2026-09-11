@@ -9,6 +9,7 @@ import MetaReorder from '@/views/meta/MetaReorder.vue'
 import MenuAuth from '@/views/menu/MenuAuth.vue'
 import MetaField from '@/views/meta/MetaField.vue'
 import MenuAdd from '@/views/menu/MenuAdd.vue'
+import MetaEdit from '@/views/meta/MetaEdit.vue'
 
 /**
  * 路由表：阶段 2 逐页接管旧 URL。
@@ -77,6 +78,12 @@ export const routes: RouteRecordRaw[] = [
     path: '/eova/menu/add',
     name: 'menu-add',
     component: MenuAdd
+  },
+  {
+    // 元字段：旧路径 /meta/edit?object=…（`MetaController` 渲染，`where` 由服务端拼）
+    path: '/meta/edit',
+    name: 'meta-edit',
+    component: MetaEdit
   }
 ]
 

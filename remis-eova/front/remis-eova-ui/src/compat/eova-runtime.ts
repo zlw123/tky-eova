@@ -104,12 +104,24 @@ export interface EovaJson {
   toStr: (value: unknown, space?: number) => string | undefined
 }
 
+/** `x.str` 面（EovaTools.StrTool） */
+export interface EovaStr {
+  /**
+   * 模板替换：把 `{{key}}` 换成参数值（制品实现见 `eova-tools.umd.js` 的 `StrTool.template`）。
+   *
+   * ★ 缺键时的语义（取证）：`t[key]` 为 null/undefined 时**保留原样 `{{key}}`**，不替换成空串。
+   */
+  template: (template: string, params: Record<string, unknown>) => string
+  [k: string]: unknown
+}
+
 /** `EovaTools` 面（只声明本工程实际用到的部分） */
 export interface EovaTools {
   validate: EovaValidate
   isEmpty: (value: unknown) => boolean
   dom: EovaDom
   json: EovaJson
+  str: EovaStr
   /** 打日志（制品实现即 `console.log`） */
   log: (message: unknown) => void
   [k: string]: unknown
