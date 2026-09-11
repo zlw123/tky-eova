@@ -73,7 +73,9 @@ class DeclarativeUnitGoldenTest {
             "cn.eova.core.object.config.TableConfig",
             "cn.eova.sql.ddl.DefineConfig",
             "cn.eova.mod.EovaModPackage",
-            "cn.eova.core.button.ButtonFactory");
+            "cn.eova.core.button.ButtonFactory",
+            "cn.eova.ext.jfinal.directive.JsonDirective",
+            "cn.eova.template.Template");
 
     /**
      * <b>已声明的适配</b>：单元 FQCN → 允许在【新实现侧】额外出现在的成员。
