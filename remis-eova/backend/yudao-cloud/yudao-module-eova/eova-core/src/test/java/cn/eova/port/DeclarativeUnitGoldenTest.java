@@ -78,6 +78,9 @@ class DeclarativeUnitGoldenTest {
             "cn.eova.template.Template");
 
     private static final List<String> UNITS_NEED_JFINAL = List.of(
+            "cn.eova.widget.tree.TreeNode",
+            "cn.eova.widget.MetaConst",
+            "cn.eova.config.PageConst",
             "cn.eova.widget.tree.TreeNode");
 
     /**
