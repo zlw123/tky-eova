@@ -122,4 +122,19 @@ describe('Login.vue（旧 _view/index/login.html + login.js 的行为等价）',
     await on.vm.$nextTick()
     expect(on.find('img').attributes('src')).not.toBe(src)
   })
+
+  it('★ 第 107 轮修复：挂载前回调扩展钩子 uzoo.vue.mountBefore（旧 login.js:23；漏调是静默失效）', () => {
+    const hook = vi.fn()
+    ;(globalThis as unknown as Record<string, unknown>)['uzoo'] = {
+      page: {},
+      vue: { mountBefore: hook },
+      app: {}
+    }
+    try {
+      mount(Login)
+      expect(hook).toHaveBeenCalledTimes(1)
+    } finally {
+      delete (globalThis as unknown as Record<string, unknown>)['uzoo']
+    }
+  })
 })

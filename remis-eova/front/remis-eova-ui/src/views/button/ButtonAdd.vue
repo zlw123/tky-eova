@@ -123,6 +123,7 @@ import { onBeforeMount, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { getEovaMe, getEovaTools, type EovaValidateRule } from '@/compat/eova-runtime'
+import { callUzooHook } from '@/compat/eova-ext'
 import {
   bootstrapParam,
   loadPageBootstrap,
@@ -196,6 +197,10 @@ const rules = reactive<Record<string, EovaValidateRule>>({
 
 onBeforeMount(() => {
   console.log('button/add/app.js onBeforeMount...')
+  // 旧 `app.js:39` 回调扩展钩子；本页的 `app.html:81` 正是**定义**它的那一侧
+  // （挂载前把服务端插值 `#(menuCode)`/`#(role)` 写进 data）。
+  // ★ 第 107 轮补：r106 首版只把它记在注释里、没调 —— 扩展点漏调是静默失效。
+  callUzooHook('mountBefore')
 })
 
 onMounted(async () => {

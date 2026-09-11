@@ -52,8 +52,9 @@
 <script setup lang="ts">
 // 样式取自冻结资产（第 94 轮已补账落地；只引用，不修改 src/legacy 下任何文件）
 import '../legacy/eova/_view/index/login.css'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeMount, onMounted, reactive, ref } from 'vue'
 import axios from 'axios'
+import { callUzooHook } from '@/compat/eova-ext'
 
 /** 与旧页面同名的响应式数据（字段名属契约：后端按这些名字取参） */
 const data = reactive({
@@ -141,6 +142,15 @@ onMounted(() => {
   if (window !== window.top) {
     window.top!.location.href = window.location.href
   }
+})
+
+// 旧 `login.js:20-25`：`onBeforeMount` 里回调扩展钩子 `uzoo.vue.mountBefore()`。
+// ★ 第 107 轮补：r92 首版**漏了这一步**（当时只把它当"未迁移项"），而它是**扩展点** ——
+//   漏调不会让任何判据变红，只会让依赖它的自定义静默失效。现由接缝统一调用
+//   （钩子未注册时是 no-op，与旧实现 `typeof === 'function'` 的守则一致）。
+onBeforeMount(() => {
+  console.log('onBeforeMount...')
+  callUzooHook('mountBefore')
 })
 
 defineExpose({ data, conf, onSubmit, refreshCaptcha })

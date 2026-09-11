@@ -220,6 +220,21 @@ describe('ButtonAdd.vue（旧 _view/button/add 的行为等价）', () => {
     expect(me.cross.emit).toHaveBeenCalledWith('eova-layer-ok_done', 99)
   })
 
+  it('★ 第 107 轮修复：挂载前回调扩展钩子 uzoo.vue.mountBefore（旧 app.js:39；漏调是静默失效）', () => {
+    const hook = vi.fn()
+    ;(globalThis as unknown as Record<string, unknown>)['uzoo'] = {
+      page: {},
+      vue: { mountBefore: hook },
+      app: {}
+    }
+    try {
+      mount(ButtonAdd, mountOpts)
+      expect(hook).toHaveBeenCalledTimes(1)
+    } finally {
+      delete (globalThis as unknown as Record<string, unknown>)['uzoo']
+    }
+  })
+
   it('运行时未装配时【响亮失败】', async () => {
     setEovaTools(null)
     const w = mount(ButtonAdd, mountOpts)

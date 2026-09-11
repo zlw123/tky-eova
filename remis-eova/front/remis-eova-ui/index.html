@@ -17,6 +17,12 @@
     -->
     <link rel="stylesheet" href="/eova/lib/eova/eovaui.css" />
     <link rel="stylesheet" href="/eova/ui/css/common.css?v=4.0" />
+    <!--
+      `uzoo` 全局（"虫洞"：`{page:{}, vue:{}, app:{}}`）——旧栈由服务端 partial
+      `_block/meta.html:6` 加载该资产；分离后没有服务端 partial，故在入口显式装配。
+      URL 与旧栈逐字一致（含 `?v=1.2`）。见 src/compat/eova-ext.ts。
+    -->
+    <script type="text/javascript" src="/eova/ui/meta/eova.meta.js?v=1.2"></script>
   </head>
   <body>
     <div id="app"></div>
