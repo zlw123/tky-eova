@@ -74,6 +74,16 @@
             <version>8.0.30</version>
             <scope>test</scope>
         </dependency>
+        <!-- 测试用：KingbaseES 驱动（第二个 baseline）。DES-001 的 Kingbase 目标实例
+             是 `base.platform:54321`（KingbaseES，`eova_meta`/`demo` 两库），
+             第 173 轮实测可达 ⇒ `KingbaseBaselineLiveTest` 用它做真库验收。
+             test 作用域：主代码不得依赖任何具体驱动（驱动由部署期提供）。 -->
+        <dependency>
+            <groupId>cn.com.kingbase</groupId>
+            <artifactId>kingbase8</artifactId>
+            <version>8.6.0</version>
+            <scope>test</scope>
+        </dependency>
         <!-- H2（test 作用域）：live readiness 冒烟要一条【真实 JDBC】链路。
              旧栈本身支持 h2 方言（EovaDbPro 对 h2 做关键字转义），故用 h2 内存库跑
              "真实 schema + 真实 SQL 变换 + 真实表元数据自省" 的端到端验收，
