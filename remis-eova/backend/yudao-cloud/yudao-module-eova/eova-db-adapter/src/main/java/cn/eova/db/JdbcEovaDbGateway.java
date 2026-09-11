@@ -7,6 +7,8 @@ package cn.eova.db;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import cn.eova.compat.table.EovaTableMapping;
+import cn.eova.compat.table.TableMetadata;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -223,6 +225,35 @@ public class JdbcEovaDbGateway implements EovaDbGateway {
     @Override
     public boolean inTransaction() {
         return txConnection.get() != null;
+    }
+
+    /**
+     * 批量保存模型（对应 jfinal {@code DbPro.batchSave(List&lt;? extends Model&gt;, int)}）。
+     *
+     * <p>逐条按 {@code ModelSqlBuilder.forModelSave} 生成 insert 并执行；空列表返回空数组；
+     * {@code batchSize < 1} 抛 {@code IllegalArgumentException}（消息与旧实现逐字一致）。
+     * 关于"组批提交 vs 逐条提交"的已声明适配见接口 javadoc。</p>
+     *
+     * @param models    待保存模型
+     * @param batchSize 每批条数
+     * @return 各行影响数
+     */
+    @Override
+    public int[] batchSave(List<? extends EovaModel<?>> models, int batchSize) {
+        if (models == null || models.isEmpty()) {
+            return new int[0];
+        }
+        if (batchSize < 1) {
+            throw new IllegalArgumentException("The batchSize must more than 0.");
+        }
+        int[] result = new int[models.size()];
+        int i = 0;
+        for (EovaModel<?> m : models) {
+            TableMetadata table = EovaTableMapping.me().getTable(m.getClass());
+            ModelSqlBuilder.Sql sql = ModelSqlBuilder.forModelSave(table, m._getAttrs());
+            result[i++] = update(sql.sql(), sql.paras());
+        }
+        return result;
     }
 
     /**

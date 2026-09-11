@@ -486,6 +486,53 @@ public class LegacyController {
     }
 
     /**
+     * 取第 index 段 urlPara 转 Integer（旧 {@code Controller.getInt(int)}）。
+     *
+     * <p><b>第 69 轮补：</b>port {@code MenuController}/{@code AuthController} 时
+     * {@code getInt(0)} 编译失败 —— 本接缝此前只有 {@code getInt(String)}。
+     * jfinal 的下标版就是委托 urlPara 版（字节码：{@code getParaToInt(index)}）。
+     * 全树按下标取值普查：{@code get(0)}×92、{@code get(1)}×15、{@code getInt(0)}×3、
+     * {@code getParaToInt(0/1)}×3 —— 其中 {@code get(int)} 与 {@code getParaToInt(int)} 已有。</p>
+     *
+     * @param index urlPara 下标
+     * @return Integer
+     */
+    public Integer getInt(int index) {
+        return getParaToInt(index);
+    }
+
+    /**
+     * 取第 index 段 urlPara 转 Integer，缺省回落（旧 {@code Controller.getInt(int, Integer)}）。
+     *
+     * @param index        urlPara 下标
+     * @param defaultValue 缺省值
+     * @return Integer
+     */
+    public Integer getInt(int index, Integer defaultValue) {
+        return getParaToInt(index, defaultValue);
+    }
+
+    /**
+     * 取第 index 段 urlPara 转 Long（旧 {@code Controller.getLong(int)}）。
+     *
+     * @param index urlPara 下标
+     * @return Long
+     */
+    public Long getLong(int index) {
+        return getParaToLong(index);
+    }
+
+    /**
+     * 取第 index 段 urlPara 转 Boolean（旧 {@code Controller.getBoolean(int)}）。
+     *
+     * @param index urlPara 下标
+     * @return Boolean
+     */
+    public Boolean getBoolean(int index) {
+        return getParaToBoolean(index);
+    }
+
+    /**
      * 取第 index 段 urlPara 转 Long。
      *
      * @param index 下标

@@ -278,6 +278,28 @@ public interface EovaDbGateway {
     int[] batch(List<String> sqlList, int batchSize);
 
     /**
+     * 批量保存模型（对应 jfinal {@code DbPro.batchSave(List&lt;? extends Model&gt;, int)}）。
+     *
+     * <p><b>语义：</b>把 {@code models} 逐条按 {@code ModelSqlBuilder.forModelSave} 生成
+     * insert 语句执行，返回逐行的影响数数组；空列表返回长度 0 的数组；
+     * {@code batchSize < 1} 抛
+     * {@code IllegalArgumentException("The batchSize must more than 0.")}（与旧实现一致）。</p>
+     *
+     * <p><b>已声明的适配（1 处，需在验收时留意）：</b>旧实现把逐条 insert 组进
+     * JDBC batch，并<b>在非事务状态下每 {@code batchSize} 条提交一次</b>；
+     * 本实现逐条执行（复用现有 {@code update} 的连接作用域）。
+     * 二者的可观测差异仅出现在<b>事务之外</b>（提交粒度：逐条 vs 逐批）。
+     * EOVA 全树唯一调用点 {@code AuthController:169} 处于 {@code @Before(Tx.class)} 之内，
+     * 此时两者都在同一事务连接上执行、由外层统一提交 ⇒ <b>该场景下等价</b>。
+     * 若将来出现事务外的大批量调用，需改为真正的组批实现（已记入文档待办）。</p>
+     *
+     * @param models    待保存模型（非空列表）
+     * @param batchSize 每批条数（必须 &gt; 0）
+     * @return 各行影响数（长度 = models.size()）
+     */
+    int[] batchSave(List<? extends EovaModel<?>> models, int batchSize);
+
+    /**
      * 事务执行；抛出异常则回滚，正常返回则提交
      */
     <T> T tx(Atom<T> atom);

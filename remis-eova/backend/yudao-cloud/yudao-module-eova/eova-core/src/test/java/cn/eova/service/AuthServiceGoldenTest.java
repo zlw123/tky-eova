@@ -38,39 +38,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class AuthServiceGoldenTest {
 
-    /**
-     * 自带的内存缓存服务。
-     *
-     * <p><b>为什么必须注入而不是用全局单例：</b>第 65 轮全量跑时本判据<b>三个用例全错</b>，
-     * 报 "The CacheManager has been shut down" —— 同 JVM 里别的用例把 EhCache 单例关了
-     * （R49 记录的全局单例问题）。判据依赖环境状态就会"单独跑绿、全量跑红"。
-     * 注入自带实现后判据自洽，且顺带把"经 CacheService 读写"这条链钉住。</p>
-     */
-    static final class MemoryCache implements CacheService {
-
-        /** 存储 */
-        final Map<String, Map<Object, Object>> store = new java.util.HashMap<>();
-
-        @Override
-        public Object get(String cacheName, Object key) {
-            Map<Object, Object> m = store.get(cacheName);
-            return m == null ? null : m.get(key);
-        }
-
-        @Override
-        public void put(String cacheName, Object key, Object value) {
-            store.computeIfAbsent(cacheName, k -> new java.util.HashMap<>()).put(key, value);
-        }
-
-        @Override
-        public void remove(String cacheName, Object key) {
-            Map<Object, Object> m = store.get(cacheName);
-            if (m != null) {
-                m.remove(key);
-            }
-        }
-    }
-
     /** 用例前的缓存实现（用后还原，避免影响同 JVM 的其他用例） */
     private CacheService originalService;
 
@@ -78,7 +45,7 @@ class AuthServiceGoldenTest {
     @BeforeEach
     void injectCache() {
         originalService = cn.eova.compat.cache.CacheServices.get();
-        BaseCache.setCacheService(new MemoryCache());
+        BaseCache.setCacheService(new cn.eova.testkit.MemoryCacheService());
     }
 
     /** 用例后还原缓存实现 */
