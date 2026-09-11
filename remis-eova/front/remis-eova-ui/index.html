@@ -4,6 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EovaMeta</title>
+    <!--
+      legacy 运行时样式（第 104 轮接入）
+
+      口径（与"运行时脚本"一致，见 src/compat/legacy-runtime.ts）：
+      · **vendor 级**样式走**旧原路径** `/eova/lib/**`（由后端/开发代理提供），与本工程产物解耦 ——
+        `eovaui.css` 是 249,482 字节的组件库样式（内含 10 处 data: URI），打进本工程产物只会重复一份，
+        且它的版本必须与 `eovaui.js` 制品同步（同一次发布、同一份来源）。
+      · **页面级**样式才 import（如 `Login.vue` 引 `login.css`，见第 94 轮）。
+
+      依赖顺序与旧 `_block/base.html:2-3` 一致：先组件库，再公共样式。
+    -->
+    <link rel="stylesheet" href="/eova/lib/eova/eovaui.css" />
+    <link rel="stylesheet" href="/eova/ui/css/common.css?v=4.0" />
   </head>
   <body>
     <div id="app"></div>

@@ -85,10 +85,22 @@ export interface EovaValidate {
   addRules: (name: string, fn: (value: unknown) => unknown) => void
 }
 
+/** `x.dom` 面（EovaTools.DomTool） */
+export interface EovaDom {
+  /**
+   * 取视口尺寸（制品实现：`document.documentElement.clientWidth/clientHeight`）
+   *
+   * @param target 目标窗口（默认 `window`）
+   */
+  getViewSize: (target?: Window) => { width: number; height: number }
+  [k: string]: unknown
+}
+
 /** `EovaTools` 面（只声明本工程实际用到的部分） */
 export interface EovaTools {
   validate: EovaValidate
   isEmpty: (value: unknown) => boolean
+  dom: EovaDom
   [k: string]: unknown
 }
 
