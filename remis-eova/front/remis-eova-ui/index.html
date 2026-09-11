@@ -23,6 +23,16 @@
       URL 与旧栈逐字一致（含 `?v=1.2`）。见 src/compat/eova-ext.ts。
     -->
     <script type="text/javascript" src="/eova/ui/meta/eova.meta.js?v=1.2"></script>
+    <!--
+      `eova.template.js`（旧栈由 `_block/base.html:10` 加载，`?v=1.2.0` 逐字）—— 它提供两样**全局**能力：
+      · `handlerButtonEvent(event)`：**自定义按钮（is_base=0）的全局派发器**（检查 `window[event]` 是否为函数，
+        否则弹「function x() 无法调用…」；注释原文「如方法不存在会导致白屏」）
+      · `onMetaObject`/`onMetaField`/`onReorderForm`/`onLayerSize`…：`_block/admin.html`（超管设置菜单）
+        与 `_block/toolbar.html` 里 `onclick="onXxx()"` 依赖的全局函数
+      ⇒ 不装配它，**超管菜单的 onclick 与自定义按钮都会静默失效**（只弹提示或什么都不发生）。
+      取证：docs/.local/baseline/evidence/button-mechanism-contract.json
+    -->
+    <script type="text/javascript" src="/eova/_view/template/eova.template.js?v=1.2.0"></script>
   </head>
   <body>
     <div id="app"></div>
