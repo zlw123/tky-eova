@@ -19,8 +19,11 @@ import cn.eova.compat.jfinal.aop.LegacyInvocation;
 import cn.eova.compat.jfinal.config.LegacyJFinalBoot;
 import cn.eova.compat.jfinal.config.LegacyRoutes;
 import cn.eova.compat.jfinal.core.LegacyAction;
+import cn.eova.compat.jfinal.core.LegacyActionException;
 import cn.eova.compat.jfinal.core.LegacyController;
+import cn.eova.compat.jfinal.core.paragetter.LegacyJsonRequest;
 import cn.eova.compat.render.LegacyRender;
+import cn.eova.compat.render.LegacyRenderManager;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -170,6 +173,17 @@ public class LegacyDispatcher {
         controller.setHttpServletResponse(response);
         controller.setUrlPara(urlPara);
 
+        // ★ JSON 请求包装 —— 旧 jfinal {@code ActionHandler} 逐行等价：
+        //     if (resolveJson && controller.isJsonRequest())
+        //         controller.setHttpServletRequest(jsonRequestFactory.apply(controller.getRawData(), controller.getRequest()));
+        //   不包的话 {@code WebUtil.isAjax} 里的 {@code instanceof JsonRequest} 恒为 false，未登录的
+        //   JSON 请求就会走"同步跳登录页"分支。旧栈实测（curl 无 Cookie POST /api/home/menu）是
+        //   401 + {"state":"fail","msg":"401 Unauthorized"} + 清 Cookie ⇒ 必须补齐这层包装。
+        if (boot.getConstants().getResolveJsonRequest() && isJsonRequest(controller.getRequest())) {
+            controller.setHttpServletRequest(
+                    new LegacyJsonRequest(controller.getRawData(), controller.getRequest()));
+        }
+
         // 拦截器链：全局在前，路由级在后（旧 jfinal 同口径）
         List<LegacyInterceptor> chain = new ArrayList<>(boot.getInterceptors().getInterceptors());
         for (LegacyInterceptor i : hit.routeInters) {
@@ -178,7 +192,16 @@ public class LegacyDispatcher {
         LegacyAction action = new LegacyAction(actionKey, hit.controllerPath, hit.controllerClass,
                 method, method.getName(), chain.toArray(new LegacyInterceptor[0]), null);
 
-        new LegacyInvocation(action, controller).invoke();
+        try {
+            new LegacyInvocation(action, controller).invoke();
+        } catch (LegacyActionException e) {
+            // ★ 错误渲染落在【宿主】这一层 —— 旧 jfinal 的等价物是 ActionHandler.handleActionException：
+            //   {@code renderError(code)} 在旧实现里就是"抛 ActionException，由框架渲染"，
+            //   而 ExceptionInterceptor（全局中间件）对非 500 的 ActionException 只做原样再抛
+            //   （逐行等价 port 里保留了这一行为），所以不在这里渲染，401/403 就会变成 500。
+            handleActionException(e, path, controller.getRequest(), response);
+            return;
+        }
 
         // 渲染：控制器内 render* 设立的渲染器负责写响应
         LegacyRender render = controller.getRender();
@@ -188,7 +211,73 @@ public class LegacyDispatcher {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return;
         }
+        render.setContext(controller.getRequest(), response).render();
+    }
+
+    /**
+     * 等价旧 jfinal {@code ActionHandler.handleActionException}：按错误码拼日志前缀 → 记录 →
+     * 用 {@link LegacyActionException#getErrorRender()} 渲染（为 null 时由渲染工厂补一个）。
+     *
+     * <p>旧实现里警告/错误两条日志分支取决于"异常是否自带 errorRender"；此处保留该分支语义。</p>
+     *
+     * @param e       带错误码的动作异常
+     * @param target  目标路径（旧实现的 target）
+     * @param request  请求
+     * @param response 响应
+     */
+    private void handleActionException(LegacyActionException e, String target,
+            HttpServletRequest request, HttpServletResponse response) {
+        int errorCode = e.getErrorCode();
+        String prefix;
+        switch (errorCode) {
+            case 404:
+                prefix = "404 Not Found: ";
+                break;
+            case 400:
+                prefix = "400 Bad Request: ";
+                break;
+            case 401:
+                prefix = "401 Unauthorized: ";
+                break;
+            case 403:
+                prefix = "403 Forbidden: ";
+                break;
+            default:
+                prefix = errorCode + " Error: ";
+                break;
+        }
+        // 旧实现的 target 拼装：target + (queryString != null ? "?" + queryString : "")
+        String queryString = request.getQueryString();
+        String url = queryString == null ? target : target + "?" + queryString;
+        String msg = prefix + url;
+        if (e.getMessage() != null) {
+            msg = msg + "\n" + e.getMessage();
+        }
+
+        LegacyRender render = e.getErrorRender();
+        if (render != null) {
+            log.warn(msg);
+        } else {
+            // 旧实现：无自带 errorRender 时走 error 日志，并由渲染工厂补一个同码错误渲染
+            log.error(msg);
+            render = LegacyRenderManager.getRenderFactory().getErrorRender(errorCode);
+        }
         render.setContext(request, response).render();
+    }
+
+    /**
+     * 等价旧 jfinal {@code Controller.isJsonRequest()}：已经是包装类型即 true，否则
+     * {@code Content-Type} 含 {@code "json"}（**逐字保留旧实现的大小写敏感 {@code indexOf}**）。
+     *
+     * @param request 原始请求
+     * @return 是否按 JSON 请求处理
+     */
+    private static boolean isJsonRequest(HttpServletRequest request) {
+        if (request instanceof LegacyJsonRequest) {
+            return true;
+        }
+        String contentType = request.getContentType();
+        return contentType != null && contentType.indexOf("json") != -1;
     }
 
     /**

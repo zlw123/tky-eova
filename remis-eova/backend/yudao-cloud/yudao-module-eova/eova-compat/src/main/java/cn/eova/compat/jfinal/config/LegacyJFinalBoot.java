@@ -118,6 +118,9 @@ public class LegacyJFinalBoot {
         config.configConstant(constants);
         config.configRoute(routes);
         config.configEngine(engine);
+        // 模板属性读取器：旧栈这一步由 jfinal jar 自带的 Model/Record 读取器在模板引擎类初始化时
+        // 完成（详见 LegacyRowFieldGetter 的实证说明）；新栈用纯 enjoy，必须在引导期显式安装。
+        cn.eova.compat.template.LegacyRowFieldGetter.install();
         config.configPlugin(plugins);
         config.configInterceptor(interceptors);
         config.configHandler(handlers);

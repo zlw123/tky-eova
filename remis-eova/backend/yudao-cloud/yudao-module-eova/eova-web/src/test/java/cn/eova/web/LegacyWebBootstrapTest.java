@@ -47,7 +47,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p><b>本判据不覆盖（如实登记）</b>：分发器/渲染/静态资源/会话契约/真浏览器 —— 属 S2–S5。
  * 因此**阶段 1 的「HTTP 容器层」在 S5 之前仍记 not executed**。
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+// ★ 必须与同模块的 HTTP 判据（LegacyHttpContractTest）**用同一个上下文配置**：
+//   旧引导（LegacyJFinalBoot.init → 模型映射注册表）是【每 JVM 一次】的语义，同一 JVM 里
+//   起两个 Spring 上下文会各自引导一次 ⇒ 第二个直接
+//   `IllegalStateException: Model mapping already exists : eova_session`（全量 mvn clean test 实测）。
+//   统一成 RANDOM_PORT 后 Spring 复用同一个上下文，只引导一次（生产同样只有一个上下文）。
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class LegacyWebBootstrapTest {
 
     @Autowired

@@ -14,6 +14,8 @@ import java.sql.SQLFeatureNotSupportedException;
 import javax.sql.DataSource;
 
 import cn.eova.common.Ds;
+import cn.eova.compat.cache.CacheServices;
+import cn.eova.db.EovaModel;
 import cn.eova.compat.jfinal.config.LegacyEngine;
 import cn.eova.compat.jfinal.config.LegacyJFinalBoot;
 import com.jfinal.template.Engine;
@@ -82,6 +84,16 @@ public class LegacyWebBootstrap {
     @Value("${eova.db.driver:com.mysql.cj.jdbc.Driver}")
     private String dbDriver;
 
+    /**
+     * web 根目录（**顶层同时含** `eova/` 与 `_eova/` 的那一层）。
+     *
+     * <p>旧栈有两个来源：渲染模板 {@code /eova/**} 来自 classpath 里的 {@code webapp/eova/**}
+     * （{@code eova-meta-view-*.jar} 183 个资源），被 include 的片段 {@code /_eova/**} 来自
+     * undertow webroot；移植后的资产树把两者放在同一层 ⇒ 新栈只剩一个根，且不依赖只读基线。</p>
+     */
+    @Value("${eova.webapp.root:remis-eova/front/remis-eova-ui/src/legacy}")
+    private String webappRoot;
+
     private LegacyJFinalBoot boot;
     private EovaConfig config;
 
@@ -121,6 +133,12 @@ public class LegacyWebBootstrap {
         this.config = new EovaConfig();
         this.boot = new LegacyJFinalBoot();
         this.boot.init(this.config);
+
+        // ⑤ 缓存接缝：旧栈由缓存插件装配全局缓存（{@code LegacyEhCachePlugin.start()} →
+        //   {@code CacheServices.set(...)}），但 {@code EovaModel} 自己的静态持有者仍需宿主注入；
+        //   不给时任何走缓存的 dao 调用都会抛 IllegalStateException: EovaModel 未注入 CacheService。
+        EovaModel.setCacheService(CacheServices.get());
+        log.info("Eova Web 层：缓存已注入 EovaModel ← {}", CacheServices.get().getClass().getName());
         // ★ 渲染工厂：`LegacyRenderManager` 明确要求"由宿主在启动时注入"（其报错文案即
         //   "未装配渲染工厂…请由宿主在启动时注入"），而主代码里没有任何地方调用它 ——
         //   这就是 HTTP 容器层留给宿主的最后一块。实测：不装配时所有 render 路径 500。
@@ -130,8 +148,20 @@ public class LegacyWebBootstrap {
         //   在**全仓主代码里没有任何调用点** ⇒ 宿主需按收集到的设置自建 enjoy Engine 再注入。
         Engine engine = Engine.create("eova-web");
         LegacyEngine collected = this.boot.getEngine();
-        if (collected.getSourceFactory() != null) {
+        java.io.File viewRoot = resolveViewRoot();
+        if (viewRoot != null) {
+            // ★ 必须【覆盖】收集到的源工厂，而不是"null 才补"：旧栈把 `webapp` 放在 view 模块的
+            //   classpath 上，收集到的是 classpath 源，而 eova-web **不依赖**该模块 ⇒ 在本进程里
+            //   永远找不到模板（实测：File not found in CLASSPATH or JAR :
+            //   "webapp/eova/_view/index/login.html"）。且已核：新栈 main 资源里没有任何 html。
+            engine.setSourceFactory(new LegacyViewSourceFactory(viewRoot));
+            engine.setBaseTemplatePath(viewRoot.getAbsolutePath());
+            log.info("Eova Web 层：模板源 = 文件系统 {}（覆盖收集到的 {}）",
+                    viewRoot.getAbsolutePath(), collected.getSourceFactory());
+        } else if (collected.getSourceFactory() != null) {
             engine.setSourceFactory(collected.getSourceFactory());
+            log.warn("Eova Web 层：未找到视图根目录（eova.webapp.root={}），模板走收集到的源 {} —— 页面渲染会失败",
+                    webappRoot, collected.getSourceFactory());
         }
         for (Object m : collected.getSharedMethods()) {
             engine.addSharedMethod(m);
@@ -158,6 +188,33 @@ public class LegacyWebBootstrap {
         LegacyRoutes routes = this.boot.getRoutes();
         log.info("Eova Web 层：引导完成，路由条目 {} 条", routes.getRouteItemList().size());
         return this.boot;
+    }
+
+    /**
+     * 解析视图根目录（含 `webapp` 子目录的那一层）。
+     *
+     * <p>判据：该层**同时**存在 `eova/` 与 `_eova/` 两个目录（旧栈两根合并后的特征）。</p>
+     *
+     * <p>属性优先，其次**从工作目录向上**逐级拼相对路径 —— 因为 maven 模块测试、IDE、命令行
+     * 三种场景的工作目录各不相同（实测踩到：CWD = 模块目录时，仓库根相对路径解析不到，
+     * 补丁静默走了 classpath 分支）。找不到返回 {@code null}（调用方告警，不静默）。</p>
+     *
+     * @return 存在 `webapp` 子目录的那一层；都没有则 null
+     */
+    private java.io.File resolveViewRoot() {
+        java.util.List<java.io.File> candidates = new java.util.ArrayList<>();
+        candidates.add(new java.io.File(webappRoot));
+        java.io.File dir = new java.io.File("").getAbsoluteFile();
+        for (int i = 0; i < 6 && dir != null; i++) {
+            candidates.add(new java.io.File(dir, webappRoot));
+            dir = dir.getParentFile();
+        }
+        for (java.io.File c : candidates) {
+            if (new java.io.File(c, "eova").isDirectory() && new java.io.File(c, "_eova").isDirectory()) {
+                return c;
+            }
+        }
+        return null;
     }
 
     /** 停机：按旧序列 beforeJFinalStop → 插件 stop → onStop */
