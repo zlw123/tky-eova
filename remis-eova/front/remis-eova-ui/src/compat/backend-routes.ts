@@ -58,12 +58,10 @@ export const BACKEND_ROUTE_PREFIXES: readonly string[] = [
   // —— EovaConfig.java:289 `me.add("/app", AppController.class)` ——
   '/app',
   // —— 演示工程 AppConfig/AppRoutes：demo AppController 的动作注册在 `EOVA_INDEX`(= `/`) 之下 ——
+  // ★ r274 口径④（用户裁定）：demo 工程的 `/main`、`/theme`、`/test`、`/ip`、`/sso` **归 SPA 所有**
+  //   （属旧 demo 应用而非 core：旧栈带会话 `GET /main` = <title>EovaUI主题风格</title>，ported 侧只有 core
+  //   ⇒ 当后端前缀转发必然 404，真浏览器实测 `404 /main`）⇒ 不再列为后端前缀。
   '/widget',
-  '/main',
-  '/theme',
-  '/test',
-  '/ip',
-  '/sso',
   // —— 两个 webapp 根的**顶层静态目录**（源：`meta-eova/eova/{view,demo}/src/main/webapp/` 的 `ls`）——
   //   view 根：`eova`（已在上方）
   //   demo 根：`_component` `_eova` `_static` `_view` `demo` `excel`(已在上方) `hotel` `product` `ui`

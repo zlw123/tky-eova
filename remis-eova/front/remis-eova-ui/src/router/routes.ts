@@ -25,6 +25,12 @@ import { isSpaOwnedAppPage } from '../compat/app-routes'
 
 /** SPA 拥有的路径（router 与 dev 代理共用；新增路由必须同时出现在这里） */
 export const SPA_OWNED_PATHS: readonly string[] = [
+  // ★ r274 口径④：这些 demo 工程 URL 归 SPA 所有
+  '/main',
+  '/theme',
+  '/test',
+  '/ip',
+  '/sso',
   '/',
   '/placeholder',
   '/user/login',

@@ -129,6 +129,13 @@ export const routes: RouteRecordRaw[] = [
     name: 'app-template',
     component: AppTemplateHost
   }
+,
+  // ★ r274 口径④：demo 工程 URL 归 SPA（后端不迁移 demo 应用）⇒ 先落可声明占位（不是静默 404）
+  { path: '/main', component: Placeholder },
+  { path: '/theme', component: Placeholder },
+  { path: '/test', component: Placeholder },
+  { path: '/ip', component: Placeholder },
+  { path: '/sso', component: Placeholder }
 ]
 
 const router = createRouter({
