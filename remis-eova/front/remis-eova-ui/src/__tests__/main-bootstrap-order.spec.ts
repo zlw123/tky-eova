@@ -32,6 +32,7 @@ describe('main.ts 启动装配顺序', () => {
 
   it('① 关键调用都在场（反空断言：抽取/改名会让本判据先红）', () => {
     for (const needle of [
+      'consumeEmbedEntry(',
       'loadLegacyRuntime(',
       'installWindowUrls(',
       'loadUiConf(',
@@ -45,8 +46,12 @@ describe('main.ts 启动装配顺序', () => {
     }
   })
 
-  it('② 装配顺序：运行时 → 全局 URL 表 → me.conf → 引导来源 → createApp → use(EovaUI) → use(router) → mount', () => {
+  it('② 装配顺序：嵌入参数消费 → 运行时 → 全局 URL 表 → me.conf → 引导来源 → createApp → use(EovaUI) → use(router) → mount', () => {
+    // ★ 第 297 轮（阶段 3）：`consumeEmbedEntry()` 必须在**最前**——平台契约 1 要求
+    //   "入口（router/permission 之前）"读取并清理 URL 上的敏感参数；晚于 `app.use(router)`
+    //   会让带 `_accessToken` 的 URL 先进入 router/history（凭据留在历史记录里）。
     const order = [
+      'consumeEmbedEntry(',
       'loadLegacyRuntime(',
       'installWindowUrls(',
       'loadUiConf(',

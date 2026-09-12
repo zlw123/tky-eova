@@ -8,11 +8,15 @@ import { getEovaUI } from './compat/eova-runtime'
 import { installWindowUrls } from './compat/ui-urls'
 import { loadUiConf } from './compat/ui-conf'
 import { createBootstrapFetcher, setDefaultBootstrapFetcher } from './compat/page-bootstrap-fetcher'
+import { consumeEmbedEntry } from './compat/embed-entry'
 
 /**
- * 应用启动（阶段 2）
+ * 应用启动（阶段 2 + 阶段 3 嵌入态入口）
  *
  * 顺序不可换：
+ *  ⓪ **消费平台嵌入参数**（契约 1/2：读 `_accessToken`/`_tenantId`/`_sourceSystemCode`，
+ *     并把**敏感参数**从 URL 清掉）—— 平台要求在"入口（router/permission 之前）"完成，
+ *     故它必须是第一步；晚于路由装配会让带 token 的 URL 先进入 router/history；
  *  ① 装配 legacy 运行时（注入全局 Vue/axios → 按序加载 EovaTools/LayuiVue/EovaUI 三个制品）；
  *  ② 挂回页面级 URL 表（`window.urls`，模板页直接读它）；
  *  ③ 装配 `me.conf`（来源见 DES-003；缺来源只告警不阻塞）；
@@ -24,6 +28,10 @@ import { createBootstrapFetcher, setDefaultBootstrapFetcher } from './compat/pag
  * 装配失败会在此**响亮抛出**（见 legacy-runtime.ts 的纪律），不静默继续。
  */
 async function bootstrap(): Promise<void> {
+  // ⓪ 嵌入态入口：读取平台参数并清理 URL 上的敏感参数（DES-006 契约 1/2）。
+  //    非嵌入场景（绝大多数）走 skip 分支：URL 一个字符都不动。
+  consumeEmbedEntry()
+
   await loadLegacyRuntime()
   installWindowUrls()
   await loadUiConf()
