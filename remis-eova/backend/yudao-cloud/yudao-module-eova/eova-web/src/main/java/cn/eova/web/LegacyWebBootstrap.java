@@ -6,6 +6,7 @@
 package cn.eova.web;
 
 import java.io.PrintWriter;
+import java.util.List;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -15,6 +16,7 @@ import javax.sql.DataSource;
 
 import cn.eova.common.Ds;
 import cn.eova.compat.cache.CacheServices;
+import cn.eova.compat.db.LegacyDataSourceWiring;
 import cn.eova.db.EovaModel;
 import cn.eova.compat.jfinal.config.LegacyEngine;
 import cn.eova.compat.jfinal.config.LegacyJFinalBoot;
@@ -116,6 +118,44 @@ public class LegacyWebBootstrap {
         return new LegacyStaticAssets(resolveViewRoot());
     }
 
+    /**
+     * 为 `db.datasource` 里**除主库之外**的每个数据源注册网关（第 298 轮，DES-008）。
+     *
+     * <p>旧栈由 `configPlugin` 的 {@code EovaDataSource.create(plugins)} 为**每个** ds 建
+     * DruidPlugin + ARP，连接与映射一并就绪；ported 侧这些坐标落在
+     * {@link cn.eova.compat.db.LegacyDataSourceWiring.Spec}（**连接池归宿主**）
+     * ⇒ 网关也必须由宿主逐个补上，否则第二库一律
+     * {@code 未注册数据源网关（数据源=…）} 500，而旧栈可用。</p>
+     *
+     * <p><b>为什么按 spec 遍历、不硬编码 {@code main}</b>：旧栈的语义就是"`db.datasource` 里写几个 ds
+     * 就连几个"；硬编码会让"配置里加了第三个库"再次静默 500。</p>
+     *
+     * <p><b>主库不动</b>：{@code Ds.EOVA} 已在 ③ 注册（容器 {@code DataSource} 优先，缺则自建），
+     * 且它是元数据源（{@code EovaTableMapping.setMetadataSource}）与真自省的基准。</p>
+     */
+    private void registerSecondaryGateways() {
+        List<LegacyDataSourceWiring.Spec> specs = LegacyDataSourceWiring.specs();
+        int added = 0;
+        for (LegacyDataSourceWiring.Spec spec : specs) {
+            String dsName = spec.getDs();
+            if (Ds.EOVA.equals(dsName)) {
+                continue;
+            }
+            // 与主库自建路径**同形**（DriverManager 版；连接池是独立单元，见 DES-008 §5）
+            DataSource other = new DriverManagerDataSource(
+                    spec.getUrl(), spec.getUser(), spec.getPwd(), spec.getDriver());
+            EovaGateways.register(dsName, new JdbcEovaDbGateway(other, dsName));
+            added++;
+            log.info("Eova Web 层：网关已注册（数据源={}）→ {}", dsName, spec.getUrl());
+        }
+        log.info("Eova Web 层：多数据源接线完成：spec {} 个（含主库），本次补注册 {} 个", specs.size(), added);
+        if (specs.size() <= 1) {
+            // 响亮告警而不是静默：配置里本该有 eova+main（eova/dev.txt:21），只解析出 1 个就是配置没进来
+            log.warn("Eova Web 层：`db.datasource` 只解析出 {} 个数据源（期望至少 eova+main）"
+                    + "⇒ 第二库的访问会 500（未注册数据源网关）", specs.size());
+        }
+    }
+
     @Bean
     public LegacyJFinalBoot legacyBoot(ObjectProvider<DataSource> dataSourceProvider) {
         // ① 旧实现的【必需配置】：file.dir.base 必须非空白
@@ -146,6 +186,17 @@ public class LegacyWebBootstrap {
         this.config = new EovaConfig();
         this.boot = new LegacyJFinalBoot();
         this.boot.init(this.config);
+
+        // ④b ★ 多数据源接线（第 298 轮，DES-008）：旧栈由 `configPlugin` 为 `db.datasource` 里的
+        //   **每一个** ds 建 DruidPlugin + ARP；ported 侧这些坐标落在 `LegacyDataSourceWiring.Spec`
+        //   （由 `EovaDataSource.create()` 在 ④ 里填好，**连接池归宿主**）
+        //   ⇒ 网关也必须由宿主**逐个**注册。
+        //   ★ 本步之前只注册了 `Ds.EOVA` ⇒ 落在第二库（`main` → `demo`）的任何访问一律
+        //   `未注册数据源网关（数据源=main）` 500，而**旧栈同请求是 200**（2026-09-12 实测）。
+        //   最严重的可观测后果：含查找框（`ev-find`）的表单页在浏览器里**永久卡死** ——
+        //   制品 `EvFind` 的 `widget_text` 失败后走 `.catch(() => alert('请求异常'))`，而 `alert` 阻塞主线程。
+        //   （详见 DES-005 §16.8.3 缺口 3 与 `docs/DES-008-R1-multi-datasource-host-wiring.md`。）
+        registerSecondaryGateways();
 
         // ⑤ 缓存接缝：旧栈由缓存插件装配全局缓存（{@code LegacyEhCachePlugin.start()} →
         //   {@code CacheServices.set(...)}），但 {@code EovaModel} 自己的静态持有者仍需宿主注入；
