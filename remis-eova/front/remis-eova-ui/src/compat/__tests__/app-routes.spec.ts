@@ -9,8 +9,9 @@
  * 钉的契约（每条都对应一种"构建绿、单测绿、页面静默出错"）：
  *  ① **动作表 ↔ ported 后端源码双向一致**：新增/改名一个 `/app` 动作而不更新本表 ⇒ 红；
  *  ② `resolveAppUrl` 的分支矩阵（含"未取证⇒保留后端"的 `ambiguous-action-name`）；
- *  ③ **冻结脚本里的 `/app/**` 字面量一律是 `backend`**：`eova.template.js` 用它们开弹层，
- *     一旦被判成 SPA 页，弹层里会变成 SPA 外壳（冻结资产不可改，故只能钉住判据）；
+ *  ③ **冻结脚本里的 `/app/**` 字面量按分区归属**（r295 起）：form 动作（`/app/{add,update,detail}/<x>`）
+ *     ⇒ `form-page`（口径② 已由 SPA 接管），其余一律 `backend`。原先"一律 backend"的断言已作废
+ *     —— 它当时的理由是"弹层里会变成 SPA 外壳"，而 S6 之后**弹层里就该是 SPA 页面**；
  *  ④ **接线 canary**：`/app` 前缀不得在"没有 SPA 路由接管"的情况下被加进 dev 代理
  *     （半接线 = 今天还能用的后端菜单页被吞掉）。
  */
@@ -144,20 +145,41 @@ describe('resolveAppUrl · 分支矩阵', () => {
     })
   })
 
-  it('⑤ 2 段及以上 ⇒ backend（表单页/动作参数）', () => {
+  it('⑤ 2 段 + form 动作（add/update/detail）⇒ form-page（r295 S6 接管），并带出 objectCode', () => {
     expect(resolveAppUrl('/app/add/eova_object_code')).toEqual({
-      kind: 'backend',
+      kind: 'form-page',
       action: 'add',
-      reason: 'backend-sub-path'
+      objectCode: 'eova_object_code',
+      reason: 'form-page'
     })
     expect(resolveAppUrl('/app/update/eova_menu_code?id=1')).toEqual({
-      kind: 'backend',
+      kind: 'form-page',
       action: 'update',
-      reason: 'backend-sub-path'
+      objectCode: 'eova_menu_code',
+      reason: 'form-page'
     })
+    expect(resolveAppUrl('/app/detail/eova_object_code?id=1&biz=x#a')).toEqual({
+      kind: 'form-page',
+      action: 'detail',
+      objectCode: 'eova_object_code',
+      reason: 'form-page'
+    })
+    // ★ 反向：这三个 URL 现在必须被 SPA 认领（否则 dev 代理会把它们送回后端 HTML —
+    //   "构建绿、单测绿、打开页面却是后端响应"那一类静默漂移）
+    for (const u of ['/app/add/x', '/app/update/x', '/app/detail/x']) {
+      expect(isSpaOwnedAppPage(u), u).toBe(true)
+    }
+  })
+
+  it('⑤ 其余 2 段 ⇒ backend（errors / diy / 未知动作）—— {不得整段让给 SPA}', () => {
     expect(resolveAppUrl('/app/errors/404')).toEqual({
       kind: 'backend',
       action: 'errors',
+      reason: 'backend-sub-path'
+    })
+    expect(resolveAppUrl('/app/diy/xxx')).toEqual({
+      kind: 'backend',
+      action: 'diy',
       reason: 'backend-sub-path'
     })
     // 首段不是已知动作也仍是后端（旧栈 404，不是 SPA 页）
@@ -166,11 +188,35 @@ describe('resolveAppUrl · 分支矩阵', () => {
       action: undefined,
       reason: 'backend-sub-path'
     })
+    for (const u of ['/app/errors/404', '/app/diy/xxx', '/app/whatever/x']) {
+      expect(isSpaOwnedAppPage(u), u).toBe(false)
+    }
+  })
+
+  it('⑤ form 动作的 1 段与 3 段形态仍归 backend（S6 只接管"恰好 2 段"）', () => {
+    // 1 段：旧栈该动作读 `get(0)`，没有第 0 段 ⇒ 旧栈就是 404，不变成 SPA 页
+    expect(resolveAppUrl('/app/add')).toEqual({
+      kind: 'backend',
+      action: 'add',
+      reason: 'backend-action'
+    })
+    // 3 段：旧栈把 `a/b` 整段塞进 urlPara，`get(0)` 仍取 `a` ⇒ 保留后端处理，不替旧栈裁掉
+    expect(resolveAppUrl('/app/add/a/b')).toEqual({
+      kind: 'backend',
+      action: 'add',
+      reason: 'backend-sub-path'
+    })
   })
 })
 
 describe('冻结脚本 eova.template.js 里的 /app 字面量', () => {
-  it('★ 每一个 /app/** 字面量都必须判成 backend（否则弹层会弹成 SPA 外壳）', () => {
+  /**
+   * r295（S6）：这条判据原先断言"**每个** `/app/**` 字面量都判成 backend"，
+   * 理由是"冻结资产不可改，弹层里会变成 SPA 外壳"。口径② 落地后，表单三页**就该**是 SPA 页
+   * ⇒ 断言改成**分区**（form 动作 ⇒ `form-page`；其余 ⇒ `backend`），并**逐条点名**期望值——
+   * 不能退化成"两边都接受"（那样"把整个 /app/** 交给 SPA"或"全判回后端"都会照样绿）。
+   */
+  it('★ 冻结脚本里的 /app 字面量按 r295 口径分区：form 动作 ⇒ form-page，其余 ⇒ backend', () => {
     const src = readFileSync(FROZEN_TEMPLATE_JS, 'utf-8')
     const found = src.match(/\/app\/[^\s'"+`]*/g) ?? []
     // 反空判据：抽取规则失效时本判据不能"因为找不到而通过"
@@ -178,9 +224,37 @@ describe('冻结脚本 eova.template.js 里的 /app 字面量', () => {
       '/app/update/eova_object_code?id='
     )
     expect(found.length).toBeGreaterThanOrEqual(2)
+
+    /** 期望归属：`/app/{add,update,detail}/<x>` ⇒ form-page；其余一律 backend */
+    const expected = (url: string): 'form-page' | 'backend' => {
+      const p = url.split('?')[0].split('#')[0]
+      const segs = p.split('/').filter((s) => s !== '')
+      if (segs.length === 3 && ['add', 'update', 'detail'].includes(segs[1])) {
+        return 'form-page'
+      }
+      return 'backend'
+    }
+
+    const seen: string[] = []
     for (const url of found) {
+      const want = expected(url)
       const r = resolveAppUrl(url)
-      expect(r.kind, `${url} 被判成 ${r.kind}（应为 backend）`).toBe('backend')
+      seen.push(`${url} => ${want}`)
+      expect(r.kind, `${url} 被判成 ${r.kind}（应为 ${want}）`).toBe(want)
+    }
+    // 反空：抽取必须真的命中 form 一侧（本文件里的字面量**恰好都是** update 动作）。
+    expect(
+      seen.some((s) => s.endsWith('=> form-page')),
+      `未覆盖 form-page 一侧：${seen.join(' | ')}`
+    ).toBe(true)
+    // ★ backend 一侧本文件**不可得**（冻结脚本里只有 update 动作那两条字面量，无 `errors`/`diy`）
+    //   ⇒ 不作"两侧都要有"的断言（那会要求往判据里塞假数据）；该侧由
+    //   `⑤ 其余 2 段 ⇒ backend` 与 `⑤ form 动作的 1 段与 3 段形态仍归 backend` 两条用例覆盖。
+    //   这里改为钉住"本文件字面量集合"这一外部事实，避免抽取规则悄悄多抓/少抓：
+    expect(seen.length, `冻结脚本里的 /app 字面量条数变了：${seen.join(' | ')}`).toBe(2)
+    // ★ 冻结脚本里实际出现的两条 form 字面量必须各自被判成 form-page（逐条点名，不靠抽样）
+    for (const u of ['/app/update/eova_object_code?id=', '/app/update/eova_menu_code?id=']) {
+      expect(resolveAppUrl(u), u).toMatchObject({ kind: 'form-page', action: 'update' })
     }
   })
 })

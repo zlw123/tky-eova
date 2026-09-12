@@ -191,9 +191,14 @@ describe('dev 代理覆盖', () => {
     expect(proxy['/user'].bypass!({ url: '/user/doLogin' })).toBeUndefined()
     // `/api/**` 下没有 SPA 拥有的路径 ⇒ 一律代理
     expect(proxy['/api'].bypass!({ url: '/api/home/menu' })).toBeUndefined()
-    // `/app` 的两类路径（r117/r118 口径）在新表里仍然成立
+    // `/app` 的两类路径（r117/r118 口径 + r295 的 S6 变更）在新表里仍然成立
     expect(proxy['/app'].bypass!({ url: '/app/meta_menu' })).toBe('/app/meta_menu')
-    expect(proxy['/app'].bypass!({ url: '/app/add/eova_menu_code' })).toBeUndefined()
+    // ★ r295（S6）：表单三页已由 SPA 接管（用户口径②）⇒ 放行给 SPA
+    expect(proxy['/app'].bypass!({ url: '/app/add/eova_menu_code' })).toBe(
+      '/app/add/eova_menu_code'
+    )
+    // 其余 2 段形态（`errors`/`diy`）仍归后端 ⇒ 必须继续代理
+    expect(proxy['/app'].bypass!({ url: '/app/errors/404' })).toBeUndefined()
   })
 
   it('★ 引导端点（`BOOTSTRAP_ENDPOINT`）落在被代理的前缀下，且**不**归 SPA', () => {

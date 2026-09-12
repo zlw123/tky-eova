@@ -9,14 +9,23 @@
  * | URL | 旧栈由谁处理 | 前后分离后应由谁处理 |
  * |---|---|---|
  * | `/app/<menu.code>` | `AppController#index()`（`Menu.getUrl()` 对 `template` 非空的菜单返回它） | **SPA 路由页** |
- * | `/app/add\|update\|detail/<object_code>` | `AppController#add()/update()/detail()` 渲染 `_view/template/form/{add,update,detail}/index.html` | **仍由后端渲染**（`me.layer.open` 以 iframe 弹层打开） |
+ * | `/app/add\|update\|detail/<object_code>` | `AppController#add()/update()/detail()` 渲染 `_view/template/form/{add,update,detail}/index.html` | **SPA 路由页**（S6 已接管，见下） |
  * | `/app/errors/<status>`、`/app/diy/<cmd>` | 后端动作（读 `get(0)`） | 后端 |
  * | `/app/live`、`/app/status` | 后端动作（运维心跳/实例状态） | 后端 |
  *
+ * ★ **第 295 轮（S6）：表单三页从"后端渲染"改为"SPA 路由页"** —— 用户口径②（§15.1）已裁定
+ *   `template/form/{add,update,detail}` 由**前端 Vue 组件接管**。旧栈这三个 URL 是**动作路由**
+ *   （第 286 轮实测：`eova_menu.config.template` 全为 NULL，故它们**不在** `menu.template` 分派表里），
+ *   由冻结脚本与各列表模版页以 `me.layer.open(...)` **iframe 弹层**打开。
+ *   ⇒ 判定表把这三个动作的 **2 段形态**标成 `form-page`；`oneSegment` **不变**（`/app/add`
+ *   这种 1 段形态在旧栈是 404 —— 那个动作读 `get(0)`，没有第 0 段就没有对象编码），
+ *   也**不变**成 SPA 路由；`/app/add/<a>/<b>`（3 段）同样维持 `backend`（无调用方产生该形态）。
+ *   过渡期后端 `renderEnjoy` **不删**（DES-005 §16.4）：回退 = 去掉路由 + 本表改回 `backend`。
+ *
  * ★ 两侧**前缀逐字相同**，只靠"段数 + 动作名"区分。这条规则不写下来就会静默出错：
- *   - 把 `/app/update/eova_menu_code` 判成 SPA 页 ⇒ 冻结脚本 `eova.template.js:50` 的
- *     `me.layer.open('菜单配置', '/app/update/eova_menu_code?id=' + …)` 会弹出一个 SPA 外壳，
- *     而不是后端渲染的元数据表单页（**构建、单测、页面加载全都不报错**）；
+ *   - 把 `/app/update/eova_menu_code` 判错一侧 ⇒ 冻结脚本 `eova.template.js:50` 的
+ *     `me.layer.open('菜单配置', '/app/update/eova_menu_code?id=' + …)` 会弹出**另一侧**的页面
+ *     （**构建、单测、页面加载全都不报错**）；
  *   - 把 `/app/<menu.code>` 判成后端 ⇒ 菜单页在开发环境被代理回后端 HTML（同上，静默）。
  *   两个方向都不会让任何"编译/构建"判据变红 ⇒ 必须有**独立判据**钉住它。
  *
@@ -62,6 +71,14 @@
 /** 1 段路径（`/app/<seg>`）的归属 */
 export type OneSegmentOwner = 'backend' | 'spa' | 'ambiguous'
 
+/**
+ * 2 段路径（`/app/<动作>/<参数>`）的归属
+ *
+ * · `backend`：旧栈由后端动作处理（`errors`/`diy` 等）；
+ * · `form-page`：**S6 已接管**——SPA 路由页（`/app/{add,update,detail}/:objectCode`）。
+ */
+export type TwoSegmentOwner = 'backend' | 'form-page'
+
 /** `/app` 控制器上的一个动作 */
 export interface AppAction {
   /** 动作名（JFinal actionKey 的最后一段） */
@@ -70,6 +87,8 @@ export interface AppAction {
   url: string
   /** ★ 动作名与 `/app/<菜单code>` 在 1 段路径上是否冲突（`index` 是未取证的那一个） */
   oneSegment: OneSegmentOwner
+  /** ★ 2 段形态（`/app/<动作>/<参数>`）归谁（`form-page` = SPA 已接管） */
+  twoSegment: TwoSegmentOwner
   /** 溯源：旧源码 `文件:行` */
   source: string
 }
@@ -86,75 +105,87 @@ export const APP_ACTIONS: readonly AppAction[] = [
     name: 'index',
     url: '/app/<menu.code>',
     oneSegment: 'ambiguous',
+    twoSegment: 'backend',
     source: 'core/src/main/java/cn/eova/core/AppController.java:70（+ IndexController.java:21 被覆盖；URL 形态见 model/Menu.java:91）'
   },
   {
     name: 'code',
     url: '/app/code',
     oneSegment: 'backend',
+    twoSegment: 'backend',
     source: 'core/src/main/java/cn/eova/core/IndexController.java:44'
   },
   {
     name: 'diy',
     url: '/app/diy/<cmd>',
     oneSegment: 'backend',
+    twoSegment: 'backend',
     source: 'core/src/main/java/cn/eova/core/IndexController.java:61（读 get(0)）'
   },
   {
     name: 'live',
     url: '/app/live',
     oneSegment: 'backend',
+    twoSegment: 'backend',
     source: 'core/src/main/java/cn/eova/core/AppController.java:32'
   },
   {
     name: 'status',
     url: '/app/status',
     oneSegment: 'backend',
+    twoSegment: 'backend',
     source: 'core/src/main/java/cn/eova/core/AppController.java:38'
   },
   {
     name: 'errors',
     url: '/app/errors/<status>',
     oneSegment: 'backend',
+    twoSegment: 'backend',
     source: 'core/src/main/java/cn/eova/core/AppController.java:98（读 getInt(0)）'
   },
   {
     name: 'add',
     url: '/app/add/<object_code>',
     oneSegment: 'backend',
+    twoSegment: 'form-page',
     source: 'core/src/main/java/cn/eova/core/AppController.java:109（读 get(0)）'
   },
   {
     name: 'update',
     url: '/app/update/<object_code>',
     oneSegment: 'backend',
+    twoSegment: 'form-page',
     source: 'core/src/main/java/cn/eova/core/AppController.java:135（读 get(0)）'
   },
   {
     name: 'detail',
     url: '/app/detail/<object_code>',
     oneSegment: 'backend',
+    twoSegment: 'form-page',
     source: 'core/src/main/java/cn/eova/core/AppController.java:164（读 get(0)）'
   }
 ]
 
 /** `/app` 之下的路径归属 */
-export type AppUrlKind = 'menu-page' | 'backend' | 'foreign'
+export type AppUrlKind = 'menu-page' | 'form-page' | 'backend' | 'foreign'
 
 /** 归属判定的结果（带 `reason`：分支必须可观测，否则判据只能测到"结果"测不到"走哪条路"） */
 export interface ResolvedAppUrl {
   /** 归属 */
   kind: AppUrlKind
-  /** 命中的动作名（`backend` 且首段是已知动作时） */
+  /** 命中的动作名（`backend`/`form-page` 且首段是已知动作时） */
   action?: string
   /** 菜单编码（`menu-page` 时） */
   menuCode?: string
+  /** 元对象编码（`form-page` 时；= 旧 `AppController#add()/update()/detail()` 的 `get(0)`） */
+  objectCode?: string
   /** 判定分支（判据断言它） */
   reason:
     | 'not-app'
     | 'app-root'
     | 'empty-segment'
     | 'menu-page'
+    | 'form-page'
     | 'backend-action'
     | 'ambiguous-action-name'
     | 'backend-sub-path'
@@ -179,7 +210,9 @@ function findAction(name: string): AppAction | undefined {
  * ③ `/app/` 或出现空段（`//`）⇒ `backend`（`empty-segment`；菜单 code 是 `\w{3,50}`，不含 `/`）；
  * ④ 只有 1 段 ⇒ 段名是已知动作且该动作**独占** 1 段 ⇒ `backend`；`ambiguous` ⇒ `backend`（见文件头）；
  *    否则 ⇒ `menu-page`（`menuCode` = 该段）；
- * ⑤ 2 段及以上 ⇒ `backend`（`/app/add/<object_code>`、`/app/diy/<cmd>` …）。
+ * ⑤ **恰好 2 段**且首段是 `twoSegment === 'form-page'` 的动作 ⇒ `form-page`
+ *    （`objectCode` = 第 2 段；S6 的三个表单页）；
+ * ⑥ 其余 2 段及以上 ⇒ `backend`（`/app/errors/<status>`、`/app/diy/<cmd>`、`/app/add/<a>/<b>` …）。
  *
  * @param url 请求 URL（可带查询串/hash）
  * @returns 归属 + 分支原因
@@ -206,15 +239,25 @@ export function resolveAppUrl(url: string): ResolvedAppUrl {
     }
     return { kind: 'menu-page', menuCode: segs[0], reason: 'menu-page' }
   }
+  // ★ ⑤ S6：`/app/{add,update,detail}/<object_code>` ⇒ SPA 表单路由页
+  //   条件写成"恰好 2 段"是有意的：3 段形态（旧栈会把 `a/b` 整段塞进 urlPara、`get(0)` 仍取 `a`）
+  //   没有任何调用方产生，维持 `backend` —— 不替旧栈裁掉一个它其实能处理的形态。
+  if (segs.length === 2) {
+    const action = findAction(segs[0])
+    if (action && action.twoSegment === 'form-page') {
+      return { kind: 'form-page', action: action.name, objectCode: segs[1], reason: 'form-page' }
+    }
+  }
   return { kind: 'backend', action: findAction(segs[0])?.name, reason: 'backend-sub-path' }
 }
 
 /**
- * 判断某路径是否应由 SPA 渲染（即"菜单模版页"）。
+ * 判断某路径是否应由 SPA 渲染（菜单模版页 **或** S6 的表单动作页）。
  *
  * @param url 请求 URL（可带查询串/hash）
  * @returns 是否由 SPA 渲染
  */
 export function isSpaOwnedAppPage(url: string): boolean {
-  return resolveAppUrl(url).kind === 'menu-page'
+  const kind = resolveAppUrl(url).kind
+  return kind === 'menu-page' || kind === 'form-page'
 }

@@ -110,20 +110,32 @@ describe('vite dev 代理 · bypass 覆盖', () => {
     }
   })
 
-  it('★ /app：菜单模版页放行给 SPA，后端渲染页（2 段 / 动作名）继续代理', () => {
+  it('★ /app：菜单模版页与表单动作页放行给 SPA，其余后端路径继续代理', () => {
     const bypass = proxyTable()['/app'].bypass!
     expect(typeof bypass).toBe('function')
     // 菜单模版页（1 段、非动作名）⇒ 放行
     expect(bypass({ url: '/app/meta_goods_style' })).toBe('/app/meta_goods_style')
     expect(bypass({ url: '/app/meta_goods_style?page=2' })).toBe('/app/meta_goods_style?page=2')
-    // 后端渲染的表单页（冻结脚本用它们开 iframe 弹层）⇒ 必须继续代理
-    expect(bypass({ url: '/app/add/eova_object_code?biz=meta_goods_style' })).toBeUndefined()
-    expect(bypass({ url: '/app/update/eova_menu_code?id=1' })).toBeUndefined()
-    expect(bypass({ url: '/app/detail/eova_object_code?id=1' })).toBeUndefined()
-    // 后端动作（1 段但动作名独占）⇒ 必须继续代理
+    // ★ r295（S6）：表单三页（2 段、form 动作）已由 SPA 接管（用户口径②）⇒ 放行
+    //   （冻结脚本仍用它们开 iframe 弹层，但弹层里现在渲染的是 SPA 路由页）
+    expect(bypass({ url: '/app/add/eova_object_code?biz=meta_goods_style' })).toBe(
+      '/app/add/eova_object_code?biz=meta_goods_style'
+    )
+    expect(bypass({ url: '/app/update/eova_menu_code?id=1' })).toBe(
+      '/app/update/eova_menu_code?id=1'
+    )
+    expect(bypass({ url: '/app/detail/eova_object_code?id=1' })).toBe(
+      '/app/detail/eova_object_code?id=1'
+    )
+    // ★ 反向：其余 2 段（`errors`/`diy`）与 1 段动作仍归后端 ⇒ 必须继续代理
+    //   （只测"放行"会让"把整个 /app/** 都交给 SPA"这种回归通过）
+    expect(bypass({ url: '/app/errors/404' })).toBeUndefined()
+    expect(bypass({ url: '/app/diy/xxx' })).toBeUndefined()
     expect(bypass({ url: '/app/live' })).toBeUndefined()
     expect(isSpaOwnedPath('/app/live')).toBe(false)
+    expect(isSpaOwnedPath('/app/errors/404')).toBe(false)
     expect(isSpaOwnedPath('/app/meta_goods_style')).toBe(true)
+    expect(isSpaOwnedPath('/app/add/eova_object_code')).toBe(true)
   })
 
   it('bypass 与 isSpaOwnedPath 判定一致（同一套口径，不是两套）', () => {

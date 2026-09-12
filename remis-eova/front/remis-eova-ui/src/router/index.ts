@@ -13,6 +13,9 @@ import MetaEdit from '@/views/meta/MetaEdit.vue'
 import MetaImport from '@/views/meta/MetaImport.vue'
 import RoleAuth from '@/views/role/RoleAuth.vue'
 import AppTemplateHost from '@/views/template/AppTemplateHost.vue'
+import FormAdd from '@/views/template/form/FormAdd.vue'
+import FormUpdate from '@/views/template/form/FormUpdate.vue'
+import FormDetail from '@/views/template/form/FormDetail.vue'
 import Sse from '@/views/test/Sse.vue'
 import Widget from '@/views/widget/Widget.vue'
 
@@ -128,6 +131,29 @@ export const routes: RouteRecordRaw[] = [
     path: '/app/:menuCode',
     name: 'app-template',
     component: AppTemplateHost
+  },
+  // ★ S6（第 295 轮）：表单三页从"后端渲染"改为"SPA 路由页"（用户口径②，DES-005 §15.1/§16.7）
+  //   旧栈它们是**动作路由**（不是 menu.template 模版页）：`AppController#add()/update()/detail()`
+  //   渲染 `_view/template/form/{add,update,detail}/index.html`，由冻结脚本与列表模版页以 iframe 弹层打开。
+  //   ⇒ 路径**不加前缀**（逐字为 `/app/<动作>/<object_code>`），归属由 `compat/app-routes.ts`
+  //     的 `twoSegment='form-page'` 判定（同一份动作表，单一事实来源）。
+  //   ⚠️ 与 `/app/:menuCode` 同前缀 ⇒ 两者靠**段数**区分：本页是 2 段、菜单模版页是 1 段；
+  //     3 段仍归后端（见 `resolveAppUrl` 规则⑥）。
+  //   过渡期后端 `renderEnjoy` 不删（DES-005 §16.4）：回退 = 去掉这三条路由 + 把动作表改回 `backend`。
+  {
+    path: '/app/add/:objectCode',
+    name: 'form-add',
+    component: FormAdd
+  },
+  {
+    path: '/app/update/:objectCode',
+    name: 'form-update',
+    component: FormUpdate
+  },
+  {
+    path: '/app/detail/:objectCode',
+    name: 'form-detail',
+    component: FormDetail
   }
 ,
   // ★ r274 口径④：demo 工程 URL 归 SPA（后端不迁移 demo 应用）⇒ 先落可声明占位（不是静默 404）
