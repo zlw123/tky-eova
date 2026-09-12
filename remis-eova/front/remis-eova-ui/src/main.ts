@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { loadLegacyRuntime } from './compat/legacy-runtime'
+import { installAuthGuard } from './router/auth-guard'
 import { getEovaUI } from './compat/eova-runtime'
 import { installWindowUrls } from './compat/ui-urls'
 import { loadUiConf } from './compat/ui-conf'
@@ -35,6 +36,9 @@ async function bootstrap(): Promise<void> {
   app.use(getEovaUI() as Parameters<typeof app.use>[0])
   app.use(createPinia())
   app.use(router)
+  // 未登录 ⇒ 去登录页（旧栈由服务端 LoginInterceptor 302；SPA 必须自己判）。
+  // 判定用【探针端点】而不是读 Cookie —— 该 Cookie 是 HttpOnly（r268 实测），JS 读不到。
+  installAuthGuard(router)
   // ★ 未登录守卫【暂不装配】（r268 实测撤回）：
   //   `auth-guard.ts` 原按"读 Cookie `eovasid`"判定，但**实测证伪** —— 新旧栈该 Cookie 都是
   //   `Path=/; HttpOnly`（`curl -i` 对 9091/8080/9090 三个入口都验过），`document.cookie` 永远读不到
