@@ -14,13 +14,16 @@ import java.sql.SQLFeatureNotSupportedException;
 import javax.sql.DataSource;
 
 import cn.eova.common.Ds;
+import cn.eova.compat.jfinal.config.LegacyEngine;
 import cn.eova.compat.jfinal.config.LegacyJFinalBoot;
+import com.jfinal.template.Engine;
 import cn.eova.compat.jfinal.config.LegacyRoutes;
 import cn.eova.compat.table.EovaTableMapping;
 import cn.eova.config.EovaConfig;
 import cn.eova.db.EovaGateways;
 import cn.eova.db.JdbcEovaDbGateway;
 import cn.eova.compat.render.DefaultLegacyRenderFactory;
+import cn.eova.compat.render.LegacyTemplateRender;
 import cn.eova.compat.render.LegacyRenderManager;
 import cn.eova.db.JdbcTableMetadataSource;
 import cn.eova.tools.x;
@@ -121,6 +124,34 @@ public class LegacyWebBootstrap {
         // ★ 渲染工厂：`LegacyRenderManager` 明确要求"由宿主在启动时注入"（其报错文案即
         //   "未装配渲染工厂…请由宿主在启动时注入"），而主代码里没有任何地方调用它 ——
         //   这就是 HTTP 容器层留给宿主的最后一块。实测：不装配时所有 render 路径 500。
+        // ★ 模板引擎也必须由宿主构造（结构性事实，第 250 轮查明）：
+        //   LegacyEngine 只是**配置收集器**（addSharedMethod/addDirective/addSourceFactory…），
+        //   它**不持有**原始 com.jfinal.template.Engine；而 LegacyTemplateRender.init(Engine)
+        //   在**全仓主代码里没有任何调用点** ⇒ 宿主需按收集到的设置自建 enjoy Engine 再注入。
+        Engine engine = Engine.create("eova-web");
+        LegacyEngine collected = this.boot.getEngine();
+        if (collected.getSourceFactory() != null) {
+            engine.setSourceFactory(collected.getSourceFactory());
+        }
+        for (Object m : collected.getSharedMethods()) {
+            engine.addSharedMethod(m);
+        }
+        for (java.util.Map.Entry<String, Class<? extends com.jfinal.template.Directive>> e
+                : collected.getDirectives().entrySet()) {
+            engine.addDirective(e.getKey(), e.getValue());
+        }
+        for (String f : collected.getSharedFunctions()) {
+            engine.addSharedFunction(f);
+        }
+        for (java.util.Map.Entry<String, Object> e : collected.getSharedObjects().entrySet()) {
+            engine.addSharedObject(e.getKey(), e.getValue());
+        }
+        LegacyTemplateRender.init(engine);
+        log.info("Eova Web 层：模板引擎已构造并注入（源工厂={}，共享方法 {}，指令 {}，共享函数 {}，共享对象 {}）",
+                collected.getSourceFactory(), collected.getSharedMethods().size(),
+                collected.getDirectives().size(), collected.getSharedFunctions().size(),
+                collected.getSharedObjects().size());
+
         LegacyRenderManager.setRenderFactory(new DefaultLegacyRenderFactory());
         log.info("Eova Web 层：渲染工厂已装配（宿主职责）");
 
