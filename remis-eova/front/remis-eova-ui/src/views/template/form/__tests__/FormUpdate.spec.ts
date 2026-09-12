@@ -31,6 +31,15 @@ vi.mock('vue-router', () => ({
 
 const post = axios.post as unknown as ReturnType<typeof vi.fn>
 
+/**
+ * 只看**表单提交**的请求（第 299 轮起本页还会打引导端点 `/api/page/bootstrap`）
+ *
+ * @returns 表单提交的 `post` 调用
+ */
+function formPosts(): unknown[][] {
+  return post.mock.calls.filter((c) => !String(c[0]).includes('/api/page/bootstrap'))
+}
+
 /** 造 `me` 替身（`urls.url` 按制品的键回话） */
 function makeMe(): EovaMe {
   return {
@@ -157,7 +166,8 @@ describe('FormUpdate.vue（旧 _view/template/form/update 的行为等价）', (
     const urls = (me.urls.url as unknown as { mock: { calls: unknown[][] } }).mock
     expect(urls.calls[0][0]).toBe('form_update')
     expect(urls.calls[0][1]).toMatchObject({ object_code: 'eova_object_code' })
-    expect(post).toHaveBeenCalledWith('/api/form/update/eova_object_code', { id: 1, name: '改后' })
+    expect(formPosts()[0][0]).toBe('/api/form/update/eova_object_code')
+    expect(formPosts()[0][1]).toEqual({ id: 1, name: '改后' })
     expect((me.cross.emit as unknown as { mock: { calls: unknown[][] } }).mock.calls).toEqual([
       ['eova-layer-ok_done', 5]
     ])
@@ -179,7 +189,7 @@ describe('FormUpdate.vue（旧 _view/template/form/update 的行为等价）', (
     validateMock.mockReturnValue(false)
     const w3 = mount(FormUpdate, mountOpts)
     await (w3.vm as never as { onSubmit: (id?: unknown) => Promise<void> }).onSubmit(1)
-    expect(post).not.toHaveBeenCalled()
+    expect(formPosts(), '校验不过不得发**表单**请求').toHaveLength(0)
     expect(me.cross.emit).not.toHaveBeenCalled()
   })
 

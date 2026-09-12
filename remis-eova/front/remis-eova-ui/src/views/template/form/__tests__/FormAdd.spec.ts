@@ -22,7 +22,7 @@
  *  ⑨ 运行时未装配（`me` 缺失）⇒ **响亮失败**，不得静默降级。
  */
 import { defineComponent, h, nextTick } from 'vue'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import axios from 'axios'
 import FormAdd from '../FormAdd.vue'
@@ -44,6 +44,21 @@ vi.mock('vue-router', () => ({
 }))
 
 const post = axios.post as unknown as ReturnType<typeof vi.fn>
+
+/**
+ * 只看**表单提交**的请求（第 299 轮起本页还会打引导端点 `/api/page/bootstrap`）
+ *
+ * @returns 表单提交的 `post` 调用
+ */
+function formPosts(): unknown[][] {
+  return post.mock.calls.filter((c) => !String(c[0]).includes('/api/page/bootstrap'))
+}
+
+/** 等引导数据那一段异步落定（`void loadBootstrap()`） */
+async function settle(): Promise<void> {
+  await flushPromises()
+  await flushPromises()
+}
 
 /** 造 `me` 替身（`urls.url` 按制品的 3 个键回话，便于断言"传进去的参数里有没有 object_code"） */
 function makeMe(): EovaMe {
@@ -188,12 +203,15 @@ describe('FormAdd.vue（旧 _view/template/form/add 的行为等价）', () => {
     expect(console.warn).toBeDefined()
   })
 
-  it('③ 缺缺口告警：挂在 onMounted 上且点名了具体键（用 spy 钉住文案内容）', () => {
+  it('③ 缺缺口告警：引导数据未就绪时点名键与 fromServer（用 spy 钉住文案内容）', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     try {
       mount(FormAdd, mountOpts)
+      await settle()
       const texts = warn.mock.calls.map((c) => String(c[0]))
       expect(texts.some((t) => t.includes('object_id/object_name/object_pk'))).toBe(true)
+      // ★ 必须能分辨"端点没通"与"载荷缺字段" —— 只报缺键会让人以为是后端丢字段
+      expect(texts.some((t) => t.includes('fromServer='))).toBe(true)
     } finally {
       warn.mockRestore()
     }
@@ -210,7 +228,8 @@ describe('FormAdd.vue（旧 _view/template/form/add 的行为等价）', () => {
     // ★ 传进去的必须是**同一个 uzoo.page 引用**（`{{object_code}}` 靠它替换）
     expect(urls.calls[0][1]).toBe(propsOf(w))
     expect(urls.calls[0][1]).toMatchObject({ object_code: 'eova_object_code' })
-    expect(post).toHaveBeenCalledWith('/api/form/add/eova_object_code', { name: '新品', price: 9 })
+    expect(formPosts()[0][0]).toBe('/api/form/add/eova_object_code')
+    expect(formPosts()[0][1]).toEqual({ name: '新品', price: 9 })
     // ★ 成功**只**回传 eova-layer-ok_done（不像 su 页还有 `_data` 那条）
     expect((me.cross.emit as unknown as { mock: { calls: unknown[][] } }).mock.calls).toEqual([
       ['eova-layer-ok_done', 42]
@@ -224,7 +243,7 @@ describe('FormAdd.vue（旧 _view/template/form/add 的行为等价）', () => {
     setSearch('')
     const w = mount(FormAdd, mountOpts)
     await (w.vm as never as { onSubmit: (id?: unknown) => Promise<void> }).onSubmit(1)
-    expect(post.mock.calls[0][0]).toBe('/api/form/add/meta_product')
+    expect(formPosts()[0][0]).toBe('/api/form/add/meta_product')
   })
 
   it('⑤ 失败态两向：state!=ok ⇒ layer.msg(ret.msg)；异常 ⇒ layer.msg(客户端请求异常: …)', async () => {
@@ -247,7 +266,7 @@ describe('FormAdd.vue（旧 _view/template/form/add 的行为等价）', () => {
     validateMock.mockReturnValue(false)
     const w = mount(FormAdd, mountOpts)
     await (w.vm as never as { onSubmit: (id?: unknown) => Promise<void> }).onSubmit(7)
-    expect(post).not.toHaveBeenCalled()
+    expect(formPosts(), '校验不过不得发**表单**请求').toHaveLength(0)
     expect(me.cross.emit).not.toHaveBeenCalled()
     expect(me.layer.msg).not.toHaveBeenCalled()
   })
@@ -320,7 +339,7 @@ describe('FormAdd.vue（旧 _view/template/form/add 的行为等价）', () => {
     ) => void
     handler(99)
     await nextTick()
-    expect(post).toHaveBeenCalledTimes(1)
+    expect(formPosts()).toHaveLength(1)
   })
 
   it('⑩ ★ 超管面板当前**必须不渲染**（动作页没有 isAdmin 来源 ⇒ 不得猜 true）', () => {

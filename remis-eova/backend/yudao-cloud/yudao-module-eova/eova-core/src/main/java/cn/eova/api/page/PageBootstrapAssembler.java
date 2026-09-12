@@ -96,6 +96,47 @@ public class PageBootstrapAssembler {
     }
 
     /**
+     * 装配**动作页**（`/app/{add,update,detail}/&lt;object_code&gt;`）的引导数据（第 299 轮，DES-004-R2）。
+     *
+     * <p>旧栈这三页由 {@code AppController#add()/update()/detail()} 渲染：它们
+     * {@code set("biz"/"object"/"pk"/"fixed")}，**没有** {@code menu}/{@code btnList}
+     * （动作页 URL 上根本没有菜单编码）；{@code loginUser} 则由 {@code LoginInterceptor:123}
+     * 每请求 {@code ctrl.set(LoginService.USER, user)} 提供。</p>
+     *
+     * <p><b>与 {@link #assemble} 的差别（不是同一条路的变体）</b>：入参是**元对象编码**而不是菜单编码，
+     * 故**不查菜单、不下发 {@code menu}/{@code menuCode}/{@code btnList}/{@code isQuery}**。</p>
+     *
+     * @param objectCode 元对象编码（旧栈是 URL 第 0 段）
+     * @param user       当前会话用户（为 null ⇒ 返回未登录）
+     * @return 载荷（`state`/`object`/`loginUser`）
+     */
+    public LegacyKv assembleByObject(String objectCode, User user) {
+        if (user == null) {
+            return fail(MSG_NOT_LOGIN);
+        }
+        MetaObject object = sm.meta.getMeta(objectCode);
+        if (object == null) {
+            return fail("元对象不存在: " + objectCode);
+        }
+        return ofObject(object, user);
+    }
+
+    /**
+     * 纯映射：动作页载荷（**不查库**，判据用它）。
+     *
+     * @param object 元对象
+     * @param user   当前用户
+     * @return 载荷（**只含** `state`/`object`/`loginUser`，见类注释 D3）
+     */
+    public static LegacyKv ofObject(MetaObject object, User user) {
+        LegacyKv kv = new LegacyKv();
+        kv.set("state", STATE_OK);
+        kv.set("object", objectKv(object));
+        kv.set("loginUser", loginUserKv(user));
+        return kv;
+    }
+
+    /**
      * 纯映射（**不查库**，判据用它；入参都是已取到的领域对象）。
      *
      * @param menu     菜单
@@ -126,6 +167,13 @@ public class PageBootstrapAssembler {
      */
     public static LegacyKv objectKv(MetaObject object) {
         LegacyKv kv = new LegacyKv();
+        // ★ `id`（第 299 轮补，DES-004-R2 §1.2）：旧栈模板 `_page/form.html` 写的是
+        //   `object_id: '#(object.id)'` ⇒ **旧载荷里本来就有它**；新栈前端三张模板页
+        //   （`TemplateTable.vue:510`/`TemplateTree.vue:423`/`TemplateTreeTable.vue:454`）
+        //   也在下发后读 `object['id']` 写 `uzoo.page.object_id`。缺它时该值恒为 undefined，
+        //   而冻结脚本 `eova.template.js:31` 会拼出 `/app/update/eova_object_code?id=undefined`
+        //   ⇒ 超管面板的"元对象编辑"入口一直是坏的。属 **port 缺口**，不是新需求。
+        kv.set("id", object.get("id"));
         kv.set("code", object.getCode());
         kv.set("name", object.getName());
         // pk_name ← getPk()（不是 getPkName）

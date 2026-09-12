@@ -89,8 +89,31 @@ public class PageBootstrapController {
             return;
         }
 
-        // ② 菜单编码（口径见类注释）
-        String menuCode = menuCode(body);
+        // ② 取数口径（★ 第 299 轮新增对象驱动分支，DES-004-R2）：
+        //    · `body.menu` 非空 ⇒ **菜单驱动**（既有优先序，一字不改）；
+        //    · 否则 `body.object` 非空 ⇒ **对象驱动**（动作页 `/app/{add,update,detail}/<object_code>`）；
+        //    · 都没有 ⇒ 回退 `body.path` 末段当菜单编码（既有口径，S4-5 判据依赖）。
+        //   ★ `path` 末段在动作页上是**元对象编码**（`/app/add/meta_product` 的末段），
+        //     拿它当菜单编码会**误解析**（实测：返回 `menu:{code:'meta_product',template:'table'}` + btnList）。
+        //     故前端必须显式带 `object`（D5：不在这里改 `path` 语义 —— URL 上二者不可判别，
+        //     且改它会与 S4-5 的既有口径冲突）。
+        String menuCode = str(body == null ? null : body.get("menu"));
+        String objectCode = menuCode == null && body != null ? str(body.get("object")) : null;
+
+        if (menuCode == null && objectCode != null) {
+            LegacyKv payload = assembler.assembleByObject(objectCode, user);
+            if (!PageBootstrapAssembler.STATE_OK.equals(payload.get("state"))) {
+                log.info("动作页引导失败：object={} user={} msg={}", objectCode, user.get("id"),
+                        payload.get("msg"));
+            }
+            writeJson(response, payload);
+            return;
+        }
+
+        // ②' 菜单编码：优先 body.menu；缺失时取 body.path 的末段（旧栈页面 URL /app/<menuCode>）
+        if (menuCode == null) {
+            menuCode = menuCode(body);
+        }
         if (menuCode == null) {
             writeJson(response, PageBootstrapAssembler.fail(MSG_NO_MENU_CODE));
             return;

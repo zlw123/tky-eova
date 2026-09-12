@@ -45,6 +45,9 @@ class PageBootstrapAssemblerGoldenTest {
     private static MetaObject metaObject() {
         MetaObject o = new MetaObject();
         Map<String, Object> attrs = new HashMap<>();
+        // ★ 第 299 轮补：`id` 是**旧载荷本来就有**的键（旧模板 `_page/form.html` 写的是
+        //   `object_id: '#(object.id)'`），ported 侧当初漏了 ⇒ 见 DES-004-R2 §1.2
+        attrs.put("id", 42);
         attrs.put("code", "meta_hotel");
         attrs.put("name", "酒店");
         attrs.put("pk_name", "hotel_id");
@@ -134,10 +137,19 @@ class PageBootstrapAssemblerGoldenTest {
         assertEquals("hotel_id", obj.get("pk_name"));
         assertEquals("meta_hotel", obj.get("table"));
         assertEquals("eova", obj.get("data_source"));
+        // ★ 第 299 轮（DES-004-R2 §1.2）：`id` 必须下发 —— 旧栈 `#(object.id)` 渲染期插值用它，
+        //   新栈前端三处（TemplateTable:510 / TemplateTree:423 / TemplateTreeTable:454）读
+        //   `object['id']` 写 `uzoo.page.object_id`；缺它时冻结脚本会拼出 `?id=undefined`。
+        assertEquals(42, obj.get("id"), "id 必须原样映射（object.get(\"id\")）");
         // 反面：不得出现驼峰笔误
         assertNull(obj.get("pkName"));
         assertFalse(obj.containsKey("table_name"), "载荷键应是 table（不是列名 table_name）");
-        assertEquals(5, obj.size(), "object 只含 §3.1 的 5 个键");
+        // 键集**精确**：§3.1 的 5 键 + 第 299 轮补的 id（多一个都不行 —— 反空断言之外的另一道闸）
+        assertEquals(6, obj.size(), "object = §3.1 的 5 键 + id（DES-004-R2 §1.2），不得夹带别的键");
+        assertEquals(
+                java.util.Set.of("id", "code", "name", "pk_name", "table", "data_source"),
+                new java.util.HashSet<>(obj.keySet()),
+                "object 的键集合必须精确");
     }
 
     @Test

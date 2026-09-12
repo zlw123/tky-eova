@@ -256,3 +256,37 @@ export function writeFormPageUzooPage(
 
   return missing
 }
+
+/**
+ * 引导数据到达后，补写 `_page/form.html` 的元对象键（第 299 轮，DES-004-R2）。
+ *
+ * 旧栈这些值是**渲染期插值**（同步可得）；分离后它们属页面引导数据（异步到达）
+ * ⇒ 只能在拿到之后补写。**只写有值的键**，缺的记为"缺口"返回给调用方告警。
+ *
+ * ★ 与 {@link writeFormPageUzooPage} 的分工：后者在 setup 期**整体替换** `uzoo.page`
+ * （清掉上一页残留），本函数只**补键**，绝不再整体替换（否则会把 URL 派生的键冲掉）。
+ *
+ * @param objectMeta 引导数据里的 `object`（未就绪传 null）
+ * @param target 目标全局对象
+ * @returns 仍未取到来源的键（空数组 = 没有缺口）
+ */
+export function writeFormPageObjectMeta(
+  objectMeta: { id?: unknown; name?: unknown; code?: unknown; pk_name?: unknown } | null | undefined,
+  target: Record<string, unknown> = globalThis as never
+): string[] {
+  const uzoo = getUzoo(target)
+  const missing: string[] = []
+  const put = (key: string, value: unknown): void => {
+    if (value == null || String(value).trim() === '') {
+      missing.push(key)
+      return
+    }
+    uzoo.page[key] = value
+  }
+  put('object_id', objectMeta?.id)
+  put('object_name', objectMeta?.name)
+  // `object_code` 在 setup 期已由 URL 写入；引导数据若也给了，以它为准（同源，值应一致）
+  put('object_code', objectMeta?.code ?? uzoo.page['object_code'])
+  put('object_pk', objectMeta?.pk_name)
+  return missing
+}

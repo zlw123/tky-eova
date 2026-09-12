@@ -31,6 +31,15 @@ vi.mock('vue-router', () => ({
 
 const post = axios.post as unknown as ReturnType<typeof vi.fn>
 
+/**
+ * 只看**表单提交**的请求（第 299 轮起本页还会打引导端点 `/api/page/bootstrap`）
+ *
+ * @returns 表单提交的 `post` 调用
+ */
+function formPosts(): unknown[][] {
+  return post.mock.calls.filter((c) => !String(c[0]).includes('/api/page/bootstrap'))
+}
+
 /** 造 `me` 替身（★ URL 表里**同时**有 `form_detail` 与 `form_update`，才能分辨用错了哪个） */
 function makeMe(): EovaMe {
   return {
@@ -144,7 +153,8 @@ describe('FormDetail.vue（旧 _view/template/form/detail 的行为等价）', (
     expect(urls.calls[0][0], '★ 旧实现用的是 form_update —— 改成 form_detail 就是偏离旧栈').toBe(
       'form_update'
     )
-    expect(post).toHaveBeenCalledWith('/api/form/update/eova_object_code', { id: 3, name: '只读' })
+    expect(formPosts()[0][0]).toBe('/api/form/update/eova_object_code')
+    expect(formPosts()[0][1]).toEqual({ id: 3, name: '只读' })
     expect((me.cross.emit as unknown as { mock: { calls: unknown[][] } }).mock.calls).toEqual([
       ['eova-layer-ok_done', 8]
     ])

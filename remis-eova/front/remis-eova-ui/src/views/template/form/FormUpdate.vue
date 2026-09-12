@@ -72,13 +72,15 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import EovaAdminForm from '@/components/EovaAdminForm.vue'
 import { getEovaMe } from '@/compat/eova-runtime'
 import { callUzooHook, getUzooPage, setUzooApp } from '@/compat/eova-ext'
-import { resolveFormPageParams, writeFormPageUzooPage } from '@/compat/form-page'
+import { resolveFormPageParams, writeFormPageObjectMeta, writeFormPageUzooPage } from '@/compat/form-page'
+import { loadPageBootstrap, type PageBootstrap } from '@/compat/page-bootstrap'
+import { createBootstrapFetcher } from '@/compat/page-bootstrap-fetcher'
 
 /** `ev-form` 暴露的实例方法（旧栈 `refForm.value.xxx()` 的等价；组件由冻结制品注册） */
 interface EvFormInstance {
@@ -108,12 +110,22 @@ const currentPath = ((): string => {
 })()
 
 /**
+ * 引导数据（第 299 轮，DES-004-R2）：动作页现在**有来源**了 —— 端点按 `object` 驱动装配
+ * （只下 `object`/`loginUser`，没有菜单面）。
+ *
+ * 未就绪时 `fromServer=false` ⇒ `isAdmin` 保持 `false` 并**响亮告警**（可声明降级，不猜 true）。
+ */
+const bootstrap = ref<PageBootstrap | null>(null)
+
+/**
  * 是否超管（旧 `#if(loginUser.isAdmin)`）
  *
- * ⚠️ **动作页当前无来源**（见 `FormAdd.vue` 文件头"已登记的缺口"）⇒ 恒为 `false`，
- * 由 `onMounted` 的告警点名。**不得**为了"让面板显示出来"而猜 true。
+ * ★ **必须同时满足** `fromServer === true` 且 `loginUser.isAdmin === true`：
+ * 只看后者的话，"端点未就绪 + 恰好有脏数据"也会把超管面板渲出来（假通过）。
  */
-const isAdmin = false
+const isAdmin = computed(
+  () => bootstrap.value?.fromServer === true && bootstrap.value.loginUser?.isAdmin === true
+)
 
 // ---- setup 期：写 `uzoo.page`（旧 `_page/form.html` + 页内脚本）----
 const missingPageKeys = writeFormPageUzooPage({
@@ -179,6 +191,28 @@ const hookData = ((): Record<string, unknown> => {
 // 旧实现：`return uzoo.app = {...data_, props, data, refForm, onReady, onSubmit}`
 setUzooApp({ ...hookData, props, data, refForm, onReady, onSubmit })
 
+/** 本页 tag（告警文案用；与旧页面路径同形） */
+async function loadBootstrap(): Promise<void> {
+  // ★ 引导数据（第 299 轮，DES-004-R2）：动作页的 URL 末段是**元对象编码**，而端点的 `path`
+  //   末段口径是**菜单编码** ⇒ 只带 `path` 会被误解析成菜单载荷（实测：返回 menu+btnList）
+  //   ⇒ **必须显式带 `object`**。
+  if (objectCode !== '') {
+    bootstrap.value = await loadPageBootstrap({
+      fetcher: createBootstrapFetcher({ extraBody: { object: objectCode } })
+    })
+  }
+
+  // 旧栈由渲染期插值给的 `object.*` 只能在此刻补写（分离后是异步到达）
+  const missingAfterBootstrap = writeFormPageObjectMeta(bootstrap.value?.object)
+  if (missingAfterBootstrap.length > 0) {
+    console.warn(
+      `[template/form/update] uzoo.page 缺以下服务端插值键：${missingAfterBootstrap.join('/')}。` +
+        `引导数据 fromServer=${String(bootstrap.value?.fromServer)}` +
+        '（端点未就绪或载荷缺字段）⇒ 超管面板不渲染，`onMetaObject()` 一类入口拿不到 id。'
+    )
+  }
+}
+
 onMounted(() => {
   console.log('form update init')
 
@@ -191,17 +225,11 @@ onMounted(() => {
         '⇒ 已停止渲染表单（可声明降级，不是静默白屏）。'
     )
   }
-  if (missingPageKeys.length > 0) {
-    console.warn(
-      `[template/form/update] uzoo.page 缺以下服务端插值键：${missingPageKeys.join('/')}。` +
-        '旧栈由渲染期插值提供（`loginUser` 来自 `LoginInterceptor:123`），' +
-        '动作页的引导数据来源尚未落地（DES-005 §16.1 非范围②）' +
-        '⇒ 超管面板不渲染，`onMetaObject()` 一类入口拿不到 id。'
-    )
-  }
+  void loadBootstrap()
 })
 
 defineExpose({
+  bootstrap,
   refForm,
   props,
   data,

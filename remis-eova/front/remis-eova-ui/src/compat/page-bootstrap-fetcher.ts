@@ -51,6 +51,15 @@ export interface BootstrapFetcherDeps {
   post?: (url: string, body: unknown) => Promise<{ status?: number; data: unknown }>
   /** 当前路径（默认 `window.location.pathname`） */
   path?: () => string
+  /**
+   * **额外并入请求体的字段**（在 URL 参数之后覆盖写入）。
+   *
+   * ★ 第 299 轮（DES-004-R2 D5）新增：动作页 `/app/{add,update,detail}/<object_code>` 的
+   * **URL 末段是元对象编码**，而端点的 `path` 末段口径是**菜单编码** ⇒ 只带 `path` 会
+   * **误解析成菜单载荷**（实测：返回 `menu:{code:'meta_product'}` + btnList）。
+   * 故动作页必须**显式带 `object`**，本条注入点就是为此。
+   */
+  extraBody?: Record<string, string>
 }
 
 /**
@@ -82,6 +91,8 @@ export function createBootstrapFetcher(deps: BootstrapFetcherDeps = {}): Bootstr
         body[k] = String(v)
       }
     }
+    // ★ 额外字段**在 URL 参数之后**写入（显式值优先于 URL 推断；见 `extraBody` 的说明）
+    Object.assign(body, deps.extraBody ?? {})
     const res = await post(BOOTSTRAP_ENDPOINT, body)
     const status = res.status ?? 200
     if (status >= 400) {
