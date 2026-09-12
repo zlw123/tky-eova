@@ -129,13 +129,6 @@ export const routes: RouteRecordRaw[] = [
     name: 'app-template',
     component: AppTemplateHost
   }
-  // ★ r273 口径④（用户裁定）：demo 工程的这 5 个旧 URL 归 SPA 所有（不迁移 demo 应用、后端不补动作）。
-  //   先落到 `Placeholder`（可声明占位，不是静默 404）；逐页实现时替换组件即可。
-  { path: '/main', name: 'demo-main', component: Placeholder },
-  { path: '/theme', name: 'demo-theme', component: Placeholder },
-  { path: '/test', name: 'demo-test', component: Placeholder },
-  { path: '/ip', name: 'demo-ip', component: Placeholder },
-  { path: '/sso', name: 'demo-sso', component: Placeholder }
 ]
 
 const router = createRouter({
