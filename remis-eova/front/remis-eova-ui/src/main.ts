@@ -3,7 +3,6 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { loadLegacyRuntime } from './compat/legacy-runtime'
-import { installAuthGuard } from './router/auth-guard'
 import { getEovaUI } from './compat/eova-runtime'
 import { installWindowUrls } from './compat/ui-urls'
 import { loadUiConf } from './compat/ui-conf'
@@ -36,8 +35,12 @@ async function bootstrap(): Promise<void> {
   app.use(getEovaUI() as Parameters<typeof app.use>[0])
   app.use(createPinia())
   app.use(router)
-  // 未登录 ⇒ 去登录页（旧栈由服务端 LoginInterceptor 302；SPA 必须自己判，见 router/auth-guard.ts）
-  installAuthGuard(router)
+  // ★ 未登录守卫【暂不装配】（r268 实测撤回）：
+  //   `auth-guard.ts` 原按"读 Cookie `eovasid`"判定，但**实测证伪** —— 新旧栈该 Cookie 都是
+  //   `Path=/; HttpOnly`（`curl -i` 对 9091/8080/9090 三个入口都验过），`document.cookie` 永远读不到
+  //   ⇒ 装配后会把**已登录用户**一路锁在 /user/login（真浏览器实测：登录 200 + {"state":"ok"} 后
+  //   重新导航 `/`，pathname 仍是 /user/login）。故撤回装配，改用**探针端点**（401 ⇒ 未登录）实现，
+  //   见 DES-005 §14.6；模块与判据保留（它们是探针版实现的基础）。
   app.mount('#app')
 }
 
