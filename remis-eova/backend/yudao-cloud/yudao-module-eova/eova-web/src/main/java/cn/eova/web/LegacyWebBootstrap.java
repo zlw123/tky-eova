@@ -103,6 +103,19 @@ public class LegacyWebBootstrap {
      * @param dataSourceProvider 容器里可能存在的 DataSource（用于真自省；缺则退化并声明）
      * @return 已初始化的 {@link LegacyJFinalBoot}
      */
+    /**
+     * 旧静态空间 {@code /eova/**} 的宿主供给组件（切片 S3）。
+     *
+     * <p>与模板源共用**同一个**已解析的 web 根（属性 {@code eova.webapp.root}），
+     * 避免"模板读一处、静态读另一处"的漂移。</p>
+     *
+     * @return 静态资源组件（根不可解析时其 serve 恒返回 false，并已告警）
+     */
+    @Bean
+    public LegacyStaticAssets legacyStaticAssets() {
+        return new LegacyStaticAssets(resolveViewRoot());
+    }
+
     @Bean
     public LegacyJFinalBoot legacyBoot(ObjectProvider<DataSource> dataSourceProvider) {
         // ① 旧实现的【必需配置】：file.dir.base 必须非空白

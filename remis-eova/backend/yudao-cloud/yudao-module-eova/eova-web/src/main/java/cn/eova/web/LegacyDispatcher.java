@@ -71,8 +71,12 @@ public class LegacyDispatcher {
     /** 已解析的 (controllerPath, Routes) 对照表，按路径长度降序（最长前缀优先） */
     private final List<Entry> entries = new ArrayList<>();
 
-    public LegacyDispatcher(LegacyJFinalBoot boot) {
+    /** 旧静态空间 {@code /eova/**} 的供给组件（切片 S3） */
+    private final LegacyStaticAssets staticAssets;
+
+    public LegacyDispatcher(LegacyJFinalBoot boot, LegacyStaticAssets staticAssets) {
         this.boot = boot;
+        this.staticAssets = staticAssets;
     }
 
     /** 一条路由所属的 Routes 对象（拦截器从它取） */
@@ -124,6 +128,15 @@ public class LegacyDispatcher {
         // 去掉尾部 "/"（根路径除外）
         while (path.length() > 1 && path.endsWith("/")) {
             path = path.substring(0, path.length() - 1);
+        }
+
+        // ★ 静态空间优先（切片 S3）—— 旧栈顺序是"资源处理器先于 jfinal 动作"：
+        //   ① 静态空间**只有** `/eova/**`（旧 demo 实测：`/eova/lib/**`、`/eova/ui/**` 200，
+        //      而 `/ui/**`、`/_eova/**` 404 ⇒ 来源是 classpath 的 `webapp/eova/**`）；
+        //   ② **文件真实存在**才直出，否则继续走动作路由（旧栈 resource handler miss 后交给动作层）
+        //      ⇒ 动作 URL（`/eova/admin` 等）不受影响。
+        if (staticAssets.serve(path, response)) {
+            return;
         }
 
         Entry hit = null;
