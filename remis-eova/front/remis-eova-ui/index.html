@@ -18,21 +18,18 @@
     <link rel="stylesheet" href="/eova/lib/eova/eovaui.css" />
     <link rel="stylesheet" href="/eova/ui/css/common.css?v=4.0" />
     <!--
-      `uzoo` 全局（"虫洞"：`{page:{}, vue:{}, app:{}}`）——旧栈由服务端 partial
-      `_block/meta.html:6` 加载该资产；分离后没有服务端 partial，故在入口显式装配。
-      URL 与旧栈逐字一致（含 `?v=1.2`）。见 src/compat/eova-ext.ts。
+      ★ r249（真浏览器实测）：`/eova/ui/meta/eova.meta.js`（提供 `uzoo` 全局）与
+      `/eova/_view/template/eova.template.js`（提供 `handlerButtonEvent`/`onMetaObject`… 全局）**不再**在这里
+      以静态 `<script>` 引入 —— 它们执行时要读 `EovaTools`/`EovaUI`（`eova.template.js:4/8` 就是
+      `const x = EovaTools.x` / `const me = EovaUI.me`），而那两个全局由 `src/compat/legacy-runtime.ts`
+      的装配器按序加载（`main.ts` 在 mount 之前 `await loadLegacyRuntime()`）。
+      静态引入会**抢先执行** ⇒ 实测 `ReferenceError: EovaTools is not defined`，症状是首页"请求异常"
+      而构建/单测/闸门全绿；随后装配器再加载同一文件还会 `SyntaxError: Identifier 'x' has already declared`。
+
+      两者仍在清单内（只是顺序改由装配器保证：vendor 三件 → 页面脚本两件），
+      其承担的全局能力（`uzoo`、`handlerButtonEvent`、`onMetaObject`/`onMetaField`/`onReorderForm`/
+      `onLayerSize`…）与旧栈一致，不得丢失；取证见 docs/.local/baseline/evidence/button-mechanism-contract.json。
     -->
-    <script type="text/javascript" src="/eova/ui/meta/eova.meta.js?v=1.2"></script>
-    <!--
-      `eova.template.js`（旧栈由 `_block/base.html:10` 加载，`?v=1.2.0` 逐字）—— 它提供两样**全局**能力：
-      · `handlerButtonEvent(event)`：**自定义按钮（is_base=0）的全局派发器**（检查 `window[event]` 是否为函数，
-        否则弹「function x() 无法调用…」；注释原文「如方法不存在会导致白屏」）
-      · `onMetaObject`/`onMetaField`/`onReorderForm`/`onLayerSize`…：`_block/admin.html`（超管设置菜单）
-        与 `_block/toolbar.html` 里 `onclick="onXxx()"` 依赖的全局函数
-      ⇒ 不装配它，**超管菜单的 onclick 与自定义按钮都会静默失效**（只弹提示或什么都不发生）。
-      取证：docs/.local/baseline/evidence/button-mechanism-contract.json
-    -->
-    <script type="text/javascript" src="/eova/_view/template/eova.template.js?v=1.2.0"></script>
   </head>
   <body>
     <div id="app"></div>

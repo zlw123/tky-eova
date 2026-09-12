@@ -39,7 +39,7 @@ function fakeLoader(target: Record<string, unknown>) {
 const HOST_GLOBALS = { Vue: { tag: 'app-vue' }, axios: { tag: 'app-axios' } }
 
 describe('legacy-runtime · 装配顺序', () => {
-  it('三个制品按 eova-tools → layui → eovaui 的顺序加载（清单本身即契约）', async () => {
+  it('按 eova-tools → layui → eovaui → 页面脚本 的顺序加载（清单本身即契约；r249 起含 2 个页面脚本）', async () => {
     const target: Record<string, unknown> = {}
     const f = fakeLoader(target)
     await loadLegacyRuntime({ loadScript: f.loadScript, globals: HOST_GLOBALS, target })
@@ -47,7 +47,11 @@ describe('legacy-runtime · 装配顺序', () => {
     expect(f.loads).toEqual([
       '/eova/lib/eova/lib/eova-tools.umd.js',
       '/eova/lib/eova/lib/layui.umd.js',
-      '/eova/lib/eova/eovaui.js'
+      '/eova/lib/eova/eovaui.js',
+      // ★ r249（真浏览器实测）：页面脚本必须在 vendor 之后 —— 它们执行时读 EovaTools/EovaUI，
+      //   排在 index.html 的静态 <script> 里会抢先执行并报 ReferenceError。
+      '/eova/ui/meta/eova.meta.js',
+      '/eova/_view/template/eova.template.js'
     ])
   })
 
@@ -55,7 +59,7 @@ describe('legacy-runtime · 装配顺序', () => {
     const target: Record<string, unknown> = {}
     const f = fakeLoader(target)
     await loadLegacyRuntime({ loadScript: f.loadScript, globals: HOST_GLOBALS, target })
-    expect(f.globalAtLoad).toHaveLength(3)
+    expect(f.globalAtLoad).toHaveLength(LEGACY_RUNTIME_SCRIPTS.length)
     for (const snap of f.globalAtLoad) {
       expect(snap.Vue).toBe(HOST_GLOBALS.Vue)
       expect(snap.axios).toBe(HOST_GLOBALS.axios)
@@ -72,16 +76,20 @@ describe('legacy-runtime · 装配顺序', () => {
     expect(target['Vue']).toBe(HOST_GLOBALS.Vue)
   })
 
-  it('URL 走旧原路径 /eova/lib/**（契约纪律 ②：旧 URL 不加前缀）', () => {
+  it('URL 一律走旧原路径（都在 /eova/ 下，不加新前缀）', () => {
     for (const url of LEGACY_RUNTIME_SCRIPTS) {
-      expect(url.startsWith('/eova/lib/')).toBe(true)
+      expect(url.startsWith('/eova/')).toBe(true)
     }
+    // vendor 三件走 /eova/lib/**；页面脚本走各自旧原路径（eova.meta.js / _view/template/eova.template.js）
+    expect(
+      LEGACY_RUNTIME_SCRIPTS.filter((u) => u.startsWith('/eova/lib/'))
+    ).toHaveLength(3)
   })
 })
 
 describe('legacy-runtime · 幂等与失败语义', () => {
   it('已装配则不再加载任何脚本', async () => {
-    const target: Record<string, unknown> = { EovaTools: {}, LayuiVue: {}, EovaUI: {} }
+    const target: Record<string, unknown> = { EovaTools: {}, LayuiVue: {}, EovaUI: {}, uzoo: {} }
     const f = fakeLoader(target)
     await loadLegacyRuntime({ loadScript: f.loadScript, globals: HOST_GLOBALS, target })
     expect(f.loads).toEqual([])
@@ -89,7 +97,7 @@ describe('legacy-runtime · 幂等与失败语义', () => {
   })
 
   it('已装配时**连宿主全局都不再要求**（提前返回；这条区分"提前返回"与"逐个跳过"两道闸）', async () => {
-    const target: Record<string, unknown> = { EovaTools: {}, LayuiVue: {}, EovaUI: {} }
+    const target: Record<string, unknown> = { EovaTools: {}, LayuiVue: {}, EovaUI: {}, uzoo: {} }
     const f = fakeLoader(target)
     // 故意不提供宿主全局：若幂等的提前返回被删掉，这里会以「宿主全局缺失」抛错
     await expect(
@@ -111,7 +119,9 @@ describe('legacy-runtime · 幂等与失败语义', () => {
     await loadLegacyRuntime({ loadScript: f.loadScript, globals: HOST_GLOBALS, target })
     expect(f.loads).toEqual([
       '/eova/lib/eova/lib/layui.umd.js',
-      '/eova/lib/eova/eovaui.js'
+      '/eova/lib/eova/eovaui.js',
+      '/eova/ui/meta/eova.meta.js',
+      '/eova/_view/template/eova.template.js'
     ])
     expect((target['EovaTools'] as { kept?: boolean }).kept).toBe(true)
   })

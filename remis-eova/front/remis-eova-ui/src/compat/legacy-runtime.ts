@@ -46,14 +46,23 @@ import type { EovaMe, EovaTools } from './eova-runtime'
 export const LEGACY_RUNTIME_SCRIPTS: readonly string[] = [
   '/eova/lib/eova/lib/eova-tools.umd.js',
   '/eova/lib/eova/lib/layui.umd.js',
-  '/eova/lib/eova/eovaui.js'
+  '/eova/lib/eova/eovaui.js',
+  // ★ r249 修正（真浏览器实测）：这两个页面脚本**必须在 vendor 之后执行**。
+  //   `eova.template.js` 第 4/8 行是 `const x = EovaTools.x` / `const me = EovaUI.me` ——
+  //   它在 index.html 里以静态 `<script>` 引入时，会早于本装配器加载 vendor ⇒ 实测报
+  //   `ReferenceError: EovaTools is not defined`（症状：首页"请求异常"，而构建/单测/闸门全绿）。
+  //   旧栈顺序本来就是"vendor 在前、页面脚本在后"（服务端 partial），这里按同一顺序装配。
+  '/eova/ui/meta/eova.meta.js',
+  '/eova/_view/template/eova.template.js'
 ]
 
 /** 每个制品加载后必须出现的全局名（用于"响亮失败"校验） */
 export const SCRIPT_EXPECTED_GLOBAL: Readonly<Record<string, string>> = {
   '/eova/lib/eova/lib/eova-tools.umd.js': 'EovaTools',
   '/eova/lib/eova/lib/layui.umd.js': 'LayuiVue',
-  '/eova/lib/eova/eovaui.js': 'EovaUI'
+  '/eova/lib/eova/eovaui.js': 'EovaUI',
+  // 冻结资产 `eova.meta.js` 定义 `window.uzoo`（第 107 轮取证）⇒ 同样逐步校验，缺了就响亮抛
+  '/eova/ui/meta/eova.meta.js': 'uzoo'
 }
 
 /** 装配所需的宿主全局（本工程自带，注入给 legacy 制品用） */
