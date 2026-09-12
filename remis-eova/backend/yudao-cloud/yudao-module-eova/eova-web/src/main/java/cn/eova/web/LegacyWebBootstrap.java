@@ -5,12 +5,23 @@
  */
 package cn.eova.web;
 
+import java.io.PrintWriter;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
+
 import javax.sql.DataSource;
 
+import cn.eova.common.Ds;
 import cn.eova.compat.jfinal.config.LegacyJFinalBoot;
 import cn.eova.compat.jfinal.config.LegacyRoutes;
 import cn.eova.compat.table.EovaTableMapping;
 import cn.eova.config.EovaConfig;
+import cn.eova.db.EovaGateways;
+import cn.eova.db.JdbcEovaDbGateway;
+import cn.eova.compat.render.DefaultLegacyRenderFactory;
+import cn.eova.compat.render.LegacyRenderManager;
 import cn.eova.db.JdbcTableMetadataSource;
 import cn.eova.tools.x;
 import org.slf4j.Logger;
@@ -89,22 +100,30 @@ public class LegacyWebBootstrap {
         x.conf.addConfig("eova.driver", dbDriver);
 
         // ③ 元数据源：真自省优先，缺则退化为占位并【显式声明】
+        // ★ S2b：网关 + 真自省是 dao 可用的前提（旧栈由 configPlugin 的 ARP 承担）。
+        //   没有容器 DataSource 时，按配置自建 DriverManager 版（驱动由运行时 classpath 提供，
+        //   故 main 不引驱动依赖）——不再退化占位，否则 /user/doLogin 之类一查库就失败。
         DataSource ds = dataSourceProvider.getIfAvailable();
-        if (ds != null) {
-            EovaTableMapping.setMetadataSource(new JdbcTableMetadataSource(ds));
-            log.info("Eova Web 层：元数据源 = JdbcTableMetadataSource（真自省）");
+        if (ds == null) {
+            ds = new DriverManagerDataSource(dbUrl, dbUser, dbPwd, dbDriver);
+            log.info("Eova Web 层：自建 DriverManager DataSource → {}", dbUrl);
         } else {
-            EovaTableMapping.setMetadataSource(tableName ->
-                    new cn.eova.compat.table.TableMetadata(tableName,
-                            new String[]{"id", "name"}, new String[]{"id"}));
-            log.warn("Eova Web 层：未发现 DataSource bean ⇒ 元数据源退化为占位（S1 只枚举路由，够用）；"
-                    + "S2 必须换成真自省，否则 dao 不可用");
+            log.info("Eova Web 层：使用容器 DataSource bean");
         }
+        EovaGateways.register(Ds.EOVA, new JdbcEovaDbGateway(ds, Ds.EOVA));
+        EovaTableMapping.setMetadataSource(new JdbcTableMetadataSource(ds));
+        log.info("Eova Web 层：网关已注册（Ds.EOVA）+ 元数据源 = JdbcTableMetadataSource（真自省）");
 
         // ④ 旧引导序列（与 EovaConfigPortGoldenTest 同姿势）
         this.config = new EovaConfig();
         this.boot = new LegacyJFinalBoot();
         this.boot.init(this.config);
+        // ★ 渲染工厂：`LegacyRenderManager` 明确要求"由宿主在启动时注入"（其报错文案即
+        //   "未装配渲染工厂…请由宿主在启动时注入"），而主代码里没有任何地方调用它 ——
+        //   这就是 HTTP 容器层留给宿主的最后一块。实测：不装配时所有 render 路径 500。
+        LegacyRenderManager.setRenderFactory(new DefaultLegacyRenderFactory());
+        log.info("Eova Web 层：渲染工厂已装配（宿主职责）");
+
         LegacyRoutes routes = this.boot.getRoutes();
         log.info("Eova Web 层：引导完成，路由条目 {} 条", routes.getRouteItemList().size());
         return this.boot;
@@ -116,6 +135,74 @@ public class LegacyWebBootstrap {
         if (boot != null && boot.isStarted()) {
             boot.stop(config);
             log.info("Eova Web 层：已按旧序列停机");
+        }
+    }
+
+    /**
+     * 极简 {@link DataSource}：按配置的驱动类名加载驱动并直连（无池语义）。
+     *
+     * <p>为什么不引驱动依赖到 main：驱动属运行时提供物（部署时进 classpath）。
+     * 本项目既有 live 判据也用同款直连实现。</p>
+     */
+    static final class DriverManagerDataSource implements DataSource {
+        private final String url;
+        private final String user;
+        private final String pwd;
+        private final String driver;
+
+        DriverManagerDataSource(String url, String user, String pwd, String driver) {
+            this.url = url;
+            this.user = user;
+            this.pwd = pwd;
+            this.driver = driver;
+            try {
+                Class.forName(driver);
+            } catch (ClassNotFoundException e) {
+                throw new IllegalStateException("驱动类不存在（请把驱动加入运行时 classpath）：" + driver, e);
+            }
+        }
+
+        @Override
+        public Connection getConnection() throws SQLException {
+            return DriverManager.getConnection(url, user, pwd);
+        }
+
+        @Override
+        public Connection getConnection(String u, String p) throws SQLException {
+            return DriverManager.getConnection(url, u, p);
+        }
+
+        @Override
+        public PrintWriter getLogWriter() {
+            return null;
+        }
+
+        @Override
+        public void setLogWriter(PrintWriter out) {
+        }
+
+        @Override
+        public void setLoginTimeout(int seconds) {
+        }
+
+        @Override
+        public int getLoginTimeout() {
+            return 0;
+        }
+
+        @Override
+        public java.util.logging.Logger getParentLogger() throws SQLFeatureNotSupportedException {
+            throw new SQLFeatureNotSupportedException("no parent logger");
+        }
+
+        @Override
+        public <T> T unwrap(Class<T> iface) throws SQLException {
+            throw new SQLException("not a wrapper");
+        }
+
+        @Override
+        public boolean isWrapperFor(Class<?> iface) {
+            return false;
         }
     }
 }

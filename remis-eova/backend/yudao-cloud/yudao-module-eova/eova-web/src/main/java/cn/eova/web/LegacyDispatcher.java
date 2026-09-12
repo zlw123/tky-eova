@@ -26,7 +26,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 /**
@@ -57,7 +57,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
  * <p><b>本切片不做（如实登记）</b>：模板渲染（默认视图）、静态资源、上传（multipart 注入）、
  * 以及"动作只写了一半就抛"的容器级收尾语义 —— 属 S3/S4 及后续；S2 的判据只覆盖 JSON 端点。</p>
  */
-@Component
+// ★ 必须是 @RestController 而不是 @Component：Spring MVC 只把 @Controller/@RestController
+//   里的 @RequestMapping 注册为处理器方法（实测：用 @Component 时所有请求都被 Spring 判 404）。
+@RestController
 public class LegacyDispatcher {
 
     private static final Logger log = LoggerFactory.getLogger(LegacyDispatcher.class);
