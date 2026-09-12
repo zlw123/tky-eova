@@ -46,6 +46,18 @@ async function bootstrap(): Promise<void> {
   app.use(router)
   // 未登录 ⇒ 去登录页（旧栈由服务端 LoginInterceptor 302；SPA 必须自己判）。
   // 判定用【探针端点】而不是读 Cookie —— 该 Cookie 是 HttpOnly（r268 实测），JS 读不到。
+  //
+  // ★★ 阶段 3 嵌入态的口径（拿哥裁定，第 300 轮）—— **改动守卫前必读**：
+  //   平台 iframe（形态 A）会带 `_accessToken`，但**平台用户与 EovaMeta 账号的对应关系暂不处理**
+  //   ⇒ 嵌入态**一律走 EovaMeta 自己的账户体系**（即：未登录时照常落到 `/user/login`，
+  //   用户在这个页面用 EovaMeta 账号登录）。**这是既定行为，不是缺陷。**
+  //   ⇒ 平台的 `design-iframe-silent-auth.md`（DES-007）§3.3 那条"**不得在 iframe 内跳登录页**"
+  //     **本轮明确不采纳**：它属于"平台换票"目标态（平台侧 `LC-012` 未做），且**在换票落地前
+  //     关掉登录页会把嵌入态唯一可用的入口掐掉**。
+  //   ⇒ 待迁移工作全部完成后，再单独立项处理身份映射（见 `docs/DES-009-R1-embed-session-exchange.md`
+  //     §5：A 服务账号 / B 用户级映射 / C 平台换票 三选一，均未定）。
+  //   ⇒ **不要**为了让 iframe 内不出现登录页而给守卫加"嵌入态特判"分支 —— 那会同时破坏
+  //     本节口径与 S5 已有的行为等价判据（未登录 `/` ⇒ `/user/login`）。
   installAuthGuard(router)
   // ★ 未登录守卫【暂不装配】（r268 实测撤回）：
   //   `auth-guard.ts` 原按"读 Cookie `eovasid`"判定，但**实测证伪** —— 新旧栈该 Cookie 都是
