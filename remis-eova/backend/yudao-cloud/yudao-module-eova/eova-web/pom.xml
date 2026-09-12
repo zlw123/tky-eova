@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>cn.eova</groupId>
+        <artifactId>yudao-module-eova</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <artifactId>eova-web</artifactId>
+    <name>eova-web</name>
+    <description>Eova 自有 Web 层（阶段 2）：容器接线，复用已 port 的 LegacyController/Routes/Render。
+        设计见 docs/DES-005-R1-eova-web-layer-design.md。阶段 3 由平台形态取代，对外契约不变。
+        边界：只依赖三个既有 eova 模块 + spring-boot-starter-web；**不依赖 yudao 平台 starter**。</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>cn.eova</groupId>
+            <artifactId>eova-compat</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.eova</groupId>
+            <artifactId>eova-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.eova</groupId>
+            <artifactId>eova-db-adapter</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <version>3.4.5</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <version>3.4.5</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
