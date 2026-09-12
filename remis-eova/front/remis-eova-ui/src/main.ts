@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { loadLegacyRuntime } from './compat/legacy-runtime'
+import { installAuthGuard } from './router/auth-guard'
 import { getEovaUI } from './compat/eova-runtime'
 import { installWindowUrls } from './compat/ui-urls'
 import { loadUiConf } from './compat/ui-conf'
@@ -35,6 +36,8 @@ async function bootstrap(): Promise<void> {
   app.use(getEovaUI() as Parameters<typeof app.use>[0])
   app.use(createPinia())
   app.use(router)
+  // 未登录 ⇒ 去登录页（旧栈由服务端 LoginInterceptor 302；SPA 必须自己判，见 router/auth-guard.ts）
+  installAuthGuard(router)
   app.mount('#app')
 }
 
