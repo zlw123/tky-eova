@@ -168,6 +168,13 @@ public class LegacyDispatcher {
             urlPara = rest.substring(slash + 1);
         }
 
+        // ★ r250：空 actionKey ⇒ `index`（旧 jfinal 约定）。实测证据：旧栈带会话 `GET /` 与 `GET /main`
+        //   都是 200（首页由 `IndexController.index()` 渲染），而本分发器初版对 `/` 取不到名为 "" 的方法
+        //   ⇒ 直接 404 —— 这是 S5 真浏览器/HTTP 验收才暴露出来的**移植缺口**（构建与既有判据全绿）。
+        if (actionKey.isEmpty()) {
+            actionKey = "index";
+        }
+
         Method method = findAction(hit.controllerClass, actionKey);
         if (method == null) {
             log.info("404 Action Not Found: {}", path);

@@ -134,6 +134,19 @@ class LegacyHttpContractTest {
     }
 
     @Test
+    @DisplayName("★ S2b-6：GET / ⇒ 200 + text/html（空 actionKey ⇒ index 的 jfinal 约定；旧栈带会话实测 200）")
+    void rootMapsToIndexAction() {
+        String sid = login();
+        HttpHeaders h = new HttpHeaders();
+        h.add(HttpHeaders.COOKIE, sid);
+        ResponseEntity<String> resp = rest.exchange("/", HttpMethod.GET, new HttpEntity<>(h), String.class);
+        assertEquals(200, resp.getStatusCode().value(),
+                "★ 旧栈带会话 GET / 是 200（IndexController.index 渲染首页），实际=" + resp.getStatusCode());
+        String ct = String.valueOf(resp.getHeaders().getFirst(HttpHeaders.CONTENT_TYPE));
+        assertTrue(ct.contains("text/html"), "首页必须是 HTML，实际=" + ct);
+    }
+
+    @Test
     @DisplayName("★ S2b-5：GET /user/login ⇒ 200 + text/html + 旧登录页正文（证明模板源映射对了）")
     void loginPageRendersFromLegacyViewRoot() {
         ResponseEntity<String> resp = rest.getForEntity("/user/login", String.class);
