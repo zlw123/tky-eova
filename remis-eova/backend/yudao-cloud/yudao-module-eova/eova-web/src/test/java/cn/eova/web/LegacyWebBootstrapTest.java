@@ -58,15 +58,13 @@ class LegacyWebBootstrapTest {
     @Autowired
     private LegacyJFinalBoot boot;
 
-    @AfterEach
-    void tearDown() {
-        for (String k : new String[]{"file.dir.base", "db.datasource", "eova.url", "eova.user",
-                "eova.pwd", "eova.driver"}) {
-            x.conf.getProps().remove(k);
-        }
-        EovaTableMapping.me().clear();
-        EovaTableMapping.setMetadataSource(null);
-    }
+    // ★ 这里**刻意没有** @AfterEach 清理（r248 实测教训）：
+    //   本模块的判据共用**同一个 Spring 上下文**（旧引导是"每 JVM 一次"语义，见类注释），
+    //   而 `EovaTableMapping` / `x.conf` 都是**进程级静态**。初版在此 `EovaTableMapping.me().clear()`
+    //   + 删 `x.conf` 属性，结果是"本判据自己绿，但同 JVM 后面跑的判据登录 500"——
+    //   实测报错：`IllegalStateException: 模型未注册映射：cn.eova.model.Role`（UserController.doLogin:123
+    //   → User.initRole → Role.dao）。**判据不得改动共享的全局状态**；要隔离就自己造局部夹具，
+    //   不要把生产用的注册表清空。
 
     @Test
     @DisplayName("★ S1：引导在 Spring 容器内完成，路由表可枚举且形态合法")

@@ -244,6 +244,22 @@ public final class LegacyJsonKit {
         // LocalDateTime/LocalDate/LocalTime），三者都不匹配时**继续往下走**
         // （Model → Map → Collection → … → buildBeanToJson），并非按 toString 写出。
         // 故 ZonedDateTime/Instant/OffsetDateTime 等未注册类型会走 Bean 分支。
+        // ★ Model 分支（第 248 轮补齐 —— 此前**只有声明没有实现**，属未声明的行为缺口）：
+        //   旧 jfinal `JFinalJsonKit.createToJson` 的顺序是 `!treatModelAsBean && value instanceof Model`
+        //   → `ModelToJson` → `CPI.getAttrs(model)` → `modelAndRecordToJson(...)` ⇒ **模型按属性写出**，
+        //   与 Record 走同一条键转换路径；`treatModelAsBean` 默认 false 且 EOVA 未配置（本类第 78-81 行
+        //   已声明该默认值）⇒ 必须走本分支，而不是落到 JavaBean 分支。
+        //   实测症状（r248）：缺本分支时 `Button`/`Menu` 被当普通 bean，序列化成 `{"dao":…,"configured":…}`
+        //   ——`btnList[].ui`（DES-004 §2.1 契约）直接拿不到；旧栈实测 `/api/home/menu` 的 `menus[0]`
+        //   键是 `code/name/icon/id/parent_id/…`（模型属性），可作为外部对照。
+        //   顺序也在对齐旧实现：Model 在 Record（本移植的 `JsonColumns`）**之前**。
+        if (value instanceof cn.eova.db.EovaModel) {
+            if (checkDepth(sb, depth--)) {
+                return;
+            }
+            writeMap(sb, attrsOf((cn.eova.db.EovaModel<?>) value), depth);
+            return;
+        }
         if (value instanceof JsonColumns) {
             if (checkDepth(sb, depth--)) {
                 return;
@@ -435,6 +451,23 @@ public final class LegacyJsonKit {
             return new String(arr);
         }
         return str;
+    }
+
+    /**
+     * 取模型属性（对应 jfinal `JFinalJsonKit$ModelToJson` 里的 `CPI.getAttrs(model)`）。
+     *
+     * <p>用 {@code _getAttrsEntrySet()} 而不是反射读字段：那是模型自己暴露的属性视图
+     * （jfinal 的 {@code Model.getAttrs()} 等价物），键序**不承诺**（§3.8 第 3 条）。</p>
+     *
+     * @param model 模型
+     * @return 属性映射（保持模型给出的顺序）
+     */
+    private static Map<String, Object> attrsOf(cn.eova.db.EovaModel<?> model) {
+        Map<String, Object> attrs = new java.util.LinkedHashMap<>();
+        for (Map.Entry<String, Object> e : model._getAttrsEntrySet()) {
+            attrs.put(e.getKey(), e.getValue());
+        }
+        return attrs;
     }
 
     private static void writeMap(StringBuilder sb, Map<?, ?> map, int depth) {

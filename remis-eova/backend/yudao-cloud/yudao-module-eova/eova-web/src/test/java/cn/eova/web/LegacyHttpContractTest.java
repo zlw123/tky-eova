@@ -38,7 +38,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   <li>{@code POST /user/doLogin} → 200 + 正文 {@code {"state":"ok"}} + {@code Set-Cookie: eovasid=…}
  *       （旧实录逐字：响应正文就是 {@code {"state":"ok"}}，Cookie 名就是 {@code eovasid}）；</li>
  *   <li>带该 Cookie {@code POST /api/home/menu} → 200 + {@code state=ok} + {@code menus} 33 条
- *       （r174 在旧栈实测 33；旧库 {@code eova_menu} 33 行）；</li>
+ *       （r174 在旧栈实测 33；旧库 {@code eova_menu} 33 行）**且每项是模型属性**（含 code/name，
+ *       不含 dao/configured —— 旧栈实测 menus[0] 键为 code/name/icon/id/parent_id/…）；</li>
  *   <li>**不带 Cookie** 同一端点 ⇒ **不得 200** —— 这条专门证明**拦截器链真的跑了**
  *       （{@code configRoute} 把 LoginInterceptor 加在 Routes 上，分发器把它接进链）；</li>
  *   <li>未知路径 ⇒ **404 且不回落到 SPA**（旧栈行为；回落会把路由错误伪装成正常页面）；</li>
@@ -99,6 +100,16 @@ class LegacyHttpContractTest {
         assertNotNull(menus, "旧契约含 menus");
         assertEquals(33, ((List<?>) menus).size(),
                 "★ 菜单条数必须与旧栈实测一致（33，对应 eova_menu 33 行）");
+
+        // ★ 逐项形状：menu 是【模型】，必须按属性序列化（r248 补钉）。旧栈实测（curl 9090）
+        //   menus[0] 的键是 code/name/icon/id/parent_id/short_name/template/…；
+        //   若 JSON 序列化把模型当普通 JavaBean，这里会变成 {dao, configured} ——
+        //   前端拿不到 menu.code/name，而"只数条数"的断言照样绿（假通过）。
+        Map<?, ?> first = (Map<?, ?>) ((List<?>) menus).get(0);
+        assertTrue(first.containsKey("code") && first.containsKey("name"),
+                "★ menus 每项必须是模型属性（含 code/name），实际键=" + first.keySet());
+        assertFalse(first.containsKey("dao") || first.containsKey("configured"),
+                "★ 不得退化成 JavaBean 视图（旧栈模型 JSON 里没有 dao/configured），实际键=" + first.keySet());
     }
 
     @Test

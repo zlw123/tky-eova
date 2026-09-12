@@ -223,14 +223,38 @@ class StringUtilsGoldenTest {
         assertNotNull(c2);
         assertFalse(c1.equals(c2), "encrypt 应为非确定性（既有行为，port 予以保留）");
 
-        // 既有缺陷 2：自身往返必然失败（密钥每次不同 -> BadPadding -> 包装为 RuntimeException）
-        assertDecryptFails(c1, "新实现自身往返");
-        assertDecryptFails(c2, "新实现自身往返(第二次)");
+        // 既有缺陷 2：自身往返**不可靠**（密钥由随机源生成 ⇒ 解密通常 BadPadding ⇒ 包装为 RuntimeException）。
+        //
+        // ★ r248 修正：原写法是 `assertDecryptFails(c1, …)` 两次 —— 那是**概率断言**：
+        //   AES/PKCS5 的 padding 校验有约 1/256 的概率**侥幸通过**，于是判据会以约 0.4%/次的概率
+        //   假红（r248 全量实测正好踩到一次："预期解密失败（既有缺陷），但成功了"，
+        //   当时 compat 单独跑 134/134 全绿、探针实测行为也与判据一致）。
+        //   改为**重复取样，要求至少一次失败**：缺陷仍然必须可复现（若实现变成可往返，这里必红），
+        //   而假红概率降到 (1/256)^N ≈ 0。**不是放松判据，而是去掉判据自身的不确定性。**
+        int unstable = 0;
+        for (int i = 0; i < 8; i++) {
+            try {
+                AESUtil.decrypt(AESUtil.encrypt(plain));
+            } catch (RuntimeException expected) {
+                unstable++;
+                assertTrue(expected.getMessage().contains("AES解密异常"),
+                        "异常文案应含 AES解密异常");
+            }
+        }
+        assertTrue(unstable > 0, "★ 自身往返必须存在失败样本（既有缺陷：随机密钥导致加解密互不兼容）");
 
-        // 与旧实现一致：旧实现加密的密文，新实现同样无法解密（失败模式一致）
-        Object oldCipher = oldStatic("AESUtil", "encrypt", new Class<?>[]{String.class}, plain);
-        assertNotNull(oldCipher, "旧实现加密应返回非空密文");
-        assertDecryptFails((String) oldCipher, "旧实现密文 -> 新实现解密");
+        // 与旧实现一致：旧实现加密的密文，新实现同样无法解密（失败模式一致；同样是概率行为，故取样本）
+        int oldIncompatible = 0;
+        for (int i = 0; i < 4; i++) {
+            Object oldCipher = oldStatic("AESUtil", "encrypt", new Class<?>[]{String.class}, plain);
+            assertNotNull(oldCipher, "旧实现加密应返回非空密文");
+            try {
+                AESUtil.decrypt((String) oldCipher);
+            } catch (RuntimeException expected) {
+                oldIncompatible++;
+            }
+        }
+        assertTrue(oldIncompatible > 0, "★ 旧实现密文 -> 新实现解密必须存在失败样本（新旧缺陷一致）");
 
         // 失败路径统一为 RuntimeException 且携带中文文案
         try {
