@@ -81,12 +81,26 @@ class LegacyWebBootstrapTest {
             assertFalse(p.isBlank(), "★ controllerPath 不得为空白");
             assertTrue(p.startsWith("/"), "★ 旧口径下 controllerPath 必须以 / 开头，实际=" + p);
         }
-        // ★ 旧栈实际只注册【两个控制器路径】/app 与 /：动作名是这两个控制器上的公开无参方法
-        //   （r70 记录："动作名取自 AppController + IndexController 的公开无参方法"）。
-        //   此前我按"数十条路径"拍了下限 10 —— 实测 2 条 ⇒ 改为断言**精确集合**（更有据、更强）。
-        java.util.Collections.sort(paths);
-        assertEquals(java.util.Arrays.asList("/", "/app"), paths,
-                "★ 控制器路径集合必须恰为 {/,/app}（旧 configRoute 的注册面）：" + paths);
+        // ★ r246 更正：`getRouteItemList()` 只返回【顶层】Routes 的条目（实测 / 与 /app），
+        //   而 configRoute 里 `me.add(new EovaWebRoutes())` / `me.add(new EovaApiRoutes())` 是**子路由**，
+        //   条目存在各自的 Routes 对象里 ⇒ 完整路由表必须汇总**静态 routesList**（父 + 子，jfinal 同口径）。
+        //   我 S1 初版据此断言"路径集合恰为 {/,/app}"——那是**假结论**（只测了顶层），已更正为汇总。
+        // 完整表 = **顶层 Routes（boot.getRoutes()）+ 通过 add(Routes) 加进来的子路由（静态 routesList）**：
+        // 实测只取静态列表会**丢掉顶层**的 /app 与 /（静态列表只装"被 add 进来的子路由"，jfinal 同口径）。
+        List<LegacyRoutes> all = new ArrayList<>();
+        all.add(boot.getRoutes());
+        all.addAll(LegacyRoutes.getRoutesList());
+        List<String> allPaths = new ArrayList<>();
+        for (LegacyRoutes r : all) {
+            for (LegacyRoutes.Route item : r.getRouteItemList()) {
+                allPaths.add(item.getControllerPath());
+            }
+        }
+        java.util.Collections.sort(allPaths);
+        assertTrue(allPaths.contains("/app"), "★ 必须含 /app（AppController）");
+        assertTrue(allPaths.size() > 2,
+                "★ 汇总静态 routesList 后必须**多于顶层 2 条**（证明子路由被展开，旧 jfinal 口径）：" + allPaths);
+        System.out.println("[S1] 完整路由表(" + allPaths.size() + ")=" + allPaths);
 
         // 动作面（S2 分发器要用的口径）：两个控制器上的公开无参方法数（此处**打印**，不用猜的数字做断言）
         int actions = 0;
