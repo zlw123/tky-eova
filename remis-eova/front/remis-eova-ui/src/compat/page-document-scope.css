@@ -42,4 +42,12 @@ body:not(:has(.eova-login)) {
   align-items: normal;
   height: auto;
   margin: 0;
+  /* ★ r313 补：`login.css` 的 `body { font-family: Arial, sans-serif }` 同样会泄漏到全站。
+     实测（CDP computed 对照）：旧栈列表页 body 字体 = `eovaui.css` 的
+     `14px "Helvetica Neue", Helvetica, "PingFang SC", Tahoma, Arial, sans-serif`，
+     新栈因这条泄漏变成 `Arial, sans-serif`。故按同一口径复位回 vendor 值。 */
+  font-family: "Helvetica Neue", Helvetica, "PingFang SC", Tahoma, Arial, sans-serif;
+  /* ★ r313 补：同一条 `login.css` 的 `body` 还写了 `background-color: var(--eova-color_bg)`。
+     实测：旧栈列表页 body 背景 **透明**，新栈是 `rgb(245,245,245)` ⇒ 复位回透明。 */
+  background-color: transparent;
 }

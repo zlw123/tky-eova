@@ -17,9 +17,17 @@
  * ## 判据口径
  *
  * 扫**全部**被引入的页面级样式（① `src/legacy/**\/*.css`；② `src/**\/*.vue` 里**非 scoped**
- * 的 `<style>` 块），取"选择器以 `html`/`body` 起头 **且** 声明里含布局属性"的规则，
+ * 的 `<style>` 块），取"选择器以 `html`/`body` 起头 **且** 声明里含布局属性**或文档级视觉属性**
+ * （字体/背景/颜色）"的规则，
  * 逐条与 {@link INVENTORY} 对齐（**双向**：清单里少的、扫描多的，都要红）：
  *  - 每条必须写明 `verdict`（是"两端共有的全局规则"还是"页面级泄漏"，泄漏的必须写清处理方式）；
+ * ★ r313 更正：本判据原先把**纯颜色/字体**排除在扫描外（注释写着"纯颜色/字体不登记"）——
+ *   实测证伪：`views/meta/MetaEdit.vue` 的页级 `<style> body { background-color: var(--eova-color_bg) }`
+ *   会**全局泄漏**（旧栈每页一份文档 ⇒ 只作用于本页），症状是列表页 body 背景从**透明**变成
+ *   `rgb(245,245,245)`；`login.css` 的 `font-family: Arial, sans-serif` 同样泄漏（旧栈是 vendor 字体栈）。
+ *   ⇒ 属性类已扩为「布局 ∪ 视觉」，MetaEdit 的那条按 `Widget.vue` 既定范式改为**挂载/卸载配对**，
+ *     login.css 的字体项由底座样式复位。
+ *
  *  - 唯一的真泄漏（`login.css` 的 `body`）必须被 SPA 底座样式
  *    `src/compat/page-document-scope.css` **按属性逐项覆盖**，且该文件必须被 `main.ts` 引入
  *    （**不引 = 静默失效**，规则写着也不生效）。
@@ -34,7 +42,10 @@ import { describe, expect, it } from 'vitest'
 /** 会被"页面级样式"污染的选择器：以 `html`/`body` 起头的元素选择器 */
 const DOC_ROOT_SELECTOR = /^(html|body)([\s>+~:]|$)/i
 
-/** 布局属性前缀（只有这些才可能跨页面改变版式；纯颜色/字体不登记） */
+/** 文档级**视觉**属性（除布局外，同样会跨页面改变观感 —— 本类是被实测补进来的） */
+const VISUAL_PROPS = ['font', 'font-family', 'background', 'background-color', 'color']
+
+/** 布局属性前缀（只有这些才可能跨页面改变版式） */
 const LAYOUT_PROPS = [
   'display',
   'position',
@@ -84,10 +95,12 @@ const INVENTORY: readonly InventoryEntry[] = [
   {
     file: 'src/legacy/eova/_view/index/login.css',
     selector: 'body',
-    props: ['display', 'height', 'justify-content', 'margin', 'align-items'].sort(),
+    props: ['display', 'height', 'justify-content', 'margin', 'align-items', 'font-family', 'background-color'].sort(),
     verdict:
       '★ 真泄漏（r303 实测）：登录页文档的"登录框居中"规则，SPA 里泄漏到全站 ' +
       '⇒ 列表页 #app 被居中到 top=407 / scrollHeight 1205（旧栈 0/813）。' +
+      'r313 又实测出**另两项同源泄漏**：`font-family: Arial, sans-serif`（旧栈是 eovaui 的字体栈）与 ' +
+      '`background-color: var(--eova-color_bg)`（旧栈列表页 body 背景**透明**）。' +
       '处理：冻结资产不改，由 `src/compat/page-document-scope.css` 的 ' +
       '`body:not(:has(.eova-login))` 逐属性覆盖回旧栈值'
   },
@@ -109,6 +122,38 @@ const INVENTORY: readonly InventoryEntry[] = [
     selector: 'html #layuicss-layuiAdmin',
     props: ['display', 'position', 'width'].sort(),
     verdict: 'layuiAdmin 自注入样式容器的隐藏规则（`display:none`）⇒ 两端同款，无副作用'
+  },
+  {
+    file: 'src/legacy/eova/_view/index/index.css',
+    selector: 'body',
+    props: ['background-color'].sort(),
+    verdict:
+      '旧**主框架**页（`index.html`）的 body 背景。SPA 把主框架与页面并进同一文档 ⇒ ' +
+      '它的 `--eova-color_bg` 会落到页面层；而旧栈**页面文档**没有背景（实测透明）。' +
+      '处理：同 login.css，由底座样式 `body:not(:has(.eova-login))` 复位为 transparent'
+  },
+  {
+    file: 'src/legacy/eova/ui/css/code.css',
+    selector: 'body',
+    props: ['color', 'font'].sort(),
+    verdict:
+      '`code.html` 页（**BROKEN_TEMPLATE 死页**：模板全仓不存在 ⇒ 两端都不渲染）的页级样式；' +
+      '新栈未被任何组件 import（登记备查；若将来被引入则同样会泄漏 body 的 font/color）'
+  },
+  {
+    file: 'src/legacy/eova/lib/eova/eovaui.css',
+    selector: 'body',
+    props: ['font'].sort(),
+    verdict:
+      '两端共有的 vendor 字体声明（`font: 14px "Helvetica Neue", …`）⇒ **这正是旧栈的基线值**，' +
+      '底座样式复位时用的就是它（不是新发明的字体栈）'
+  },
+  {
+    file: 'src/legacy/eova/ui/css/index.css',
+    selector: 'html',
+    props: ['background-color', 'color'].sort(),
+    verdict:
+      '旧主框架的 `html` 背景/文字色（`#f2f2f2`/`#666`）⇒ 两端都加载（主框架层），非页面级泄漏'
   },
   {
     file: 'src/views/role/RoleAuth.vue <style>',
@@ -180,7 +225,7 @@ function docRules(file: string, css: string): DocRule[] {
       .split(';')
       .filter((d) => d.includes(':'))
       .map((d) => d.split(':')[0].trim().toLowerCase())
-      .filter((p) => LAYOUT_PROPS.some((k) => p === k || p.startsWith(k + '-')))
+      .filter((p) => [...LAYOUT_PROPS, ...VISUAL_PROPS].some((k) => p === k || p.startsWith(k + '-')))
     if (props.length === 0) continue
     out.push({ file, selector, props: [...new Set(props)].sort() })
   }
@@ -212,7 +257,13 @@ function scanAll(): DocRule[] {
   }
   for (const f of filesUnder('src', ['.vue'])) {
     const text = stripComments(readFileSync(f, 'utf-8'))
-    for (const m of text.matchAll(/<style([^>]*)>([\s\S]*?)<\/style>/g)) {
+    // ★ r313 修：**行首锚定**取 SFC 样式块。原先用 `<style([^>]*)>...` 非锚定匹配，会被
+    //   **JS 文档注释里的 `<style>` 字面量**骗到 —— 而 `stripComments` 对这种注释无能为力：
+    //   注释里写了 glob（如 `src/legacy/**/*.css`），其中的 `*/` 会**提前闭合**注释正则，
+    //   注释后半段（含 `<style>` 与 `body { background-color: … }`）就留在了文本里
+    //   ⇒ `views/widget/Widget.vue` 被误登记成一处"泄漏"（实测：扫描到 10 条，其中这条是假的）。
+    //   （这已是同族第三次：r302 注释里的 glob、r303 注释里的 `<style>`、r313 注释里的 glob+`<style>`。）
+    for (const m of text.matchAll(/^[ \t]*<style([^>]*)>([\s\S]*?)^[ \t]*<\/style>/gm)) {
       if (m[1].includes('scoped')) continue
       rules.push(...docRules(`${f} <style>`, m[2]))
     }
@@ -254,9 +305,18 @@ describe('页面级样式的文档作用域 · 剥注释（先钉扫描器自身
     ])
   })
 
-  it('只登记"文档级 + 布局属性"：`body{color}` 这类不登记（否则清单会被噪声淹掉）', () => {
-    expect(docRules('x', stripComments('body { color: red; font-family: Arial; }'))).toEqual([])
-    expect(docRules('x', stripComments('.eova-x { display: flex; }'))).toEqual([])
+  it('登记范围 = 文档级 **布局 ∪ 视觉** 属性：`font-family`/`background-color` 必须登记（r313 更正）', () => {
+    // ★ r313 更正：本条原先断言"纯颜色/字体不登记"——**实测证伪**：
+    //   `login.css` 的 `body{font-family:Arial}` 与 `index.css` 的 `body{background-color:…}`
+    //   都会跨页泄漏（旧栈页面文档 body 是 vendor 字体栈 + 透明背景）。
+    //   故"布局属性"这一过滤器就是当初的盲区来源；现在两类属性都要登记。
+    expect(docRules('x', 'body{font-family: Arial, sans-serif}')).toHaveLength(1)
+    expect(docRules('x', 'body{background-color: #f5f5f5}')).toHaveLength(1)
+    expect(docRules('x', 'body{color: #666;font: 13px/19px Arial}')).toHaveLength(1)
+    // 非文档级选择器仍不登记（避免清单被噪声淹掉）
+    expect(docRules('x', '.a{font-family: Arial}')).toHaveLength(0)
+    // `body span` 属"以 body 起头"，仍在登记范围内（口径：只要是文档根起头的元素选择器就登记）
+    expect(docRules('x', 'body span{font-family: Arial}')).toHaveLength(1)
   })
 })
 
@@ -288,7 +348,8 @@ describe('页面级样式的文档作用域 · 真泄漏必须被底座覆盖', 
     expect(rules[0].selector).toBe('body')
     // 属性集合变了 ⇒ 覆盖规则必须跟着补（下面那条判据会随之变红，这是有意的联动）
     expect(rules[0].props).toEqual(
-      ['display', 'justify-content', 'align-items', 'height', 'margin'].sort()
+      // ★ r313 补两项：`font-family`（旧栈是 vendor 字体栈）与 `background-color`（旧栈页面文档透明）
+      ['display', 'justify-content', 'align-items', 'height', 'margin', 'font-family', 'background-color'].sort()
     )
   })
 

@@ -131,10 +131,15 @@
 </template>
 
 <!-- 旧 app.html 的页面级 <style> 逐字（**含那行非法的 `//width: 220px;`**，不得"修正"） -->
+<!--
+  ★ r313 已声明适配：旧页的 `body { background-color: var(--eova-color_bg) }` 在旧栈只作用于
+  **本页文档**（每页一份 HTML）；SPA 把页面并进同一文档 ⇒ 这条会**全局泄漏**到所有路由
+  （实测：列表页 `body` 背景从旧栈的**透明**变成 `rgb(245,245,245)`）。
+  处置与 `views/widget/Widget.vue` 同一既定范式：**挂载时设置、卸载时还原**
+  （见下方 `onMounted`/`onUnmounted`），而不再在页级样式里写 `body`。
+  <style> 里其余选择器（`.eova-form`/`.app-field-edit …`）保持逐字。
+-->
 <style>
-body {
-  background-color: var(--eova-color_bg);
-}
 .eova-form {
   margin-top: 0;
   padding: 0;
@@ -153,7 +158,7 @@ body {
 </style>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { getEovaMe, getEovaTools } from '@/compat/eova-runtime'
@@ -350,7 +355,13 @@ function onOverride(): void {
   })
 }
 
+/** 旧页级样式里 `body` 背景的原始值（卸载时还原，避免污染其它路由；同 `Widget.vue` 范式） */
+let prevBodyBackground: string | null = null
+
 onMounted(async () => {
+  // 旧页 `<style> body { background-color: var(--eova-color_bg); }` 的等价物（作用域 = 本页打开期间）
+  prevBodyBackground = document.body.style.backgroundColor
+  document.body.style.backgroundColor = 'var(--eova-color_bg)'
   console.log('cell.js init')
   // 旧实现此处 `// query()` 被注释 ⇒ **首屏不自动查询**（原样保留）
   bootstrap.value = await loadPageBootstrap()
@@ -375,5 +386,11 @@ defineExpose({
   onVirtual,
   onSyncnew,
   onOverride
+})
+
+onUnmounted(() => {
+  // 旧页 `<style> body { background-color: var(--eova-color_bg); }` 的等价物：
+  // 旧页是独立文档 ⇒ 生效范围就是"本页打开期间"；SPA 里用挂载/卸载配对表达同一范围。
+  document.body.style.backgroundColor = prevBodyBackground ?? ''
 })
 </script>
