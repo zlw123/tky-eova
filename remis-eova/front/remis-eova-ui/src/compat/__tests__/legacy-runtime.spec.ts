@@ -12,6 +12,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   LEGACY_RUNTIME_SCRIPTS,
+  MODULE_SCRIPT_PREFIX,
   SCRIPT_EXPECTED_GLOBAL,
   isLegacyRuntimeLoaded,
   loadLegacyRuntime
@@ -31,12 +32,60 @@ function fakeLoader(target: Record<string, unknown>) {
       const name = SCRIPT_EXPECTED_GLOBAL[url]
       if (name) {
         target[name] = { providedBy: url }
+        // `EovaUI` 落地时同时给出 `me.render`（真实制品如此）；渲染器注册表由
+        // 扩展资产 `/_eova/assets/eova.ui.ext.js` 填充 —— 见下方"渲染器闸门"用例。
+        if (name === 'EovaUI') {
+          const registry = new Map<string, unknown>()
+          registry.set('eova-table-cell', { providedBy: '/_eova/assets/eova.ui.ext.js' })
+          target['EovaUI'] = {
+            providedBy: url,
+            me: { render: { get: (key: string) => registry.get(key) ?? null } }
+          }
+        }
       }
     }
   }
 }
 
 const HOST_GLOBALS = { Vue: { tag: 'app-vue' }, axios: { tag: 'app-axios' } }
+
+describe('legacy-runtime · 单元格渲染器闸门（r304）', () => {
+  it('渲染器缺失时**响亮抛错**，不静默装配（否则列表页"有数据但格子全空"）', async () => {
+    const target: Record<string, unknown> = {}
+    const f = fakeLoader(target)
+    // 让 EovaUI 落地但**不带**渲染器（模拟 `/_eova/assets/eova.ui.ext.js` 未执行/被注释掉）
+    await expect(loadLegacyRuntime({
+      loadScript: async (url: string) => {
+        f.loads.push(url)
+        const name = SCRIPT_EXPECTED_GLOBAL[url]
+        if (name === 'EovaUI') {
+          target['EovaUI'] = { me: { render: { get: () => null } } }
+        } else if (name) {
+          target[name] = { providedBy: url }
+        }
+      },
+      globals: HOST_GLOBALS,
+      target
+    })).rejects.toThrow(/单元格渲染器/)
+    expect(f.loads).toContain('/_eova/assets/eova.ui.ext.js')
+  })
+
+  it('渲染器已在位时装配通过（正例，防"闸门过严"）', async () => {
+    const target: Record<string, unknown> = {}
+    const f = fakeLoader(target)
+    await loadLegacyRuntime({ loadScript: f.loadScript, globals: HOST_GLOBALS, target })
+    expect(isLegacyRuntimeLoaded(target)).toBe(true)
+  })
+
+  it('`_eova/**` 必须按 **ES 模块**加载（经典脚本会因顶层 `const me` 冲突而整份失效）', () => {
+    // 判据口径：清单里每个工程级扩展资产都在 MODULE_SCRIPT_PREFIX 下 —— 装载器据此设 type="module"
+    expect(LEGACY_RUNTIME_SCRIPTS.filter((u) => u.includes('eova.ui.ext.js'))).toEqual([
+      '/_eova/assets/eova.ui.ext.js'
+    ])
+    expect('/_eova/assets/eova.ui.ext.js'.startsWith(MODULE_SCRIPT_PREFIX)).toBe(true)
+    expect('/eova/_view/template/eova.template.js'.startsWith(MODULE_SCRIPT_PREFIX)).toBe(false)
+  })
+})
 
 describe('legacy-runtime · 装配顺序', () => {
   it('按 eova-tools → layui → eovaui → 页面脚本 的顺序加载（清单本身即契约；r249 起含 2 个页面脚本）', async () => {
@@ -51,7 +100,10 @@ describe('legacy-runtime · 装配顺序', () => {
       // ★ r249（真浏览器实测）：页面脚本必须在 vendor 之后 —— 它们执行时读 EovaTools/EovaUI，
       //   排在 index.html 的静态 <script> 里会抢先执行并报 ReferenceError。
       '/eova/ui/meta/eova.meta.js',
-      '/eova/_view/template/eova.template.js'
+      '/eova/_view/template/eova.template.js',
+      // ★ r304：工程级扩展资产（注册表格单元格渲染器 `eova-table-cell`）。
+      //   缺了它的实测症状：列表页有数据、表头与分页都对，但**每个数据格都是空的**。
+      '/_eova/assets/eova.ui.ext.js'
     ])
   })
 
@@ -76,9 +128,16 @@ describe('legacy-runtime · 装配顺序', () => {
     expect(target['Vue']).toBe(HOST_GLOBALS.Vue)
   })
 
-  it('URL 一律走旧原路径（都在 /eova/ 下，不加新前缀）', () => {
+  it('URL 一律走旧原路径（`/eova/**` 或 `/_eova/**`，不加新前缀）', () => {
+    // ★ r304 纠正：原判据断言"都在 /eova/ 下"，依据是"旧栈 /_eova/** 是 404"这条**错记**。
+    //   复测旧栈：`/_eova/assets/eova.ui.ext.js` 200、`/_eova/theme/eova.theme.js` 200
+    //   （只有模板片段 `/_eova/include.html` 是 404，它从不按 URL 取）。
+    //   ⇒ 合法前缀是**两个**，且都是旧栈真实存在的原路径（不是我们新造的）。
     for (const url of LEGACY_RUNTIME_SCRIPTS) {
-      expect(url.startsWith('/eova/')).toBe(true)
+      expect(
+        url.startsWith('/eova/') || url.startsWith('/_eova/'),
+        `${url} 必须走旧栈原路径`
+      ).toBe(true)
     }
     // vendor 三件走 /eova/lib/**；页面脚本走各自旧原路径（eova.meta.js / _view/template/eova.template.js）
     expect(
@@ -121,7 +180,8 @@ describe('legacy-runtime · 幂等与失败语义', () => {
       '/eova/lib/eova/lib/layui.umd.js',
       '/eova/lib/eova/eovaui.js',
       '/eova/ui/meta/eova.meta.js',
-      '/eova/_view/template/eova.template.js'
+      '/eova/_view/template/eova.template.js',
+      '/_eova/assets/eova.ui.ext.js'
     ])
     expect((target['EovaTools'] as { kept?: boolean }).kept).toBe(true)
   })

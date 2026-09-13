@@ -21,9 +21,18 @@ import org.slf4j.LoggerFactory;
  *
  * <p><b>旧栈语义（实测，不是推断）</b>：旧 demo 上
  * {@code /eova/lib/eova/eovaui.css}、{@code /eova/ui/css/common.css}、
- * {@code /eova/_view/template/eova.template.js} 全部 **200**，而 {@code /ui/css/common.css}、
- * {@code /_eova/include.html} 是 **404** ⇒ 静态空间**只有 {@code /eova/**}</b>，其来源是
- * classpath 的 {@code webapp/eova/**}（旧 {@code undertow.resourcePath=classpath:webapp}）。</p>
+ * {@code /eova/_view/template/eova.template.js} 全部 **200**，而 {@code /ui/css/common.css} 是 **404**
+ * ⇒ 静态空间之一是 {@code /eova/**}，其来源是 classpath 的 {@code webapp/eova/**}
+ * （旧 {@code undertow.resourcePath=classpath:webapp}）。</p>
+ *
+ * <p>★★ <b>第 304 轮纠正一处错记</b>：本文档原写"静态空间**只有** {@code /eova/**}（{@code /_eova/**} 404）"，
+ * 那是**错**的 —— 复测旧栈：{@code /_eova/assets/eova.ui.ext.js} **200**、
+ * {@code /_eova/theme/eova.theme.js} **200**（只有 {@code /_eova/include.html} 是 404，
+ * 它是模板片段、从不按 URL 取）。**这条错记有实际后果**：SPA 因此没有供给 {@code /_eova/**}，
+ * 而 `eova.ui.ext.js` 正是注册**表格单元格渲染器** `eova-table-cell` 的资产 ⇒
+ * 新栈**每一个列表页数据都在、格子却全空**（第 304 轮用户实测反馈；真浏览器实测
+ * `EovaUI.me.render.get('eova-table-cell')` 旧栈"有"、新栈"无"）。
+ * ⇒ 静态空间是**两个**：{@code /eova/**} 与 {@code /_eova/**}，各自映射到 web 根下的同名目录。</p>
  *
  * <p><b>为什么前端要用旧原路径</b>：{@code remis-eova-ui} 的 {@code index.html} 与
  * {@code compat/legacy-runtime.ts} 按契约纪律直接引用 {@code /eova/lib/**}（vendor 级运行时
@@ -38,8 +47,17 @@ public class LegacyStaticAssets {
 
     private static final Logger log = LoggerFactory.getLogger(LegacyStaticAssets.class);
 
-    /** 静态空间前缀（旧栈实测的唯一一个） */
+    /** 静态空间前缀之一：框架资源（旧栈实测 200） */
     public static final String PREFIX = "/eova/";
+
+    /**
+     * 静态空间前缀之二：**工程级扩展资源**（旧栈实测 200）。
+     *
+     * <p>{@code /_eova/**} 是"项目自定义"槽位：旧 demo 里 {@code _eova/assets/eova.ui.ext.js} 注册
+     * 表格单元格渲染器（`eova-table-cell`/`eova-table-island`）、{@code _eova/theme/eova.theme.js} 切主题。
+     * 二者都是**核心页面显示数据所必需**（详见类文档第 304 轮纠正）。</p>
+     */
+    public static final String PRIVATE_PREFIX = "/_eova/";
 
     /** 扩展名 → Content-Type（旧栈实测：css=text/css、js=application/javascript） */
     private static final Map<String, String> TYPES = new HashMap<>();
@@ -68,6 +86,9 @@ public class LegacyStaticAssets {
     /** 静态根（{@code <web 根>/eova}）；不可用时为 null */
     private final File root;
 
+    /** 私有静态根（{@code <web 根>/_eova}）；不可用时为 null */
+    private final File privateRoot;
+
     /**
      * 构造。
      *
@@ -75,8 +96,13 @@ public class LegacyStaticAssets {
      */
     public LegacyStaticAssets(File webRoot) {
         this.root = webRoot == null ? null : new File(webRoot, "eova");
+        this.privateRoot = webRoot == null ? null : new File(webRoot, "_eova");
         if (root != null && !root.isDirectory()) {
             log.warn("Eova Web 层：静态空间根不存在（{}）⇒ /eova/** 静态资源不会被供给", root.getAbsolutePath());
+        }
+        if (privateRoot != null && !privateRoot.isDirectory()) {
+            log.warn("Eova Web 层：扩展静态根不存在（{}）⇒ /_eova/** 静态资源不会被供给"
+                    + "（后果：表格单元格渲染器缺失 ⇒ 列表页有数据但格子空）", privateRoot.getAbsolutePath());
         }
     }
 
@@ -87,28 +113,31 @@ public class LegacyStaticAssets {
      * @return 是否静态空间
      */
     public boolean isStaticSpace(String path) {
-        return path != null && path.startsWith(PREFIX);
+        return path != null && (path.startsWith(PREFIX) || path.startsWith(PRIVATE_PREFIX));
     }
 
     /**
      * 解析请求路径对应的静态文件，并做**目录穿越**校验。
      *
-     * @param path 请求路径（形如 {@code /eova/lib/eova/eovaui.css}）
+     * @param path 请求路径（形如 {@code /eova/lib/eova/eovaui.css} 或 {@code /_eova/assets/eova.ui.ext.js}）
      * @return 命中且未越界返回文件；否则 null
      */
     public File resolve(String path) {
+        // 两个静态空间各映射到 web 根下的同名目录（`/eova/**` 与 `/_eova/**`）
+        File spaceRoot = path != null && path.startsWith(PRIVATE_PREFIX) ? privateRoot : root;
+        String prefix = path != null && path.startsWith(PRIVATE_PREFIX) ? PRIVATE_PREFIX : PREFIX;
         // ★ 前缀判断必须**由本方法自己做**，不能依赖调用方：下面是"按固定长度剥离前缀"，
         //   一旦调用方用了更宽的前缀判断（例如放宽成"任意路径"），固定剥离就会产生**路径别名**
         //   （`/xxxxx/lib/x.css` 被当成 `lib/x.css` 命中静态文件）——r247 的 M6 变异实测暴露了这个风险。
-        if (root == null || !isStaticSpace(path)) {
+        if (spaceRoot == null || !isStaticSpace(path)) {
             return null;
         }
-        String rel = path.substring(PREFIX.length());
+        String rel = path.substring(prefix.length());
         if (rel.isEmpty() || rel.indexOf('\0') >= 0) {
             return null;
         }
         try {
-            Path base = root.getCanonicalFile().toPath();
+            Path base = spaceRoot.getCanonicalFile().toPath();
             Path target = base.resolve(rel).normalize();
             // ★ 必须做规范化后的**前缀**校验：`/eova/../x` 这类请求不得读到根外文件
             if (!target.startsWith(base)) {

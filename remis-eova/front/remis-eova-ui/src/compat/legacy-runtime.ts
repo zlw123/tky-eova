@@ -53,8 +53,40 @@ export const LEGACY_RUNTIME_SCRIPTS: readonly string[] = [
   //   `ReferenceError: EovaTools is not defined`（症状：首页"请求异常"，而构建/单测/闸门全绿）。
   //   旧栈顺序本来就是"vendor 在前、页面脚本在后"（服务端 partial），这里按同一顺序装配。
   '/eova/ui/meta/eova.meta.js',
-  '/eova/_view/template/eova.template.js'
+  '/eova/_view/template/eova.template.js',
+  // ★★ r304 追加（用户实测反馈）：`_eova/assets/eova.ui.ext.js` 是**工程级扩展资产**，
+  //   它注册制品里"单元格渲染器"注册表的两个条目 —— `eova-table-cell`（表格单元格）与
+  //   `eova-table-island`（表底部统计）。制品 `EvTableCell` 的渲染是
+  //   `let s = EovaUI.me.render.get(name); if (s) { ... } ` ⇒ **查不到就什么都不渲染**，
+  //   而表头/行号/分页都不走注册表 ⇒ 症状是"接口有返回、分页也对，但每一个数据格都是空的"
+  //   （真浏览器实测：新栈每页 `EovaUI.me.render.get('eova-table-cell')` = 无 ⇒
+  //     `meta_product` 210/210 个数据格全空；旧栈同页 177/210 有内容）。
+  //   旧栈是页面 `<head>` 里的经典 `<script src="/_eova/assets/eova.ui.ext.js">`（实测 200），
+  //   排在 `eova.template.js` 之后 ⇒ 这里按同一相对顺序追加。
+  //   依赖：脚本顶部即读 `Vue`/`EovaUI.me`/`EovaTools`，故**必须在 vendor 与页面脚本之后**。
+  '/_eova/assets/eova.ui.ext.js'
 ]
+
+/**
+ * **以 ES 模块方式加载**的资产前缀（`_eova/**` = 工程级扩展资源）。
+ *
+ * ★★ 为什么必须模块化（第 304 轮实测，不是风格偏好）：
+ * 旧栈是 **MPA** —— 主框架与每个页面在**不同 realm**（页面在 iframe 里），于是
+ * `eova.template.js` 的顶层 `const me = EovaUI.me` 与扩展资产的 `const {me} = EovaUI`
+ * 各自只声明一次、互不冲突。
+ * SPA 把所有页面并进**同一个 realm**，而**经典脚本的顶层词法声明是跨脚本共享的**
+ * ⇒ 第二个声明直接抛 `SyntaxError: Identifier 'me' has already been declared`，
+ * 扩展资产**整份不执行**（实测：脚本 200 已下载，但渲染器注册表仍是空的）。
+ * ES 模块自带模块作用域 ⇒ 顶层 `const` 隔离，且仍可读全局 `Vue`/`EovaUI`/`EovaTools`。
+ */
+export const MODULE_SCRIPT_PREFIX = '/_eova/'
+
+/**
+ * 表格单元格渲染器的**注册键**（制品 `EvTableCell` 用它查渲染器；查不到就什么都不渲染）。
+ *
+ * 见 {@link assertCellRendererRegistered}。
+ */
+export const CELL_RENDERER_KEY = 'eova-table-cell'
 
 /** 每个制品加载后必须出现的全局名（用于"响亮失败"校验） */
 export const SCRIPT_EXPECTED_GLOBAL: Readonly<Record<string, string>> = {
@@ -103,10 +135,44 @@ function defaultLoadScript(url: string): Promise<void> {
     const el = document.createElement('script')
     el.src = url
     el.async = false
+    // ★ `_eova/**`（工程级扩展资产）必须以模块加载：经典脚本的顶层词法声明跨脚本共享，
+    //   而它和页面脚本都声明了 `const me` ⇒ 经典方式下会整份 SyntaxError 而**静默失效**
+    //   （脚本 200、注册表却空）。详见 MODULE_SCRIPT_PREFIX 的说明。
+    if (url.startsWith(MODULE_SCRIPT_PREFIX)) {
+      el.type = 'module'
+    }
     el.onload = () => resolve()
     el.onerror = () => reject(new Error(`[legacy-runtime] 脚本加载失败：${url}`))
     document.head.appendChild(el)
   })
+}
+
+/**
+ * 校验**表格单元格渲染器**已注册（装配后的"响亮失败"闸门）。
+ *
+ * <p><b>为什么这必须是硬校验</b>：制品 `EvTableCell` 的渲染逻辑是
+ * {@code const s = EovaUI.me.render.get(name); if (s) {...}} —— 查不到就渲染成空。
+ * 而表头/行号/分页**不走**注册表，于是缺渲染器时的症状是：
+ * <b>接口有返回、分页正确、表头齐全，但每一个数据单元格都是空的</b>
+ * （第 304 轮用户实测反馈；实测 `meta_product` 210/210 个数据格全空）。
+ * 这种"看起来一切正常"的静默失效，必须在装配期就炸掉，而不是等用户来看见空表格。</p>
+ *
+ * @param target 全局对象（判据可注入）
+ * @throws Error 渲染器未注册时
+ */
+export function assertCellRendererRegistered(
+  target: Record<string, unknown> = globalThis as never
+): void {
+  const ui = target['EovaUI'] as { me?: { render?: { get?: (key: string) => unknown } } } | undefined
+  const renderer = ui?.me?.render?.get?.(CELL_RENDERER_KEY)
+  if (!renderer) {
+    throw new Error(
+      `[legacy-runtime] 表格单元格渲染器 \`${CELL_RENDERER_KEY}\` 未注册 —— ` +
+        `清单里的 \`/_eova/assets/eova.ui.ext.js\` 未生效（它必须以 **ES 模块**方式加载：` +
+        `经典脚本会因顶层 \`const me\` 与页面脚本冲突而整份不执行）。` +
+        '症状是"列表页有数据但单元格全空"，故此处响亮抛出。'
+    )
+  }
 }
 
 /**
@@ -167,6 +233,9 @@ export async function loadLegacyRuntime(options: LoadOptions = {}): Promise<void
   if (!isLegacyRuntimeLoaded(target)) {
     throw new Error('[legacy-runtime] 装配后仍缺少必需全局（EovaTools/LayuiVue/EovaUI）')
   }
+
+  // ④ 渲染器闸门：缺了它列表页会"有数据但格子全空"（静默失效，必须响亮抛）
+  assertCellRendererRegistered(target)
 }
 
 /**
