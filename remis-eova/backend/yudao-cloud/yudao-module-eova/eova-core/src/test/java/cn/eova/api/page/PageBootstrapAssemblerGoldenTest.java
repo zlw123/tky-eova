@@ -218,4 +218,5 @@ class PageBootstrapAssemblerGoldenTest {
         assertFalse(notLogin.containsKey("object"));
         assertFalse(notLogin.containsKey("btnList"));
     }
+
 }

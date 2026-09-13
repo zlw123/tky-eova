@@ -97,6 +97,18 @@ public class PageBootstrapController {
         //     拿它当菜单编码会**误解析**（实测：返回 `menu:{code:'meta_product',template:'table'}` + btnList）。
         //     故前端必须显式带 `object`（D5：不在这里改 `path` 语义 —— URL 上二者不可判别，
         //     且改它会与 S4-5 的既有口径冲突）。
+        // ★ r305：**页面自有引导数据**（旧栈由各 Controller 在 `set(...)` 里注入，与菜单无关）。
+        //   首个落地面：`/meta/reorder`（旧 `MetaController#reorder()` 的 `set("data", …)`）。
+        //   ⚠️ 必须在"带 object 就走 assembleByObject"那条分支**之前**判：该页请求同时带
+        //   `object`（元对象编码）⇒ 否则本分支永不可达（实测踩到：响应变成 actions 页的 object 载荷）。
+        String reqPath = str(body == null ? null : body.get("path"));
+        if (reqPath != null && reqPath.startsWith("/meta/reorder")) {
+            LegacyKv pagePayload = PageBootstrapAssembler.ofReorderPage(
+                    str(body.get("object")), str(body.get("biz")), str(body.get("mode")));
+            writeJson(response, pagePayload);
+            return;
+        }
+
         String menuCode = str(body == null ? null : body.get("menu"));
         String objectCode = menuCode == null && body != null ? str(body.get("object")) : null;
 

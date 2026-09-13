@@ -212,6 +212,59 @@ public class PageBootstrapAssembler {
     }
 
     /**
+     * **页面自有引导数据**：`/meta/reorder` 的排序项（旧 `MetaController#reorder()` 的服务端注入）。
+     *
+     * <p>ported from: {@code cn.eova.core.meta.MetaController#reorder()}（旧 162-197 行）——
+     * 旧实现把排序项 `set("data", tps)` 交给模板 `#json(data)` 注入 `uzoo.app.data`；
+     * 前后端分离后该数据必须由**引导端点**提供，前端 {@code MetaReorder.vue} 早已按
+     * {@code bootstrap.pageParams['data']} 读取（并在端点缺字段时**显式回退 `[]`**）。</p>
+     *
+     * <p>两条分支与旧实现逐行对应：{@code biz=field}（默认）取
+     * {@code sm.meta.getMetaField(objectCode)}；{@code biz=field_diy} 取
+     * {@code sm.meta.getMetaFieldDiy(objectCode, mode)}。两者都映射成 {@code {id, name, num}}。</p>
+     *
+     * @param objectCode 元对象编码（URL 参数 `object`）
+     * @param biz        场景（URL 参数 `biz`，缺省 `field`）
+     * @param mode       模式（URL 参数 `mode`，仅 `field_diy` 用）
+     * @return `pageParams` 载荷（至少含 `data` 数组；`field_diy` 时另含 `mode`）
+     */
+    public static LegacyKv reorderPageParams(String objectCode, String biz, String mode) {
+        String scene = (biz == null || biz.isEmpty()) ? "field" : biz;
+        List<Object> rows = new java.util.ArrayList<>();
+        if ("field".equals(scene)) {
+            for (cn.eova.model.MetaField f : sm.meta.getMetaField(objectCode)) {
+                rows.add(LegacyKv.of("id", f.getId()).set("name", f.getCn()).set("num", f.getNum()));
+            }
+        } else if ("field_diy".equals(scene)) {
+            for (cn.eova.model.MetaFieldDiy f : sm.meta.getMetaFieldDiy(objectCode, mode)) {
+                rows.add(LegacyKv.of("id", f.getInt("id")).set("name", f.getStr("cn")).set("num", f.getInt("num")));
+            }
+        }
+        LegacyKv params = new LegacyKv();
+        params.set("data", rows);
+        params.set("biz", scene);
+        if ("field_diy".equals(scene)) {
+            params.set("mode", mode);
+        }
+        return params;
+    }
+
+    /**
+     * 组装**页面自有引导数据**的响应（`state=ok` + `pageParams`）。
+     *
+     * @param objectCode 元对象编码
+     * @param biz        场景
+     * @param mode       模式
+     * @return 载荷
+     */
+    public static LegacyKv ofReorderPage(String objectCode, String biz, String mode) {
+        LegacyKv kv = new LegacyKv();
+        kv.set("state", STATE_OK);
+        kv.set("pageParams", reorderPageParams(objectCode, biz, mode));
+        return kv;
+    }
+
+    /**
      * `loginUser` 的字段映射（权限面：`isAdmin` 决定 SPA 是否给超管入口）。
      *
      * @param user 当前用户

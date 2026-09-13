@@ -21,6 +21,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -196,5 +197,50 @@ class PageBootstrapHttpTest {
         assertEquals("no", body.get("state"), "必须 state=no：" + resp.getBody());
         assertTrue(String.valueOf(body.get("msg")).contains("菜单不存在"),
                 "★ 文案必须可读（旧契约 renderMsg/Ret.fail 风格），实际=" + body.get("msg"));
+    }
+
+    /**
+     * **页面自有引导数据**：`/meta/reorder` 的排序项（第 305 轮 · 真缺陷 P-REORDER 回归锁）。
+     *
+     * <p>旧栈该页的数据是**服务端注入**的（`MetaController#reorder()` 的 `set(data, tps)`；
+     * 模板 `#json(data)` 塞进 `uzoo.app.data`）⇒ 分离后必须由引导端点给 `pageParams.data`。
+     * 缺它时前端 `MetaReorder.vue` **显式回退 `[]`**（诚实降级）⇒ 页面全空：
+     * 实测修前新栈正文 0 字符，旧栈 104（`ID #1 名称 #2 产品类型 #3 …`）。</p>
+     *
+     * <p>★ 为什么钉在 **HTTP 层**：本修复踩过一个只有端到端才能暴露的坑 ——
+     * 该页请求同时带 `object`（元对象编码），若把本分支排在"带 object 就走动作页装配"之后，
+     * 它会**永不可达**（实测：响应变成动作页的 object 载荷，`pageParams` 为空）。
+     * 装配器自身的判据看不见"分支顺序"，只有打这条 URL 才看得见。</p>
+     */
+    @Test
+    @DisplayName("★ S4-8：/meta/reorder ⇒ pageParams.data 为 {id,name,num} 列表（旧 set(data) 的等价物）")
+    void assemblesReorderPageParams() throws Exception {
+        String sid = login();
+        ResponseEntity<String> resp = postBootstrap(sid,
+                "{\"path\":\"/meta/reorder\",\"object\":\"meta_product\",\"biz\":\"field\"}");
+        assertEquals(200, resp.getStatusCode().value(), "带会话必须 200，实际=" + resp.getStatusCode());
+        Map<?, ?> body = JSON.readValue(resp.getBody(), Map.class);
+        assertEquals("ok", body.get("state"), "信封 state 必须为 ok：" + resp.getBody());
+
+        Map<?, ?> params = (Map<?, ?>) body.get("pageParams");
+        assertNotNull(params, "必须含 pageParams（否则前端回退成空列表 ⇒ 页面全空）");
+        assertEquals("field", params.get("biz"), "biz 必须回带（旧 set(biz, biz)）");
+        java.util.List<?> rows = (java.util.List<?>) params.get("data");
+        assertNotNull(rows, "pageParams.data 必须在");
+        assertFalse(rows.isEmpty(), "meta_product 的元字段列表不得为空（基线库 14 个字段）");
+        Map<?, ?> first = (Map<?, ?>) rows.get(0);
+        assertEquals(java.util.Set.of("id", "name", "num"), new java.util.HashSet<>(first.keySet()),
+                "每项必须是 {id, name, num}（旧实现就是这三个键）");
+    }
+
+    @Test
+    @DisplayName("★ S4-8b：/meta/reorder 的 biz 缺省为 field（旧 get(biz, field)），且不得落到动作页装配分支")
+    void reorderPageParamsDefaultBiz() throws Exception {
+        String sid = login();
+        ResponseEntity<String> resp = postBootstrap(sid, "{\"path\":\"/meta/reorder\",\"object\":\"meta_product\"}");
+        Map<?, ?> body = JSON.readValue(resp.getBody(), Map.class);
+        Map<?, ?> params = (Map<?, ?>) body.get("pageParams");
+        assertNotNull(params, "缺 biz 时也必须走页面自有引导数据分支（不得落到动作页装配）");
+        assertEquals("field", params.get("biz"), "缺省场景必须是 field");
     }
 }
