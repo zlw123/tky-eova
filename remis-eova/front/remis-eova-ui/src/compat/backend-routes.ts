@@ -61,6 +61,16 @@ export const BACKEND_ROUTE_PREFIXES: readonly string[] = [
   // ★ r274 口径④（用户裁定）：demo 工程的 `/main`、`/theme`、`/test`、`/ip`、`/sso` **归 SPA 所有**
   //   （属旧 demo 应用而非 core：旧栈带会话 `GET /main` = <title>EovaUI主题风格</title>，ported 侧只有 core
   //   ⇒ 当后端前缀转发必然 404，真浏览器实测 `404 /main`）⇒ 不再列为后端前缀。
+  //
+  // ★★ r307（U3 取证）**口径④被实测收窄**：`/main` 与 `/ip` 必须交回后端 ——
+  //   · `/main`：SPA 首页把页签内容渲染成 `<iframe :src="m.link">`，而**初始页签 link 就是 `/main`**
+  //     （`utils/tab.ts:38`；旧首页 `eova/_view/index/index.js:21` 同款）
+  //     ⇒ 它必须是**后端渲染的主题页**；归 SPA（或只由 SPA 供给）会让 iframe 里装 SPA 自己。
+  //     实测依据：旧栈 `/main` = 200 + `<title>EovaUI主题风格</title>`，其脚本 `/_view/theme/index.js` 200。
+  //   · `/ip`：旧栈是 `renderText(getRealIp)` 的**纯文本端点**（不是页面）。
+  //   `/theme`（旧栈无此页，落首页）与 `/sso`（旧栈 500 死页）不再出现在任何一侧。
+  '/main',
+  '/ip',
   '/widget',
   // —— 两个 webapp 根的**顶层静态目录**（源：`meta-eova/eova/{view,demo}/src/main/webapp/` 的 `ls`）——
   //   view 根：`eova`（已在上方）

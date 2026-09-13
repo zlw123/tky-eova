@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -86,6 +87,41 @@ public class LegacyStaticAssets {
      */
     public static final String DEMO_PREFIX = "/demo/";
 
+    /**
+     * 静态空间之五：**仍由后端渲染的旧页的页面级脚本**（{@code /_view/**}，r307 U3 新增）。
+     *
+     * <p><b>为什么必须供给</b>：`/main` 是 demo 的 EovaUI 主题演示页，而 **SPA 首页把它当 iframe 内容**
+     * （`Home.vue` 的 `<iframe :src="m.link">`，初始页签 link 就是 `/main`；旧首页
+     * `eova/_view/index/index.js:21` 同款）⇒ 它必须由**后端渲染真页面**。
+     * 实测旧栈 `/_view/theme/index.js` **200**、新栈 **404** ⇒ 页面即便渲染出来，其脚本也取不到。</p>
+     *
+     * <p>⚠️ 这条缺口是"**页面 200 但子资源 404**"型缺陷：任何只比页面状态码的判据都看不见它
+     * （见 `docs/.local/spikes` 的子资源等价探针）。</p>
+     */
+    public static final String VIEW_PREFIX = "/_view/";
+
+    /**
+     * 静态空间之六：**Excel 导入页的脚本**（{@code /excel/**}，r307 U3 新增）。
+     *
+     * <p>{@code /excel/imports/<objectCode>} 是 U2 清点后**唯一仍由后端渲染的活页面**，它引用
+     * {@code /excel/import/app.js} 与 {@code /excel/import/btn.js}（旧栈均 200、新栈此前 **404**）。
+     * {@code /excel} 同时是动作路由前缀（`ExcelController`）—— 静态层只在**文件真实存在**时直出
+     * ⇒ {@code /excel/imports/<code>} 这类动作 URL 不受影响（判据见 `LegacyStaticAssetsTest`）。</p>
+     */
+    public static final String EXCEL_PREFIX = "/excel/";
+
+    /**
+     * 静态空间之七：**页面引用的可下载静态文件**（{@code /_static/**}，r307 U3 新增）。
+     *
+     * <p>实测来源：Excel 导入页里的"下载导入模板"链接指向
+     * {@code /_static/excel/酒店导入模版.xlsx}（旧栈 200）。</p>
+     *
+     * <p>★ 该文件是**非 ASCII 文件名** ⇒ 静态层必须对请求路径做 **URL 解码**（浏览器发的是
+     * 百分号编码的 UTF-8），否则即便文件在也永远命中不了 —— 这类"文件存在但取不到"的缺口
+     * 与"文件不存在"表现相同（都 404），只有带编码的实测能分辨。</p>
+     */
+    public static final String STATIC_PREFIX = "/_static/";
+
     /** 扩展名 → Content-Type（旧栈实测：css=text/css、js=application/javascript） */
     private static final Map<String, String> TYPES = new HashMap<>();
 
@@ -122,6 +158,24 @@ public class LegacyStaticAssets {
     /** demo 静态资产根（{@code <web 根>/demo}）；不可用时为 null */
     private final File demoRoot;
 
+    /** 旧页页面脚本根（{@code <web 根>/_view}）；不可用时为 null */
+    private final File viewRoot;
+
+    /** Excel 导入页脚本根（{@code <web 根>/excel}）；不可用时为 null */
+    private final File excelRoot;
+
+    /** 可下载静态文件根（{@code <web 根>/_static}）；不可用时为 null */
+    private final File staticRoot;
+
+    /**
+     * 静态空间表：**前缀 → 根目录**（顺序即匹配顺序；各前缀互不包含，故顺序无歧义）。
+     *
+     * <p>★ 用表而不是 if/else 链的原因（r247 M6 的教训）：`resolve` 必须**自己**判定前缀，
+     * 一旦"判定用的前缀集合"与"剥离时用的前缀"不一致，就会产生**路径别名**
+     * （例如把 {@code /xxxxx/lib/x.css} 当成 {@code lib/x.css} 命中静态文件）。表让两者天然同一份事实。</p>
+     */
+    private final Map<String, File> spaces = new LinkedHashMap<>();
+
     /**
      * 构造。
      *
@@ -142,12 +196,34 @@ public class LegacyStaticAssets {
         this.privateRoot = webRoot == null ? null : new File(webRoot, "_eova");
         this.spaAssetsRoot = spaDistRoot == null ? null : new File(spaDistRoot, "eova-assets");
         this.demoRoot = webRoot == null ? null : new File(webRoot, "demo");
+        this.viewRoot = webRoot == null ? null : new File(webRoot, "_view");
+        this.excelRoot = webRoot == null ? null : new File(webRoot, "excel");
+        this.staticRoot = webRoot == null ? null : new File(webRoot, "_static");
+        spaces.put(PREFIX, root);
+        spaces.put(PRIVATE_PREFIX, privateRoot);
+        spaces.put(SPA_ASSETS_PREFIX, spaAssetsRoot);
+        spaces.put(DEMO_PREFIX, demoRoot);
+        spaces.put(VIEW_PREFIX, viewRoot);
+        spaces.put(EXCEL_PREFIX, excelRoot);
+        spaces.put(STATIC_PREFIX, staticRoot);
         if (root != null && !root.isDirectory()) {
             log.warn("Eova Web 层：静态空间根不存在（{}）⇒ /eova/** 静态资源不会被供给", root.getAbsolutePath());
         }
         if (privateRoot != null && !privateRoot.isDirectory()) {
             log.warn("Eova Web 层：扩展静态根不存在（{}）⇒ /_eova/** 静态资源不会被供给"
                     + "（后果：表格单元格渲染器缺失 ⇒ 列表页有数据但格子空）", privateRoot.getAbsolutePath());
+        }
+        if (viewRoot != null && !viewRoot.isDirectory()) {
+            log.warn("Eova Web 层：旧页脚本根不存在（{}）⇒ /_view/** 不会被供给"
+                    + "（后果：/main 主题页渲染出来但脚本 404 ⇒ 空白页）", viewRoot.getAbsolutePath());
+        }
+        if (excelRoot != null && !excelRoot.isDirectory()) {
+            log.warn("Eova Web 层：Excel 导入页脚本根不存在（{}）⇒ /excel/** 不会被供给"
+                    + "（后果：唯一活旧页 /excel/imports/<code> 的 app.js/btn.js 取不到）", excelRoot.getAbsolutePath());
+        }
+        if (staticRoot != null && !staticRoot.isDirectory()) {
+            log.warn("Eova Web 层：可下载静态文件根不存在（{}）⇒ /_static/** 不会被供给"
+                    + "（后果：Excel 导入页的「下载导入模板」链接 404）", staticRoot.getAbsolutePath());
         }
     }
 
@@ -158,8 +234,44 @@ public class LegacyStaticAssets {
      * @return 是否静态空间
      */
     public boolean isStaticSpace(String path) {
-        return path != null && (path.startsWith(PREFIX) || path.startsWith(PRIVATE_PREFIX)
-                || path.startsWith(SPA_ASSETS_PREFIX) || path.startsWith(DEMO_PREFIX));
+        return spacePrefixOf(path) != null;
+    }
+
+    /**
+     * 取该路径所属的静态空间前缀。
+     *
+     * @param path 请求路径
+     * @return 命中的前缀；不属于任何静态空间返回 null
+     */
+    private String spacePrefixOf(String path) {
+        if (path == null) {
+            return null;
+        }
+        for (String p : spaces.keySet()) {
+            if (path.startsWith(p)) {
+                return p;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * **路径用的**百分号解码（只解 {@code %XX}，**不**把 {@code '+'} 当空格）。
+     *
+     * <p>为什么需要：{@code /_static/excel/酒店导入模版.xlsx} 这类**非 ASCII 文件名**，浏览器发的是
+     * 百分号编码的 UTF-8；不解码则永远命中不了（表现与"文件不存在"完全一样，都是 404）。
+     * 而 {@code URLDecoder} 是**表单**语义（会把 {@code +} 解成空格）⇒ 先把 {@code +} 保护成 {@code %2B}。</p>
+     *
+     * @param s 原始片段
+     * @return 解码后的片段；解码失败（非法转义）时返回 null
+     */
+    private static String decodePath(String s) {
+        try {
+            return java.net.URLDecoder.decode(s.replace("+", "%2B"), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            log.warn("Eova Web 层：静态请求路径解码失败（非法转义）：{}", s);
+            return null;
+        }
     }
 
     /**
@@ -169,32 +281,18 @@ public class LegacyStaticAssets {
      * @return 命中且未越界返回文件；否则 null
      */
     public File resolve(String path) {
-        // 两个静态空间各映射到 web 根下的同名目录（`/eova/**` 与 `/_eova/**`）
-        boolean isSpaAssets = path != null && path.startsWith(SPA_ASSETS_PREFIX);
-        boolean isDemo = path != null && path.startsWith(DEMO_PREFIX);
-        File spaceRoot;
-        String prefix;
-        if (isSpaAssets) {
-            spaceRoot = spaAssetsRoot;
-            prefix = SPA_ASSETS_PREFIX;
-        } else if (isDemo) {
-            spaceRoot = demoRoot;
-            prefix = DEMO_PREFIX;
-        } else if (path != null && path.startsWith(PRIVATE_PREFIX)) {
-            spaceRoot = privateRoot;
-            prefix = PRIVATE_PREFIX;
-        } else {
-            spaceRoot = root;
-            prefix = PREFIX;
-        }
+        String prefix = spacePrefixOf(path);
+        File spaceRoot = prefix == null ? null : spaces.get(prefix);
         // ★ 前缀判断必须**由本方法自己做**，不能依赖调用方：下面是"按固定长度剥离前缀"，
         //   一旦调用方用了更宽的前缀判断（例如放宽成"任意路径"），固定剥离就会产生**路径别名**
         //   （`/xxxxx/lib/x.css` 被当成 `lib/x.css` 命中静态文件）——r247 的 M6 变异实测暴露了这个风险。
-        if (spaceRoot == null || !isStaticSpace(path)) {
+        if (spaceRoot == null) {
             return null;
         }
-        String rel = path.substring(prefix.length());
-        if (rel.isEmpty() || rel.indexOf('\0') >= 0) {
+        // ★ r307（U3）：先解码再校验越界 —— 顺序不能反：`%2e%2e%2f` 必须先变成 `../`
+        //   才会被下面的规范化 + 前缀校验拦住（解码在后的话，编码形式的穿越就漏了）。
+        String rel = decodePath(path.substring(prefix.length()));
+        if (rel == null || rel.isEmpty() || rel.indexOf('\0') >= 0) {
             return null;
         }
         try {

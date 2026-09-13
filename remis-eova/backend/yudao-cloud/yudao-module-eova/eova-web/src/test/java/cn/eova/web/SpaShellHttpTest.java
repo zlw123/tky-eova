@@ -109,13 +109,12 @@ class SpaShellHttpTest {
                 "/auth/1248",
                 "/su",
                 "/placeholder",
-                "/main",
-                "/theme",
                 "/test",
                 "/test/sse",
-                "/ip",
-                "/sso",
                 "/widget");
+        // ★ r307（U3）：`/main`、`/theme`、`/ip`、`/sso` 已从本清单移除（口径④被实测收窄）——
+        //   `/main` 必须由后端渲染主题页（SPA 首页把它当 iframe 内容；见 LegacySubResourceHttpTest），
+        //   `/ip` 是纯文本端点，`/theme` 旧栈无此页（落首页），`/sso` 旧栈本来就 500。
         for (String p : pages) {
             ResponseEntity<String> resp = get(sid, p);
             assertEquals(200, resp.getStatusCode().value(), p + " 必须 200（返回 SPA 壳），实际=" + resp.getStatusCode());

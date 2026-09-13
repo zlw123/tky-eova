@@ -73,19 +73,25 @@ public class EovaWebRoutes extends WebRoutes {
         add("/task", TaskController.class);
         add("/dict", DictController.class);
 
+
         // ★ r305（U1）：**SPA 独有页面**的壳接管（旧栈由 demo 工程或前端跳转处理，后端本无路由）。
         //   实测（带会话直连 8080）这些 URL 此前全部 404 ⇒ 生产态下 SPA 拿不到它们。
         //   登记在这里 = 走同一套全局拦截器链（未登录仍 302 到 /user/login），只换响应体为壳。
         add("/su", SpaShellController.class);
         add("/placeholder", SpaShellController.class);
-        add("/main", SpaShellController.class);
-        add("/theme", SpaShellController.class);
+        // ★ r307（U3 取证）**删掉**了 U1 在这里登记的 `/main`、`/theme`、`/ip`、`/sso`：
+        //   · `/main`：SPA 首页把它当 **iframe 内容**（`Home.vue` 的 `<iframe :src="m.link">`，
+        //     初始页签 link = `/main`）⇒ 必须是**后端渲染的真页面**，供壳等于把 SPA 装进 iframe。
+        //     现已 port demo 的 `IndexController#main()` 渲染 `_view/theme/index.html`。
+        //   · `/ip`：旧栈是 `renderText(getRealIp)` 的**纯文本端点**（不是页面）⇒ 已 port `#ip()`。
+        //   · `/theme`：旧栈**没有这个独立页面**（实测落首页 —— 它是 `/` 兜底路由的产物）⇒ 撤掉壳后
+        //     该 URL 落回首页，与旧栈等价。
+        //   · `/sso`：旧栈该页**本来就 500**（模板 `_view/login/login.html` 全仓不存在）⇒ 死页，
+        //     撤销壳并登记（不再假装它是一页）。
         add("/test", SpaShellController.class);
         add("/test/sse", SpaShellController.class);
-        add("/ip", SpaShellController.class);
-        add("/sso", SpaShellController.class);
         // `/widget` 是 EovaUI 组件演示页：旧栈由 demo 的 AppController#widget() 渲染，
-        // 新栈后端无对应路由（SPA 侧已登记 `/widget`）⇒ 同样由壳接管。
+        // 新栈后端无对应路由（SPA 侧已登记 `/widget` 且 `Widget.vue` 已迁移）⇒ 同样由壳接管。
         add("/widget", SpaShellController.class);
         // ★ r306（U2 取证）**删掉**了 U1 在这里登记的 `/eova/role/auth` 壳路由 —— 它基于错误前提：
         //   旧页面 URL 是 **`/auth/<rid>`**（带会话实测 `/auth`、`/auth/1248` 都是 200「功能权限分配」；

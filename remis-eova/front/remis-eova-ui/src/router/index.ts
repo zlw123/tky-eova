@@ -174,11 +174,17 @@ export const routes: RouteRecordRaw[] = [
   }
 ,
   // ★ r274 口径④：demo 工程 URL 归 SPA（后端不迁移 demo 应用）⇒ 先落可声明占位（不是静默 404）
-  { path: '/main', component: Placeholder },
-  { path: '/theme', component: Placeholder },
+  // ★ r307（U3 取证）**收窄口径④**：四个 URL 已按实测交回后端，SPA 不再登记路由：
+  //   · `/main` —— SPA 首页把它当 **iframe 内容**（本文件上一段的 `Home.vue` 用
+  //     `<iframe :src="m.link">`，初始页签 link 就是 `/main`）⇒ 必须是后端渲染的主题页
+  //     （`IndexController#main()`）；登记成 SPA 路由会让 iframe 里装 SPA 自己。
+  //   · `/ip` —— 旧栈是 `renderText(getRealIp)` 的**纯文本端点**，不是页面（后端 `#ip()`）。
+  //   · `/theme` —— 旧栈**没有**这个页面（实测落首页）⇒ 撤掉后该 URL 落回首页 = 等价。
+  //   · `/sso` —— 旧栈该页本来就 **500**（模板缺失）⇒ 死页，不再假装它是一页。
   { path: '/test', component: Placeholder },
-  { path: '/ip', component: Placeholder },
-  { path: '/sso', component: Placeholder },
+  // ★ r307 登记：`/test` 旧栈是 demo `TestController#index()` 的 `renderText`（纯文本端点），
+  //   本 SPA 路由仍是占位 ⇒ **语义差异已登记**（未追平：它与已归 SPA 的 `/test/sse` 同前缀，
+  //   改由后端供给会把 `/test/sse` 一起牵连，需单独裁定）。
   // ★ r305（U1）：**兜底路由** —— 旧栈对任何未命中路径都会落到 `IndexController#index()`（`/` 是兜底路由，
   //   实测旧栈 `/zzz_unknown`、`/su` 都返回首页 title `Eova Meta 2026`）。SPA 侧必须同样兜底，
   //   否则生产态访问未知 URL 会得到**空白页**（而旧栈给首页）—— 等价性缺口。

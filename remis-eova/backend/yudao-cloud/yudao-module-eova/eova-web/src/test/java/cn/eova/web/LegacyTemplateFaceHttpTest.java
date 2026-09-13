@@ -213,28 +213,38 @@ class LegacyTemplateFaceHttpTest {
                 "★ 单段 urlPara 的活页面同样必须可达");
     }
 
-    // ---------------------------------------------------------------- ⑤ demo 族（U1 已接管，旧真值登记）
+    // ---------------------------------------------------------------- ⑤ demo 族（U3 逐面归属裁定后）
 
     @Test
-    @DisplayName("★ U2-5：demo 族 URL 现状（U1 壳接管）与**旧栈真值**的差异登记")
-    void demoFamilyFacesAreShellsWithRegisteredDifferences() {
+    @DisplayName("★ U2-5/U3-5：demo 族逐面归属（后端渲染 / SPA / 兜底首页 / 死页）")
+    void demoFamilyOwnershipIsDecided() {
         HttpHeaders h = session();
         // 旧栈真值（带会话实测）：`/main` 200「EovaUI主题风格」(=_view/theme/index.html, 591 行)、
         //   `/theme` 200「Eova Meta 2026」(**首页** —— 旧栈没有独立 theme 页，是 `/` 兜底的产物)、
         //   `/widget` 200「EovaMeta 组件」、`/test` 200 **纯文本** `test index...`、
         //   `/test/sse` 200「SSE Demo」、`/ip` 200 **纯文本** IP、`/sso` **500**（模板 _view/login/login.html 缺失）。
-        // 现状（U1 后）：这些 URL 一律返回 SPA 壳（`eova-assets/`）—— 属**已声明的口径④变更**。
-        // 登记在案的差异（不在本轮修）：
-        //   · `/main`：旧=主题页（模板在新栈 legacy 视图根**存在**，但**新后端无任何方法渲染它**）
-        //     ⇒ 归属未定：SPA 实现该页（迁 591 行模板）或后端补渲染入口；SPA 侧目前只是 Placeholder。
-        //   · `/theme`：SPA 路由**前提有误**（旧栈无此页）—— 需撤销或明确为 SPA 新增页。
-        //   · `/ip`、`/test`：旧栈是**纯文本端点**，现被壳接管 ⇒ 语义已变（登记）。
-        //   · `/sso`：旧栈本就 500（死页）⇒ 无损失。
-        for (String path : new String[]{"/main", "/theme", "/widget", "/test", "/test/sse", "/ip"}) {
+        //
+        // ★ r307（U3）逐面裁定（证据与代价见台账）：
+        //   · `/main` ⇒ **归后端渲染**（SPA 首页把它当 iframe 内容）—— 由 `LegacySubResourceHttpTest` 钉；
+        //   · `/ip`   ⇒ **归后端**（纯文本端点）—— 同上；
+        //   · `/theme`⇒ 归**兜底首页**（旧栈也没有独立页面）；
+        //   · `/sso`  ⇒ 撤销（旧栈 500 死页）；
+        //   · `/widget`、`/test/sse` ⇒ 归 SPA（直接导航、SPA 侧已有真实实现）；
+        //   · `/test` ⇒ **登记差异**（旧栈是纯文本端点，现仍是 SPA 占位；与已归 SPA 的 `/test/sse` 同前缀，
+        //     改由后端供给会牵连后者，需单独裁定 ⇒ 本轮不动，标 not executed）。
+        for (String path : new String[]{"/widget", "/test/sse"}) {
             ResponseEntity<String> resp = get(h, path);
-            assertEquals(200, resp.getStatusCode().value(), path + " U1 后应为壳（200）");
+            assertEquals(200, resp.getStatusCode().value(), path + " 应归 SPA（壳，200）");
             assertTrue(String.valueOf(resp.getBody()).contains("eova-assets/"),
-                    path + " 必须是 SPA 壳（口径④：demo 工程 URL 归 SPA）");
+                    path + " 必须是 SPA 壳（口径④：直接导航类 demo URL 归 SPA）");
         }
+        // `/theme` 不再被任何一层认领 ⇒ 落**兜底首页**（后端壳）—— 与旧栈"落首页"同语义
+        ResponseEntity<String> theme = get(h, "/theme");
+        assertEquals(200, theme.getStatusCode().value(), "/theme 应落兜底首页（200）");
+        assertTrue(String.valueOf(theme.getBody()).contains("eova-assets/"),
+                "/theme 落兜底 ⇒ 后端给壳（旧栈是首页，同语义）");
+        // `/sso` 旧栈 500（模板缺失）；新栈落兜底首页 ⇒ **已声明的差异**（追平成 500 无意义）
+        assertTrue(get(h, "/sso").getStatusCode().value() == 200,
+                "/sso 新栈落兜底首页 200（旧栈 500 死页 —— 差异已登记）");
     }
 }

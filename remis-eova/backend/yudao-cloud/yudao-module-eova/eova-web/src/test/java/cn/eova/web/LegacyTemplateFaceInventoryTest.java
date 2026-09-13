@@ -92,6 +92,12 @@ class LegacyTemplateFaceInventoryTest {
             //   冻结清单由 19 条降为 18 条。（模板 `eova/_view/role/auth/app.html` 随之成为**孤儿模板**：
             //   已无任何渲染点引用它，退役 enjoy 时可删 —— 登记在台账。）
             new Site("ExcelController#imports", "/excel/import/app.html", Kind.LEGACY_LIVE),
+            // ★ r307（U3）：`/main` 是 SPA 首页 **iframe 内容**（`Home.vue` 的 `<iframe :src="m.link">`，
+            //   初始页签 link = `/main`）⇒ 必须由后端渲染真页面 ⇒ port 了 demo 的
+            //   `AppController#main()` 到根控制器（`IndexController#main()`）。
+            //   模板 `_view/theme/index.html`（非 `/eova/` 前缀 ⇒ **不经 `_view` 重写**）真实存在；
+            //   旧栈带会话实测 200 + <title>EovaUI主题风格</title>。
+            new Site("DemoPageController#main", "/_view/theme/index.html", Kind.LEGACY_LIVE),
             // ---- 模板全仓不存在 ⇒ 两侧 500 的死入口 ----
             new Site("IndexController#code", "/eova/code.html", Kind.BROKEN_TEMPLATE),
             new Site("AdminController#upgrade", "/eova/admin/upgrade.html", Kind.BROKEN_TEMPLATE),
@@ -207,7 +213,7 @@ class LegacyTemplateFaceInventoryTest {
                         + " —— 必须先在 DECLARED 里登记分类与证据");
         assertTrue(missing.isEmpty(),
                 "★ 已声明的渲染点消失了：" + missing + " —— 若是有意删除，请同步更新 DECLARED（保留删除理由）");
-        assertEquals(18, declared.size(), "冻结清单条数（U2 实跑基线：19 条渲染点 − 1 条已迁移的 /auth）");
+        assertEquals(19, declared.size(), "冻结清单条数（U3 实跑基线：19 条渲染点 − 1 条已迁移的 /auth + 1 条 /main）");
     }
 
     @Test
@@ -229,7 +235,7 @@ class LegacyTemplateFaceInventoryTest {
             }
         }
         // 非空断言：防止上面两个分支被改成"什么都不查"而恒真
-        assertEquals(10, checks.size(), "必须有 10 条被真实核对（1 活 + 9 死）—— /auth 退役后活页面只剩 Excel 导入");
+        assertEquals(11, checks.size(), "必须有 11 条被真实核对（2 活 + 9 死）—— 活页面：Excel 导入 + /main 主题页");
         // ★ 反空断言：有副作用的那类**确实存在**且只有它被排除在 HTTP 调用之外
         //   （否则 SIDE_EFFECT_NO_CALL 可能被悄悄清空 ⇒ 上一条的核对数照样对，但语义已变）
         assertEquals(1, DECLARED.stream().filter(s -> s.kind() == Kind.SIDE_EFFECT_NO_CALL).count(),

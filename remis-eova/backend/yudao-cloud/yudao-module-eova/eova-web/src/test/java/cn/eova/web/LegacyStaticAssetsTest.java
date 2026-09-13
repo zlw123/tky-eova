@@ -104,7 +104,7 @@ class LegacyStaticAssetsTest {
      * 但意图必须钉住：静态空间就是那三个前缀，不得扩到接口/动作上。</p>
      */
     @Test
-    @DisplayName("静态空间只认 /eova/**、/_eova/**、/eova-assets/**、/demo/** —— /api 与动作路径都不算")
+    @DisplayName("静态空间只认七个前缀（/eova /_eova /eova-assets /demo /_view /excel /_static）—— /api 与动作路径都不算")
     void staticSpaceDoesNotSwallowApi() {
         LegacyStaticAssets assets = new LegacyStaticAssets(null, null);
         assertTrue(assets.isStaticSpace("/eova/lib/eova/eovaui.js"), "/eova/** 是静态空间");
@@ -112,9 +112,40 @@ class LegacyStaticAssetsTest {
         assertTrue(assets.isStaticSpace("/eova-assets/index-abc.js"), "SPA 产物是静态空间");
         assertTrue(assets.isStaticSpace("/demo/test/btn.js"),
                 "/demo/** 是静态空间（按钮脚本按该 URL 取；旧栈实测 200 application/javascript）");
+        // ★ r307（U3）：三个"仍由后端渲染的旧页的子资源"空间 —— 缺口实测都是"页面 200、子资源 404"
+        assertTrue(assets.isStaticSpace("/_view/theme/index.js"),
+                "/_view/** 是静态空间（/main 主题页的脚本；旧栈 200、新栈曾 404）");
+        assertTrue(assets.isStaticSpace("/excel/import/app.js"),
+                "/excel/** 是静态空间（Excel 导入页自己的脚本；旧栈 200、新栈曾 404）");
+        assertTrue(assets.isStaticSpace("/_static/excel/酒店导入模版.xlsx"),
+                "/_static/** 是静态空间（可下载模板；旧栈 200、新栈曾 404）");
         assertFalse(assets.isStaticSpace("/api/home/menu"), "/api/** 不是静态空间（那是接口）");
         for (String p : new String[]{"/api/home/menu", "/menu/add", "/meta/reorder_data", "/app/meta_product"}) {
             assertFalse(assets.isStaticSpace(p), p + " 不得被静态空间吞掉");
         }
+        // ★ 反向：`/excel` 既是静态空间又是**动作路由前缀** ⇒ 动作 URL 必须仍然走动作层。
+        //   本层只在**文件真实存在**时直出（`serve` 返回 false 时调用方继续走动作路由），
+        //   `/excel/imports/<objectCode>` 在静态根下没有同名文件 ⇒ 不会被吞。
+        assertFalse(assets.resolve("/excel/imports/sys_hotel") != null,
+                "★ /excel/imports/<code> 是动作 URL，静态层不得命中它（否则 Excel 导入页会变成文件供给）");
+    }
+
+    @Test
+    @DisplayName("★ r307：静态层必须做 URL 解码（非 ASCII 文件名），且解码不得造成目录穿越")
+    void staticSpaceDecodesPercentEncodedPath() {
+        // 用真实 legacy 根构造（非 ASCII 文件名只有真文件才测得出差异）
+        java.io.File webRoot = new java.io.File(
+                "../../../../front/remis-eova-ui/src/legacy").getAbsoluteFile();
+        org.junit.jupiter.api.Assumptions.assumeTrue(webRoot.isDirectory(), "legacy 根不存在 ⇒ 跳过（fail-closed 由 HTTP 判据兜底）");
+        LegacyStaticAssets assets = new LegacyStaticAssets(webRoot, null);
+
+        // 未编码：文件真实存在 ⇒ 命中
+        assertNotNull(assets.resolve("/_static/excel/酒店导入模版.xlsx"), "未编码路径应命中真实文件");
+        // 编码（浏览器实际发的形态）：必须同样命中 —— 不实现解码的话这里永远是 null
+        assertNotNull(assets.resolve("/_static/excel/%E9%85%92%E5%BA%97%E5%AF%BC%E5%85%A5%E6%A8%A1%E7%89%88.xlsx"),
+                "★ 百分号编码路径必须命中（浏览器发的就是这种形态，缺解码则永远 404）");
+        // 目录穿越：编码形态也必须被拦住（解码在越界校验**之前**）
+        assertNull(assets.resolve("/_static/%2e%2e%2f%2e%2e%2fpom.xml"), "★ 编码形式的目录穿越必须拒绝");
+        assertNull(assets.resolve("/_view/%2e%2e/%2e%2e/pom.xml"), "★ 同上（/_view 空间）");
     }
 }

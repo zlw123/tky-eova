@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest'
 import { routePathsOf } from './helpers'
 import { BACKEND_ACTION_PATHS, SPA_OWNED_PATHS, isSpaOwnedPath, ownedPrefixOf } from '../routes'
 import { routes } from '../index'
+import { BACKEND_ROUTE_PREFIXES } from '../../compat/backend-routes'
 
 /**
  * ★ r306（U2）：**与页面同前缀的后端动作白名单**（`BACKEND_ACTION_PATHS`）。
@@ -57,6 +58,29 @@ describe('router · SPA 拥有的路径', () => {
     expect(BACKEND_ACTION_PATHS).toEqual(EXPECTED_BACKEND_ACTION_PATHS)
     // 反空断言：白名单里每一条都真的在 `/auth` 之下（写错前缀的条目会让判据静默失效）
     expect(EXPECTED_BACKEND_ACTION_PATHS.every((a) => a.startsWith('/auth/'))).toBe(true)
+  })
+
+  it('★ r307（U3）：`/main`、`/ip` **不得**归 SPA 所有权（它们是后端页面/端点，且必须被代理）', () => {
+    // 取证：SPA 首页把页签内容渲染成 `<iframe :src="m.link">`，初始页签 link 就是 `/main`
+    //   （`utils/tab.ts:38`；旧首页 `eova/_view/index/index.js:21` 同款）
+    //   ⇒ `/main` 必须是**后端渲染的主题页**；归 SPA 会让 iframe 里装 SPA 自己（U1 的实测回归）。
+    // `/ip` 旧栈是 `renderText(getRealIp)` 的**纯文本端点**（不是页面）。
+    for (const p of ['/main', '/ip']) {
+      expect(isSpaOwnedPath(p), `${p} 不得归 SPA`).toBe(false)
+      expect(SPA_OWNED_PATHS, `SPA_OWNED_PATHS 不得含 ${p}`).not.toContain(p)
+      // 反向：它们必须仍**被代理到后端**，否则 dev 下 iframe/文本端点会拿到 SPA 的 index.html
+      expect(
+        BACKEND_ROUTE_PREFIXES.includes(p),
+        `${p} 必须在后端代理前缀里（否则 dev 下拿不到后端页面）`
+      ).toBe(true)
+    }
+    // 旧栈无此页的 `/theme` 与旧栈 500 的 `/sso`：两侧都不再认领
+    expect(isSpaOwnedPath('/theme')).toBe(false)
+    expect(isSpaOwnedPath('/sso')).toBe(false)
+    // 对照：仍在 SPA 侧的 demo 族 URL 必须保持归 SPA（防"一刀切全撤"）
+    expect(isSpaOwnedPath('/widget')).toBe(true)
+    expect(isSpaOwnedPath('/test/sse')).toBe(true)
+    expect(isSpaOwnedPath('/test')).toBe(true)
   })
 
   it('SPA_OWNED_PATHS 里**每一条**都有对应路由（多登记 ⇒ 该路径既不给 SPA 也不给后端）', () => {

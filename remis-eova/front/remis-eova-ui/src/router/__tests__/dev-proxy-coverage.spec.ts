@@ -132,13 +132,12 @@ function spaLiteralPaths(): string[] {
 const SHELL_ROUTE_PATHS: readonly string[] = [
   '/su',
   '/placeholder',
-  '/main',
-  '/theme',
   '/test',
   '/test/sse',
-  '/ip',
-  '/sso',
   '/widget'
+  // ★ r307（U3）：`/main`、`/theme`、`/ip`、`/sso` 的壳路由已删除 ——
+  //   `/main` 与 `/ip` 改由后端**真实路由**供给（`IndexController#main()/#ip()`，首段已在代理表 ✔），
+  //   `/theme`、`/sso` 旧栈分别"落首页"与"500 死页"，不再有壳。
   // ★ r306（U2）：`/eova/role/auth` 已从后端路由表删除（错误前提：旧页面 URL 是 `/auth/<rid>`）
   //   ⇒ 本例外清单同步移除；`/auth` 由后端按**普通已注册路由**供给壳（首段 `/auth` 在代理表里 ✔）。
 ]
@@ -165,6 +164,14 @@ describe('dev 代理覆盖', () => {
       if (SHELL_ROUTE_PATHS.includes(p)) {
         continue
       }
+      // ★ r307（U3）：**根路由** `/` 例外 —— 它就是 SPA 的首页兜底路由本身（SPA 自己的路由表里也有
+      //   `path: '/'`），不存在"被代理去后端"的问题（判据 ③ 另有断言：代理表里不得有 `/`）。
+      //   为什么它现在会出现在解析结果里：U3 把 demo 页面族（`/main`、`/ip`）改由
+      //   `DemoPageController` **覆盖根路由**承载（旧 demo `AppConfig#route()` 的等价物）
+      //   ⇒ 根路由从 `EovaConfig` 挪到了 `EovaWebRoutes`，于是被本判据解析到。
+      if (p === '/') {
+        continue
+      }
       const seg = firstSegment(p)
       expect(
         Object.prototype.hasOwnProperty.call(proxy, seg),
@@ -172,7 +179,7 @@ describe('dev 代理覆盖', () => {
       ).toBe(true)
     }
     // 反空断言：壳路由确实被识别到了（否则上面的 continue 永不生效 ⇒ 判据退化成"全都要求被代理"）
-    expect(SHELL_ROUTE_PATHS.length).toBeGreaterThanOrEqual(9)
+    expect(SHELL_ROUTE_PATHS.length).toBeGreaterThanOrEqual(5)
   })
 
   it('② SPA 源码里的每个字面量路径，要么归 SPA、要么首段在代理表里（含反空断言）', () => {

@@ -81,22 +81,21 @@ describe('生产态页面供给 · 名单同步（U1）', () => {
     // ★ r306（U2）：U1 登记的 `/eova/role/auth` 已删除 —— 它基于错误前提（旧页面 URL 是 `/auth/<rid>`，
     //   `/eova/role/auth/1` 实测 404）。`/auth` 的页面入口改由 `AuthController#index()` 退役为壳，
     //   该路由本来就已注册 ⇒ 不再需要壳路由条目。名单从 10 条降为 9 条。
+    // ★ r307（U3）：`/main`、`/theme`、`/ip`、`/sso` 四条壳路由已删除（口径④被实测收窄）——
+    //   `/main` 是 SPA 首页 iframe 的内容、必须是后端渲染的主题页；`/ip` 是纯文本端点；
+    //   `/theme` 旧栈无此页；`/sso` 旧栈本来就是 500 死页。名单 9 → 5。
     expect(shells).toEqual([
-      '/ip',
-      '/main',
       '/placeholder',
-      '/sso',
       '/su',
       '/test',
       '/test/sse',
-      '/theme',
       '/widget'
     ])
   })
 
   it('③ 后端壳路由必须**全部**是 SPA 所有的路径（不得借壳把后端动作/接口兜掉）', () => {
     const shells = routes.filter(([, c]) => c === 'SpaShellController').map(([p]) => p)
-    expect(shells.length).toBeGreaterThanOrEqual(9)
+    expect(shells.length).toBeGreaterThanOrEqual(5)
     const notOwned = shells.filter(
       (p) => !SPA_OWNED_PATHS.some((o) => o === p || p === o || p.startsWith(o + '/'))
     )

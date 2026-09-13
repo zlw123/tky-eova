@@ -231,7 +231,11 @@ public class LegacyWebBootstrap {
         log.info("Eova Web 层：网关已注册（Ds.EOVA）+ 元数据源 = JdbcTableMetadataSource（真自省）");
 
         // ④ 旧引导序列（与 EovaConfigPortGoldenTest 同姿势）
-        this.config = new EovaConfig();
+        //   ★ r307（U3）：宿主配置改为 `WebAppConfig`（`extends EovaConfig`，只覆写 `route(me)`
+        //   把根路由指向 `DemoPageController`）—— 对应旧栈 demo 的 `AppConfig extends EovaConfig`。
+        //   为什么必须走这个子类：`EovaConfig` 的"根路由是否已注册"守卫只看**直接 add** 的条目，
+        //   把 `/` 放进子 Routes（如 `EovaWebRoutes`）会让根路由**重复两条**（见 `WebAppConfig` 类注释）。
+        this.config = new WebAppConfig();
         this.boot = new LegacyJFinalBoot();
         this.boot.init(this.config);
 

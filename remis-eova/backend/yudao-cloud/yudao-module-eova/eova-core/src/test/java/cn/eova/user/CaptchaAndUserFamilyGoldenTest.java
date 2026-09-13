@@ -34,6 +34,7 @@ import cn.eova.compat.render.LegacyRenderFactory;
 import cn.eova.compat.render.LegacyRenderManager;
 import cn.eova.compat.render.LegacySpaShellRender;
 import cn.eova.config.EovaConfig;
+import cn.eova.core.DemoPageController;
 import cn.eova.core.SpaShellController;
 import cn.eova.core.admin.AdminController;
 import cn.eova.core.auth.AuthController;
@@ -596,15 +597,29 @@ class CaptchaAndUserFamilyGoldenTest {
                 "/excel", "/upload", "/sse", "/eova/admin", "/eova/ops", "/user",
                 "/meta", "/menu", "/button", "/auth", "/task", "/dict");
         assertEquals(legacyContract, paths.subList(0, legacyContract.size()), "18 条路由的顺序与路径属契约");
-        assertEquals(List.of(
-                "/su", "/placeholder", "/main", "/theme", "/test", "/test/sse",
-                "/ip", "/sso", "/widget"),
-                paths.subList(legacyContract.size(), paths.size()),
-                "r305 U1：SPA 壳路由的顺序/路径锁死（新增须同步 SPA_OWNED_PATHS 与壳判据）；"
-                        + "r306 U2：删去基于错误前提的 /eova/role/auth（旧页面 URL 是 /auth/<rid>）");
-        for (int i = legacyContract.size(); i < classes.size(); i++) {
-            assertEquals(SpaShellController.class, classes.get(i), "壳路由必须指向 SpaShellController");
+        // ★ r307（U3）：尾部不再全是壳 —— 先挑出**壳路由**单独锁死，再单独锁 demo 根路由覆盖。
+        //   这样"新增一条非壳路由"不会被误当成壳名单漂移，也不会让壳名单失去约束力。
+        List<String> shellPaths = new ArrayList<>();
+        for (int i = legacyContract.size(); i < paths.size(); i++) {
+            if (classes.get(i) == SpaShellController.class) {
+                shellPaths.add(paths.get(i));
+            }
         }
+        assertEquals(List.of("/su", "/placeholder", "/test", "/test/sse", "/widget"), shellPaths,
+                "r305 U1 建立壳路由名单；r306 U2 删 /eova/role/auth（错误前提）；"
+                        + "r307 U3 删 /main（须后端渲染）、/theme（旧栈无此页）、/ip（纯文本端点）、"
+                        + "/sso（旧栈 500）⇒ 名单 5 条");
+        // ★ r307（U3）：demo 页面族的根路由覆盖**不得**写在本表里 —— 必须由宿主配置
+        //   `WebAppConfig#route()`（旧 demo `AppConfig#route()` 的等价物）用**直接 add** 注册。
+        //   实测教训：`EovaConfig` 的"根路由是否已注册"守卫读的是 `me.getRouteItemList()`，
+        //   它**看不到子 Routes 里的条目** ⇒ 写在 EovaWebRoutes 里会让根路由**重复两条**，
+        //   而分发器取先出现的那条 ⇒ 实际生效的是 `IndexController`，`/main` 退化到 `index()` 返回壳
+        //   （表现为"代码看着对、URL 却是壳"）。本断言就是这个坑的防回归钉子。
+        assertFalse(paths.contains("/"),
+                "★ EovaWebRoutes 不得登记根路由 `/` —— 必须由宿主配置 WebAppConfig#route() 注册"
+                        + "（否则与 EovaConfig 守卫注册的 IndexController 重复，取先出现者 ⇒ /main 变壳）");
+        assertFalse(classes.contains(DemoPageController.class),
+                "DemoPageController 只挂根路由，不得出现在 EovaWebRoutes 里");
         assertEquals(List.of(
                 HomeController.class, MetaControler.class, WidgetController.class, FormControler.class,
                 TableController.class, TreeController.class, cn.eova.meta.api.ExcelController.class,

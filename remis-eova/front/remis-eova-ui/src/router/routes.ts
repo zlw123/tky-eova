@@ -25,12 +25,13 @@ import { isSpaOwnedAppPage } from '../compat/app-routes'
 
 /** SPA 拥有的路径（router 与 dev 代理共用；新增路由必须同时出现在这里） */
 export const SPA_OWNED_PATHS: readonly string[] = [
-  // ★ r274 口径④：这些 demo 工程 URL 归 SPA 所有
-  '/main',
-  '/theme',
+  // ★ r274 口径④：demo 工程 URL 归 SPA 所有
+  // ★ r307（U3 取证）**收窄**：`/main`、`/theme`、`/ip`、`/sso` 已交回后端 ——
+  //   `/main` 是 SPA 首页的 **iframe 内容**（`Home.vue` 的 `<iframe :src="m.link">`，初始页签 link
+  //   就是 `/main`）⇒ 归 SPA 会让 iframe 里装 SPA 自己；`/ip` 旧栈是**纯文本端点**；
+  //   `/theme` 旧栈**没有**这个页面（落首页）；`/sso` 旧栈本来就 **500**（死页）。
+  //   它们由后端供给（`IndexController#main()/#ip()` 与兜底首页），故同时也**不得**被代理表排除。
   '/test',
-  '/ip',
-  '/sso',
   '/',
   // ★ r305：旧栈 `/su` 与 `/` 同为落地页（实测两者都跳 /main）⇒ SPA 接管，避免被代理去后端
   '/su',
