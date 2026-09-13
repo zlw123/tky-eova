@@ -6,6 +6,7 @@
 package cn.eova.compat.template;
 
 import com.jfinal.kit.Kv;
+import cn.eova.compat.jfinal.kit.LegacyPathKit;
 import com.jfinal.kit.PathKit;
 import com.jfinal.template.Engine;
 import com.jfinal.template.source.FileSourceFactory;
@@ -58,6 +59,15 @@ public class EnjoyTemplateRenderService implements TemplateRenderService {
     public EnjoyTemplateRenderService(String webRoot, Object... sharedMethods) {
         // 关键：设置 JFinal 静态全局，否则 #renderOrElse 静默渲染为空
         PathKit.setWebRootPath(webRoot);
+        // ★ r308（T04 第二段 · UTIL 腿）：**同一个 web 根必须同时写给本仓 port**。
+        //   原因：`com.jfinal.kit.PathKit` 这个静态值不只是给本仓代码看的 —— **Enjoy 的
+        //   FileSource/Engine 内部也读它**（所以本类的注释把这条列为"最隐蔽的一条"）。
+        //   而 UTIL 腿已把 `ResourceRender`/`EovaConst`/`EovaModConst`/`EovaModPackage` 换到
+        //   `LegacyPathKit`（那是与模板无关的那一半）⇒ 若这里只写真 PathKit，本仓那些调用点会
+        //   读到**默认值**（classpath 推导），与 Enjoy 读到的宿主值**静默分歧**。
+        //   ⚠️ 这一行在 Enjoy 退役时**随本类一起消失**（那时只剩 LegacyPathKit 一个事实源）。
+        //   判据：`LegacyPathKitGoldenTest#webRootStaysInSyncWithEnjoyPathKit`。
+        LegacyPathKit.setWebRootPath(webRoot);
 
         // 引擎名由 webRoot 派生，保证「同根复用、异根隔离」
         String engineName = "eova-compat-" + Integer.toHexString(webRoot.hashCode());

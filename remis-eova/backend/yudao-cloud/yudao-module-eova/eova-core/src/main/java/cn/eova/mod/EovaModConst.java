@@ -5,10 +5,10 @@
  */
 package cn.eova.mod;
 
+import cn.eova.compat.jfinal.kit.LegacyPathKit;
 import java.io.File;
 import java.util.ArrayList;
 
-import com.jfinal.kit.PathKit;
 
 /**
  * <p>ported from: cn.eova.mod.EovaModConst
@@ -17,7 +17,7 @@ import com.jfinal.kit.PathKit;
  * <br><b>刻意保留的既有语义：</b>
  * <ol>
  *   <li>Mod 常量；唯一宿主依赖 PathKit（enjoy 提供）—— 逐字节即语义等价</li>
- *   <li>注意 DIR 类常量在【静态初始化】里调 PathKit.getWebRootPath()，新栈必须先 PathKit.setWebRootPath 才能取到正确值（同 EovaConst）</li>
+ *   <li>注意 DIR 类常量在【静态初始化】里调 LegacyPathKit.getWebRootPath()，新栈必须先 PathKit.setWebRootPath 才能取到正确值（同 EovaConst）</li>
  * </ol>
  */
 public class EovaModConst {
@@ -31,11 +31,11 @@ public class EovaModConst {
      * @return
      */
     public static String getResourcesPath() {
-        return new File(PathKit.getWebRootPath()).getParent() + File.separator + "resources";
+        return new File(LegacyPathKit.getWebRootPath()).getParent() + File.separator + "resources";
     }
 
     public static String dirMod() {
-        StringBuilder sb = new StringBuilder(PathKit.getWebRootPath());
+        StringBuilder sb = new StringBuilder(LegacyPathKit.getWebRootPath());
         sb.append(File.separator);
         sb.append("WEB-INF");
         sb.append(File.separator);
@@ -45,7 +45,7 @@ public class EovaModConst {
     }
 
     public static String dirModView() {
-        StringBuilder sb = new StringBuilder(PathKit.getWebRootPath());
+        StringBuilder sb = new StringBuilder(LegacyPathKit.getWebRootPath());
         sb.append(File.separator);
         sb.append("_mod");
         sb.append(File.separator);

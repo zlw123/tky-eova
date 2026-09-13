@@ -5,13 +5,13 @@
  */
 package cn.eova.handler;
 
+import cn.eova.compat.jfinal.kit.LegacyStrKit;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.regex.Pattern;
 
 import cn.eova.compat.jfinal.handler.LegacyHandler;
 import cn.eova.compat.jfinal.kit.LegacyHandlerKit;
-import com.jfinal.kit.StrKit;
 
 /**
  * <p>ported from: cn.eova.handler.UrlBanHandler
@@ -36,7 +36,7 @@ public class UrlBanHandler extends LegacyHandler {
     private Pattern skipedUrlPattern;
 
     public UrlBanHandler(String skipedUrlRegx, boolean isCaseSensitive) {
-        if (StrKit.isBlank(skipedUrlRegx))
+        if (LegacyStrKit.isBlank(skipedUrlRegx))
             throw new IllegalArgumentException("The para excludedUrlRegx can not be blank.");
         skipedUrlPattern = isCaseSensitive ? Pattern.compile(skipedUrlRegx) : Pattern.compile(skipedUrlRegx, Pattern.CASE_INSENSITIVE);
     }

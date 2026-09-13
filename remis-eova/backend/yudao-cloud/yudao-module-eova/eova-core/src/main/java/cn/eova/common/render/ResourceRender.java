@@ -5,8 +5,8 @@
  */
 package cn.eova.common.render;
 
+import cn.eova.compat.jfinal.kit.LegacyPathKit;
 import cn.eova.compat.jfinal.kit.LegacyKv;
-import com.jfinal.kit.PathKit;
 import cn.eova.compat.render.LegacyHtmlRender;
 
 /**
@@ -16,7 +16,7 @@ import cn.eova.compat.render.LegacyHtmlRender;
  * <br><b>刻意保留的既有语义：</b>
  * <ol>
  *   <li>classpath 资源模板渲染：extends HtmlRender，构造期先渲染再交给父类</li>
- *   <li>buildResource 用 PathKit.getPackagePath(object) 定位包内 resources/</li>
+ *   <li>buildResource 用 LegacyPathKit.getPackagePath(object) 定位包内 resources/</li>
  *   <li>【已声明适配 1】com.jfinal.render.HtmlRender -> cn.eova.compat.render.LegacyHtmlRender</li>
  *   <li>【已声明适配 2】com.jfinal.kit.Kv -> cn.eova.compat.jfinal.kit.LegacyKv</li>
  * </ol>
@@ -32,7 +32,7 @@ public class ResourceRender extends LegacyHtmlRender {
         // StackTraceElement[] ss = Thread.currentThread().getStackTrace();
         // StackTraceElement a = (StackTraceElement)ss[4];
         // String txt = Utils.readFromResource(filePath);
-        String pack = PathKit.getPackagePath(object);
+        String pack = LegacyPathKit.getPackagePath(object);
         return String.format("%s/resources/%s", pack, filePath);
     }
 

@@ -5,10 +5,10 @@
  */
 package cn.eova.config;
 
+import cn.eova.compat.jfinal.kit.LegacyPathKit;
 import java.io.File;
 import java.util.HashMap;
 
-import com.jfinal.kit.PathKit;
 
 /**
  * <p>ported from: cn.eova.config.EovaConst
@@ -17,7 +17,7 @@ import com.jfinal.kit.PathKit;
  * <br><b>刻意保留的既有语义：</b>
  * <ol>
  *   <li>常量名与取值属对外契约（含 SEQ_ 等拼接前缀，SqlUtil.getSequence 依赖它）</li>
- *   <li>DIR_PLUGINS 在【静态初始化】里调 PathKit.getWebRootPath()，故新栈必须在任何 EovaConst 访问之前先 PathKit.setWebRootPath(<webRoot>) —— Spring Boot 没有 JFinal 的 web 容器去设置该静态值（见 DES-002-R4 §2.1）」</li>
+ *   <li>DIR_PLUGINS 在【静态初始化】里调 LegacyPathKit.getWebRootPath()，故新栈必须在任何 EovaConst 访问之前先 PathKit.setWebRootPath(<webRoot>) —— Spring Boot 没有 JFinal 的 web 容器去设置该静态值（见 DES-002-R4 §2.1）」</li>
  * </ol>
  */
 /**
@@ -62,7 +62,7 @@ public class EovaConst {
     public static int SYS_ADMIN_UID = 2;
 
     /** 插件目录 **/
-    public static final String DIR_PLUGINS = PathKit.getWebRootPath() + File.separator + "plugins" + File.separator;
+    public static final String DIR_PLUGINS = LegacyPathKit.getWebRootPath() + File.separator + "plugins" + File.separator;
 
     /** Eova插件包URL **/
     public static final String PLUGINS_URL = "http://7xign9.com1.z0.glb.clouddn.com/eova_plugins.zip";

@@ -5,12 +5,12 @@
  */
 package cn.eova.mod;
 
+import cn.eova.compat.jfinal.kit.LegacyPathKit;
 import java.io.File;
 import java.io.IOException;
 
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.ZipUtil;
-import com.jfinal.kit.PathKit;
 
 /**
  * <p>ported from: cn.eova.mod.EovaModPackage
@@ -32,7 +32,7 @@ public class EovaModPackage {
         System.out.println("Eova Mod Package ing...");
         System.out.println();
 
-        String classPath = PathKit.getRootClassPath();
+        String classPath = LegacyPathKit.getRootClassPath();
         String projectPath = classPath.replace("\\target\\classes", "");
         System.out.println("Project path " + projectPath);
         System.out.println();

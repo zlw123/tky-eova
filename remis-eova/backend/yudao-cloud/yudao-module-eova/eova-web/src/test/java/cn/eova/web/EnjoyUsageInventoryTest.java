@@ -75,13 +75,8 @@ class EnjoyUsageInventoryTest {
                     List.of("template.Directive", "template.Env", "template.io.Writer", "template.stat.Scope")),
             Map.entry("cn/eova/common/render/RenderUtil.java",
                     List.of("template.Engine", "template.source.ClassPathSourceFactory")),
-            Map.entry("cn/eova/web/LegacyWebBootstrap.java", List.of("template.Engine")),
+            Map.entry("cn/eova/web/LegacyWebBootstrap.java", List.of("template.Engine"))
             // ---- UTIL：与模板无关的路径/字符串工具（可直接换实现）----
-            Map.entry("cn/eova/common/render/ResourceRender.java", List.of("kit.PathKit")),
-            Map.entry("cn/eova/config/EovaConst.java", List.of("kit.PathKit")),
-            Map.entry("cn/eova/mod/EovaModConst.java", List.of("kit.PathKit")),
-            Map.entry("cn/eova/mod/EovaModPackage.java", List.of("kit.PathKit")),
-            Map.entry("cn/eova/handler/UrlBanHandler.java", List.of("kit.StrKit"))
     ));
 
     /** 模块根（surefire 工作目录 = 模块目录）；解析不到 ⇒ fail-closed */
@@ -137,7 +132,9 @@ class EnjoyUsageInventoryTest {
         Map<String, List<String>> actual = scan();
 
         // 反空断言：扫描规则失效时不得"因为扫不到而通过"
-        assertTrue(actual.size() >= 15, "★ 扫到的依赖文件数异常少（" + actual.size() + "）⇒ 扫描规则可能已失效");
+        // 反空断言：门限**随退役进度**下调（当前基线 12；UTIL 腿退役前是 17）。
+        //   ⚠️ 真正防"扫描失效"的是下面两条"必须扫到已知文件"的断言 —— 门限只防"扫了个空"。
+        assertTrue(actual.size() >= 10, "★ 扫到的依赖文件数异常少（" + actual.size() + "）⇒ 扫描规则可能已失效");
         assertTrue(actual.containsKey("cn/eova/engine/ExpUtil.java"), "★ 未扫到表达式求值入口 ExpUtil");
         assertTrue(actual.containsKey("cn/eova/compat/render/LegacyTemplateRender.java"), "★ 未扫到渲染接缝");
 
@@ -155,7 +152,7 @@ class EnjoyUsageInventoryTest {
                 "★ 出现**未声明**的 enjoy 依赖（退役时会漏）：" + undeclared + " —— 请先在 DECLARED 里登记并分类");
         assertTrue(gone.isEmpty(),
                 "★ 已声明的依赖消失：" + gone + " —— 若是退役成功，请同步更新 DECLARED（这就是进度账本）");
-        assertEquals(17, DECLARED.size(), "依赖面基线文件数（r308 取证）");
+        assertEquals(12, DECLARED.size(), "依赖面文件数（r308 第 1 轮取证 17 − 第 2 轮 UTIL 腿退役 5）");
     }
 
     @Test
@@ -166,21 +163,22 @@ class EnjoyUsageInventoryTest {
                 "cn/eova/auth/AuthUri.java",
                 "cn/eova/config/PageConst.java",
                 "cn/eova/compat/template/LegacyRowFieldGetter.java");
-        List<String> util = List.of(
+        for (String f : expr) {
+            assertTrue(DECLARED.containsKey(f), "EXPR 类文件必须在清单里：" + f);
+        }
+        assertEquals(4, expr.size(), "EXPR〔表达式求值/业务字符串模板〕文件数（阻塞项）");
+        assertEquals(8, DECLARED.size() - expr.size(), "RENDER〔页面渲染接缝〕文件数");
+        // ★ UTIL 腿**已清零**（r308 第 2 轮）：`PathKit`(5 处) 与 `StrKit`(1 处) 全部换到 compat port
+        //   （`LegacyPathKit`/`LegacyStrKit`）⇒ 那 5 个文件已不在 enjoy 依赖面上。
+        //   反空断言：确认它们真的不在清单里（防"退役了却忘了改表"的另一半）。
+        for (String f : List.of(
                 "cn/eova/common/render/ResourceRender.java",
                 "cn/eova/config/EovaConst.java",
                 "cn/eova/mod/EovaModConst.java",
                 "cn/eova/mod/EovaModPackage.java",
-                "cn/eova/handler/UrlBanHandler.java");
-        for (String f : expr) {
-            assertTrue(DECLARED.containsKey(f), "EXPR 类文件必须在清单里：" + f);
+                "cn/eova/handler/UrlBanHandler.java")) {
+            assertFalse(DECLARED.containsKey(f), "UTIL 腿已退役，不得再出现在依赖面清单里：" + f);
         }
-        for (String f : util) {
-            assertTrue(DECLARED.containsKey(f), "UTIL 类文件必须在清单里：" + f);
-        }
-        assertEquals(4, expr.size(), "EXPR〔表达式求值/业务字符串模板〕文件数（阻塞项）");
-        assertEquals(5, util.size(), "UTIL〔路径/字符串工具〕文件数（可直接换实现）");
-        assertEquals(8, DECLARED.size() - expr.size() - util.size(), "RENDER〔页面渲染接缝〕文件数");
     }
 
     @Test
