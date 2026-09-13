@@ -461,27 +461,30 @@ public final class LegacyExprEvaluator {
         if (target == null) {
             throw new IllegalStateException("在 null 上取属性：" + name);
         }
-        // ① Map / Kv：直接按键取（键不存在时**不**返回 null，而是继续往后找，最后抛错）
-        if (target instanceof Map) {
-            Map<?, ?> m = (Map<?, ?>) target;
-            if (m.containsKey(name)) {
-                return m.get(name);
-            }
-        }
-        // ② getter：getXxx()（首字母大写）或 getxxx()
+        // ① getter：getXxx()（首字母大写）或 getxxx()
         Object viaGetter = byGetter(target, name);
         if (viaGetter != NOT_FOUND) {
             return viaGetter;
         }
-        // ③ 公有字段
+        // ② 公有字段
         Object viaField = byPublicField(target, name);
         if (viaField != NOT_FOUND) {
             return viaField;
         }
-        // ④ Model / Record 的列（`get(name)`）
+        // ③ Model / Record 的列（`get(name)`）
         Object viaModel = byColumnGetter(target, name);
         if (viaModel != NOT_FOUND) {
             return viaModel;
+        }
+        // ④ Map / Kv：**键不存在返回 null**（不抛错）——
+        //   ★ 这是生产实测纠正的一处真缺陷：`conf` 是 `Menu#getMenuConfig()` 解析出的 `LegacyKv`，
+        //   很多菜单的 config 里**没有** `object_code` 键；Enjoy 的 MapFieldGetter 此时给 null
+        //   ⇒ `#(conf.object_code)` 渲染成空串（URI 变 `/api/meta/form/`，属既有行为）。
+        //   我首版把它当"未找到"继续往后找并抛错 ⇒ **登录直接 500**
+        //   （`AuthUri.build → parseAuthUri → LegacyExprEvaluator.render`）。
+        //   教训：样例只覆盖"有键"的 Map 是不够的，**缺键**也是契约（差分判据已补该用例）。
+        if (target instanceof Map) {
+            return ((Map<?, ?>) target).get(name);
         }
         throw new IllegalStateException("public field not found: \"" + name + "\"");
     }

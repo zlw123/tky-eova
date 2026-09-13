@@ -43,7 +43,10 @@ public class ExpUtil {
             return template;
         }
 
-        return Engine.use().getTemplateByString(template, true).renderToString(pms);
+        // ★ r308（T04 第二段 · 第 6 轮）：**切到本仓替代求值器**。
+        //   等价性由 `LegacyExprEvaluatorGoldenTest` 钉住：真库语料（filter/defaulter/exp/config 60+ 条）
+        //   + 33 条语义边界样例 + AuthUri 的 16 条模板字面量，**两边逐字节比对**。
+        return cn.eova.compat.template.LegacyExprEvaluator.render(template, pms);
     }
 //
 //    public static String parse(String template, LegacyKv kv) {
@@ -83,6 +86,10 @@ public class ExpUtil {
             return path;
         }
 
+        // ⚠️ 本方法是 `ExpUtil` 里**最后一条 Enjoy 用法**：它渲染的是**模板文件**（不是业务表达式），
+        //   属「页面渲染腿」（RENDER）。当前调用方只有 `RenderUtil.renderFile`，而 `RenderUtil`
+        //   在渲染腿清单里已被判定为**死链**（见 `EnjoyRenderSurfaceTest`）⇒ 该链一经口径确认删除，
+        //   本文件即可整体离开 enjoy 依赖面。
         return Engine.use().getTemplate(path).renderToString(kv);
     }
 

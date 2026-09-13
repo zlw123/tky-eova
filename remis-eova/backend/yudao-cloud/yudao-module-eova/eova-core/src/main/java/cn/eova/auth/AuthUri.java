@@ -23,7 +23,6 @@ import cn.eova.tools.x;
 import cn.eova.compat.jfinal.kit.LegacyKv;
 import cn.eova.db.EovaGateways;
 import cn.eova.db.EovaRecord;
-import com.jfinal.template.Engine;
 
 /**
  * <p>ported from: cn.eova.auth.AuthUri
@@ -272,7 +271,11 @@ public class AuthUri {
         if (x.isEmpty(s)) {
             return s;
         }
-        return Engine.use().getTemplateByString(s).renderToString(pms);
+        // ★ r308（T04 第二段 · 第 6 轮）：**切到本仓替代求值器**（不再依赖 Enjoy）。
+        //   等价性由差分判据 `LegacyExprEvaluatorGoldenTest#authUriTemplatesMatchEnjoy` 钉住 ——
+        //   它从**本文件**抽取全部含 `#(...)` 的模板字面量（16 条）与 Enjoy 逐字节比对。
+        //   鉴权规则错一条就是权限事故，故这里不是"看着像"就换。
+        return cn.eova.compat.template.LegacyExprEvaluator.render(s, pms);
     }
 
 

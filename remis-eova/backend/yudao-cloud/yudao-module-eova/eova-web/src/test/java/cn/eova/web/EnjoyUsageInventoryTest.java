@@ -55,7 +55,6 @@ class EnjoyUsageInventoryTest {
     private static final Map<String, List<String>> DECLARED = new TreeMap<>(Map.ofEntries(
             // ---- EXPR：表达式求值 / 业务字符串模板（阻塞项）----
             Map.entry("cn/eova/engine/ExpUtil.java", List.of("template.Engine")),
-            Map.entry("cn/eova/auth/AuthUri.java", List.of("template.Engine")),
             Map.entry("cn/eova/config/PageConst.java", List.of("template.Engine")),
             Map.entry("cn/eova/compat/template/LegacyRowFieldGetter.java",
                     List.of("template.Engine", "template.expr.ast.FieldGetter")),
@@ -152,22 +151,26 @@ class EnjoyUsageInventoryTest {
                 "★ 出现**未声明**的 enjoy 依赖（退役时会漏）：" + undeclared + " —— 请先在 DECLARED 里登记并分类");
         assertTrue(gone.isEmpty(),
                 "★ 已声明的依赖消失：" + gone + " —— 若是退役成功，请同步更新 DECLARED（这就是进度账本）");
-        assertEquals(12, DECLARED.size(), "依赖面文件数（r308 第 1 轮取证 17 − 第 2 轮 UTIL 腿退役 5）");
+        assertEquals(11, DECLARED.size(), "依赖面文件数（17 − UTIL 腿 5 − 第 6 轮 AuthUri 1）");
     }
 
     @Test
     @DisplayName("★ T04-2：分类计数冻结（EXPR 是阻塞项 —— 退役前必须先把它们解决或登记阻塞）")
     void categoriesAreCounted() {
+        // ★ r308 第 6 轮：`AuthUri` 已切成 `LegacyExprEvaluator` ⇒ 离开依赖面（EXPR 4 → 3）。
+        //   `ExpUtil` 仍在面上：它的 `parse`/`parseSql`（业务表达式）已切换，但 `parseTemplate`
+        //   （模板**文件**渲染，属 RENDER 腿）仍走 Enjoy —— 该方法的唯一调用方是死链 `RenderUtil`。
         List<String> expr = List.of(
                 "cn/eova/engine/ExpUtil.java",
-                "cn/eova/auth/AuthUri.java",
                 "cn/eova/config/PageConst.java",
                 "cn/eova/compat/template/LegacyRowFieldGetter.java");
         for (String f : expr) {
             assertTrue(DECLARED.containsKey(f), "EXPR 类文件必须在清单里：" + f);
         }
-        assertEquals(4, expr.size(), "EXPR〔表达式求值/业务字符串模板〕文件数（阻塞项）");
+        assertEquals(3, expr.size(), "EXPR〔表达式求值/业务字符串模板〕文件数（阻塞项；AuthUri 已退役）");
         assertEquals(8, DECLARED.size() - expr.size(), "RENDER〔页面渲染接缝〕文件数");
+        // 反空断言：`AuthUri` 必须真的不在清单里（防"退役了却忘了改表"）
+        assertFalse(DECLARED.containsKey("cn/eova/auth/AuthUri.java"), "AuthUri 已退役，不得再出现在依赖面清单里");
         // ★ UTIL 腿**已清零**（r308 第 2 轮）：`PathKit`(5 处) 与 `StrKit`(1 处) 全部换到 compat port
         //   （`LegacyPathKit`/`LegacyStrKit`）⇒ 那 5 个文件已不在 enjoy 依赖面上。
         //   反空断言：确认它们真的不在清单里（防"退役了却忘了改表"的另一半）。

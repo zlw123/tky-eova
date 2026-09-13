@@ -5,12 +5,17 @@
  */
 package cn.eova.engine;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import cn.eova.compat.jfinal.kit.LegacyKv;
 import cn.eova.compat.template.LegacyExprEvaluator;
@@ -106,7 +111,9 @@ class LegacyExprEvaluatorGoldenTest {
                 "#if(user.id != 0)a#end\nb",
                 "#if(user.id != 0)a #else b#end",
                 "#if(user.id == 0)a #else b#end",
-                "x\n#if(user.id != 0)y#end\nz"));
+                "x\n#if(user.id != 0)y#end\nz",
+                // ★ 缺键/缺属性（差分判据逼出来的：样例只覆盖"有键"的 Map 不够 —— 见 T04-21）
+                "#(conf.object_code)", "#(conf.object_code??fallback)", "#(conf.no.such.key)"));
         return cases;
     }
 
@@ -166,6 +173,67 @@ class LegacyExprEvaluatorGoldenTest {
         }
         assertTrue(diff.isEmpty(), "★ 真库语料上与 Enjoy 不等价：\n    " + String.join("\n    ", diff));
         assertEquals(0, diff.size());
+    }
+
+    /** 从 `AuthUri.java` 抽取的模板字面量（切换实现前必须有等价证据 —— 鉴权规则错一条就是权限事故） */
+    private static List<String> authUriTemplates() throws Exception {
+        Path src = moduleDir().getParent().resolve("eova-core/src/main/java/cn/eova/auth/AuthUri.java");
+        assertTrue(Files.isRegularFile(src), "★ fail-closed：找不到 AuthUri.java " + src);
+        Pattern p = Pattern.compile("\"(/[^\"]*#\\([^\"]*\\)[^\"]*)\"");
+        List<String> out = new ArrayList<>();
+        Matcher m = p.matcher(Files.readString(src, StandardCharsets.UTF_8));
+        while (m.find()) {
+            out.add(m.group(1));
+        }
+        return out;
+    }
+
+    private static Path moduleDir() {
+        Path dir = Path.of(System.getProperty("user.dir")).toAbsolutePath();
+        assertTrue(Files.isDirectory(dir.resolve("src/main/java")), "★ fail-closed：找不到模块源码根");
+        return dir;
+    }
+
+    @Test
+    @DisplayName("★ T04-20：`AuthUri` 的模板字面量上两边等价（鉴权规则是权限契约，错一条就是事故）")
+    void authUriTemplatesMatchEnjoy() throws Exception {
+        // AuthUri 的 kv 形如 {menu: <Menu 模型>, conf: <对象/配置>} —— 这里用同形状的探针数据
+        User user = new User();
+        user.set("id", 7);
+        // `LegacyKv.of` 只接受一对键值 ⇒ 用 set 链（与旧 jfinal Kv 的用法一致）
+        LegacyKv menu = LegacyKv.of("code", "demo_menu");
+        LegacyKv conf = LegacyKv.of("object_code", "meta_product").set("tree_object_code", "meta_product");
+        LegacyKv kv = LegacyKv.of("user", user).set("menu", menu).set("conf", conf);
+
+        List<String> templates = authUriTemplates();
+        assertTrue(templates.size() >= 12, "★ 抽取到的 AuthUri 模板异常少（" + templates.size() + "）⇒ 抽取规则失效");
+        List<String> diff = new ArrayList<>();
+        for (String tpl : templates) {
+            String[] r = both(tpl, kv);
+            if (!r[0].equals(r[1])) {
+                diff.add("模板[" + tpl + "] 旧=[" + r[0] + "] 新=[" + r[1] + "]");
+            }
+        }
+        assertTrue(diff.isEmpty(), "★ AuthUri 模板与 Enjoy 不等价：\n    " + String.join("\n    ", diff));
+    }
+
+    @Test
+    @DisplayName("★ T04-21：**Map/Kv 缺键 ⇒ null（渲染空串）**，不得抛错 —— 生产登录 500 就是栽在这")
+    void missingMapKeyIsNullNotError() {
+        // 生产现场：`AuthUri.parseAuthUri` 的 kv 里 `conf = Menu#getMenuConfig()`（JSON 解析出的 Kv），
+        // 而不少菜单的 config 里没有 `object_code` 键 ⇒ Enjoy 给 null ⇒ `/api/meta/form/`（空段）。
+        // 我首版把"缺键"当"未找到"并抛错 ⇒ `/user/doLogin` 直接 500（真浏览器/列表页判据全绿、
+        // 只有**单元/进程内 HTTP 判据**才照出来 —— 因为常驻后端跑的是切换前的类）。
+        LegacyKv kv = LegacyKv.of("conf", LegacyKv.of("other", "x"));
+        String[] r = both("#(conf.object_code)", kv);
+        assertEquals(r[0], r[1], "★ 缺键时两边必须一致（Enjoy 给 null ⇒ 空串）");
+        assertEquals("", r[1], "缺键渲染为空串");
+        // ★ 缺键 + `??`：**实测两边都渲染空串**（`??` 在这里没有生效）—— 与"左值 null 取右值"的直觉
+        //   不符，但这是 Enjoy 的真实行为；本实现与之一致（差分判据保证）。
+        //   ⚠️ 我先前**猜**它应该取 `fb` ⇒ 判据当场判我错。凡"以为应该怎样"的地方一律以实测为准。
+        String[] r2 = both("#(conf.object_code??fb)", kv);
+        assertEquals(r2[0], r2[1], "★ 缺键 + `??` 两边必须一致");
+        assertEquals("", r2[1], "缺键 + `??` 实测渲染空串（Enjoy 的 `??` 此形态未生效）");
     }
 
     @Test
