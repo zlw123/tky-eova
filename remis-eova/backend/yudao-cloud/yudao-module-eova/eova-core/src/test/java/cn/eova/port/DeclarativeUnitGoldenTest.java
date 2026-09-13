@@ -90,7 +90,6 @@ class DeclarativeUnitGoldenTest {
             "cn.eova.aop.eova.EovaIntercept",
             "cn.eova.common.utils.io.NetUtil",
             "cn.eova.plugin.cron4j.BaseTask",
-            "cn.eova.ext.jfinal.EovaRenderSourceFactory",
             "cn.eova.template.common.TemplateIntercept",
             "cn.eova.plugin.cron4j.EovaCronPlugin",
             "cn.eova.common.utils.web.WebUtil",
@@ -114,7 +113,22 @@ class DeclarativeUnitGoldenTest {
             // 故此处不再声明该字段 —— 该声明过期由本判据的"声明过期"检测报出过。
             "cn.eova.common.base.BaseCache|methods", Set.of(
                     "private static cn.eova.compat.cache.CacheService service()",
-                    "public static void setCacheService(cn.eova.compat.cache.CacheService)"));
+                    "public static void setCacheService(cn.eova.compat.cache.CacheService)"),
+            // ★ r310：`PageConst#init` 的原第一形参 `Engine me` 在方法体里**从未被使用**
+            //   （方法体只写 sharedVars），而 enjoy 已按口径授权从生产依赖里摘除
+            //   ⇒ 去掉该形参。新签名在此显式登记。
+            "cn.eova.config.PageConst|methods", Set.of("public static void init(java.util.Map)"));
+
+    /**
+     * 已声明的**成员删除**（旧有新无，且删除本身是"按口径授权"的一部分）。
+     *
+     * <p>为什么需要这张表（而不是放宽判据）：本判据的默认口径是"port 不得少任何公开成员"
+     * —— 那是对的，所以**任何**减少都必须显式登记、写明依据，并接受<b>过期检测</b>
+     * （声明了但新侧其实还在 ⇒ 红），这样"图省事把成员删掉"不可能悄悄通过。</p>
+     */
+    private static final Map<String, Set<String>> DECLARED_REMOVALS = Map.of(
+            "cn.eova.config.PageConst|methods", Set.of(
+                    "public static void init(com.jfinal.template.Engine,java.util.Map)"));
 
     @Test
     @DisplayName("声明式单元反射面逐项比对：枚举顺序/常量值/字段/方法签名差异应为 0")
@@ -268,6 +282,19 @@ class DeclarativeUnitGoldenTest {
 
         Set<String> missing = new TreeSet<>(expected);
         missing.removeAll(newM);
+        // ★ r310：扣除"已声明删除"（旧有新无但已按口径授权删除）—— 并做**过期检测**
+        Set<String> declaredGone = DECLARED_REMOVALS.getOrDefault(fqcn + "|" + what, Set.of());
+        Set<String> staleGone = new TreeSet<>(declaredGone);
+        staleGone.retainAll(newM);          // 声明"已删"但新侧还在 ⇒ 声明过期
+        if (!staleGone.isEmpty()) {
+            diffs.add(fqcn + " | " + what + " 的 DECLARED_REMOVALS 声明过期（新侧仍存在）: " + staleGone);
+        }
+        missing.removeAll(declaredGone);
+        Set<String> goneNotOld = new TreeSet<>(declaredGone);
+        goneNotOld.removeAll(oldM);         // 声明"旧有"但其实旧侧没有 ⇒ 声明写错
+        if (!goneNotOld.isEmpty()) {
+            diffs.add(fqcn + " | " + what + " 的 DECLARED_REMOVALS 写了旧侧不存在的成员: " + goneNotOld);
+        }
         Set<String> extra = new TreeSet<>(newM);
         extra.removeAll(expected);
         Set<String> staleDecl = new TreeSet<>(declared);

@@ -10,7 +10,6 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.jfinal.template.Engine;
 import jakarta.servlet.ServletOutputStream;
 
 /**
@@ -33,8 +32,9 @@ import jakarta.servlet.ServletOutputStream;
  *       （{@code "text/html; charset=" + 当前编码}）。</li>
  *   <li>{@link #toString()} 返回 <b>{@code view} 本身</b> —— <b>不是</b>
  *       {@code "TemplateRender: " + view}（若凭直觉会加前缀，那就错了）。</li>
- *   <li>{@link #init(Engine)}：入参为 null 时抛
- *       {@code IllegalArgumentException("engine can not be null")}（消息逐字）。</li>
+ *   <li><s>{@code init(Engine)}：入参为 null 时抛 {@code IllegalArgumentException("engine can not be null")}</s>
+ *       —— ★ r310 按口径授权**移除**：新栈不再有 enjoy 引擎，模板渲染改由
+ *       {@link cn.eova.compat.template.LegacyPageRenderer}（与 enjoy 逐字节等价）承担。</li>
  * </ol>
  *
  * <p><b>视图路径不在本类处理：</b>旧 {@code RenderFactory.getTemplateRender(view)}
@@ -43,9 +43,9 @@ import jakarta.servlet.ServletOutputStream;
  * 视图前缀由 {@link LegacyRender#setContext(jakarta.servlet.http.HttpServletRequest,
  * jakarta.servlet.http.HttpServletResponse, String)} 负责 —— 与本接缝一致。</p>
  *
- * <p><b>底座：</b>{@code engine} 的类型 {@code com.jfinal.template.Engine} 由
- * <b>enjoy 5.3.0</b> 提供（在 classpath 上），与旧 jfinal 5.2.6 内嵌的引擎同源同名，
- * 故此处直接复用，无需自造引擎。</p>
+ * <p><b>底座（r310 起）：</b>模板渲染**不再经过 enjoy**：无指令模板走"源文本直出"快路径，
+ * 有指令模板走 {@link cn.eova.compat.template.LegacyPageRenderer}；
+ * 遇到极简渲染器不支持的指令 ⇒ **响亮抛错**（不再回退引擎）—— 这是"引擎兜底实测 0 次"的收尾动作。</p>
  */
 public class LegacyTemplateRender extends LegacyRender {
 
@@ -55,9 +55,6 @@ public class LegacyTemplateRender extends LegacyRender {
 
     /** contentType 前缀（后缀拼当前编码） */
     protected static final String CONTENT_TYPE = "text/html; charset=";
-
-    /** 模板引擎；由宿主启动时经 {@link #init(Engine)} 注入 */
-    protected static Engine engine;
 
     /**
      * 模板**源文本**读取器（宿主注入；用于"无指令模板直出"快路径）。
@@ -76,18 +73,18 @@ public class LegacyTemplateRender extends LegacyRender {
             new java.util.concurrent.atomic.AtomicLong();
 
     /**
-     * 极简页面渲染器（宿主注入）。非 null 时：**有指令的模板也先走它**，
-     * 只有它明确"不支持"（`UnsupportedOperationException`）才回退引擎。
+     * 极简页面渲染器（宿主注入）。**有指令的模板由它渲染**（与 enjoy 逐字节等价，差分判据钉住）。
      */
     private static cn.eova.compat.template.LegacyPageRenderer pageRenderer;
 
     /**
-     * 引擎兜底计数（"有指令模板仍需帮助引擎"的次数）。
+     * 「不支持指令」计数（r310：原来叫引擎兜底计数）。
      *
-     * <p>判据用它证明**活页已不再需要引擎**：请求活页后该计数必须仍为 0
-     * （若某页悄悄用到了极简渲染器不支持的指令，计数会 >0 ⇒ 判据红 ⇒ 必须扩规格或修实现）。</p>
+     * <p>为什么保留这个计数（而不是删掉）：**引擎已经没有了**，所以"某活页用到了不支持的指令"
+     * 现在表现为**渲染抛错（500）**；计数是**唯一能在实跑里证明"没有活页踩到这条线"**的东西
+     * （判据在请求活页后断言它为 0；扫描第 4d 步看"当前后端"的日志里有没有这条 ERROR）。</p>
      */
-    private static final java.util.concurrent.atomic.AtomicLong ENGINE_FALLBACK_COUNT =
+    private static final java.util.concurrent.atomic.AtomicLong UNSUPPORTED_TEMPLATE_COUNT =
             new java.util.concurrent.atomic.AtomicLong();
 
     /** 极简渲染器实际渲染次数（判据用它证明"接缝真的切过去了"，而不只是"装了但没用"） */
@@ -97,27 +94,6 @@ public class LegacyTemplateRender extends LegacyRender {
     /** 指令 token：`#(`（输出指令）或 `#name(`（块/扩展指令） */
     private static final java.util.regex.Pattern DIRECTIVE =
             java.util.regex.Pattern.compile("#\\(|#[A-Za-z_][A-Za-z0-9_]*\\s*\\(");
-
-    /**
-     * 注入模板引擎（宿主启动时调用）。
-     *
-     * @param engine 引擎；不得为 null
-     */
-    public static void init(Engine engine) {
-        if (engine == null) {
-            throw new IllegalArgumentException("engine can not be null");
-        }
-        LegacyTemplateRender.engine = engine;
-    }
-
-    /**
-     * 取当前模板引擎。
-     *
-     * @return 引擎
-     */
-    public static Engine getEngine() {
-        return engine;
-    }
 
     /**
      * 注入模板源读取器（宿主启动时调用）。
@@ -147,12 +123,12 @@ public class LegacyTemplateRender extends LegacyRender {
     }
 
     /**
-     * 取引擎兜底计数（判据用：活页应为 0）。
+     * 取「不支持指令」计数（判据用：活页应为 0）。
      *
-     * @return 累计兜底次数
+     * @return 累计次数
      */
-    public static long getEngineFallbackCount() {
-        return ENGINE_FALLBACK_COUNT.get();
+    public static long getUnsupportedTemplateCount() {
+        return UNSUPPORTED_TEMPLATE_COUNT.get();
     }
 
     /**
@@ -231,22 +207,21 @@ public class LegacyTemplateRender extends LegacyRender {
                     return;
                 }
             }
-            // ★ r309 第 1 轮：**有指令的模板也先走极简渲染器**（与 Enjoy 逐字节等价，差分判据钉住）。
-            //   只有它明确报"不支持"才回退引擎（并计数 + 响亮告警）——
-            //   这样"退役 enjoy"推进的同时**不冒行为风险**，而计数 >0 就说明规格面变了。
-            if (pageRenderer != null) {
-                try {
-                    MINI_RENDER_COUNT.incrementAndGet();
-                    os.write(pageRenderer.render(view, data).getBytes(getEncoding()));
-                    os.flush();
-                    return;
-                } catch (UnsupportedOperationException e) {
-                    ENGINE_FALLBACK_COUNT.incrementAndGet();
-                    log.warn("Eova Web 层：极简渲染器不支持该模板，回退 enjoy 引擎 —— {}", e.getMessage());
-                }
+            // ★ r310：**引擎已按口径授权摘除**（原兜底实测 0 次 + 可达模板面已逐面枚举）。
+            //   不支持 ⇒ 计数 + **响亮抛错**（绝不再"悄悄渲染成空"）：500 是显式的，比静默空白安全。
+            if (pageRenderer == null) {
+                throw new IllegalStateException("模板渲染器未装配（宿主未调用 initPageRenderer）：" + view);
             }
-            engine.getTemplate(view).render(data, os);
-            os.flush();
+            try {
+                MINI_RENDER_COUNT.incrementAndGet();
+                os.write(pageRenderer.render(view, data).getBytes(getEncoding()));
+                os.flush();
+            } catch (UnsupportedOperationException e) {
+                UNSUPPORTED_TEMPLATE_COUNT.incrementAndGet();
+                log.error("Eova Web 层：极简渲染器不支持该模板的指令，渲染失败 —— view={}，原因={}",
+                        view, e.getMessage());
+                throw new IllegalStateException("极简渲染器不支持该模板的指令：" + view, e);
+            }
         } catch (Exception e) {
             throw new LegacyRenderException(e);
         }

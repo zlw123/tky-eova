@@ -16,6 +16,15 @@
         边界：只依赖三个既有 eova 模块 + spring-boot-starter-web；**不依赖 yudao 平台 starter**。</description>
 
     <dependencies>
+        <!-- ★ r310：**差分 oracle 专用**（test 作用域）。`LegacyPageRendererGoldenTest` 用**裸 enjoy 引擎**
+             渲染同一份模板与数据，与本仓极简渲染器逐字节比对 —— 这是"自研渲染器与 enjoy 等价"的
+             唯一直接证据，故保留；它**不参与**生产编译与运行（生产已零 com.jfinal 依赖）。 -->
+        <dependency>
+            <groupId>com.jfinal</groupId>
+            <artifactId>enjoy</artifactId>
+            <version>5.3.0</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>cn.eova</groupId>
             <artifactId>eova-compat</artifactId>

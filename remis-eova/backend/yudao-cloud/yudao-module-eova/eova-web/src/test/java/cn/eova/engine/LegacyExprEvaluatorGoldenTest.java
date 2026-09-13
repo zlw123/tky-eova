@@ -19,7 +19,6 @@ import java.util.regex.Pattern;
 
 import cn.eova.compat.jfinal.kit.LegacyKv;
 import cn.eova.compat.template.LegacyExprEvaluator;
-import cn.eova.compat.template.LegacyRowFieldGetter;
 import cn.eova.model.Role;
 import cn.eova.model.User;
 import org.junit.jupiter.api.BeforeAll;
@@ -40,8 +39,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * `eova_field.config` —— 语料与构件集合由 `ExpUtilCorpusTest` 冻结）+ <b>语义边界样例</b>
  * （插值/条件/`#else`/空白/比较/算术/属性链/缺失属性）。</p>
  *
- * <p><b>装配态</b>：先 `LegacyRowFieldGetter.install()`（应用启动也这么做）—— 否则 Enjoy
- * 读不到 Model 的列属性，两边不可比（`#(user.role.lv)` 会在 Enjoy 侧抛错）。</p>
+ * <p><b>装配态（r310）：</b>不再需要安装 `LegacyRowFieldGetter` —— 该类是**挂进 enjoy 引擎**的
+ * Model/Record 字段读取器，随引擎一起按口径授权删除；本判据的语料全是 `LegacyKv`（Map），
+ * 两侧的属性解析顺序由 `LegacyExprEvaluator` 自持（`getter → 公有字段 → Model.get(String) → Map`）。</p>
  *
  * <p><b>fail-closed</b>：baseline 库不可达 ⇒ 本判据红。</p>
  */
@@ -51,12 +51,6 @@ class LegacyExprEvaluatorGoldenTest {
             "jdbc:mysql://127.0.0.1:13306/eova_meta?useUnicode=true&characterEncoding=UTF-8");
     private static final String DB_USER = System.getProperty("eova.mysql.user", "root");
     private static final String DB_PWD = System.getProperty("eova.mysql.pwd", "root");
-
-    @BeforeAll
-    static void installRowFieldGetter() {
-        // 与生产一致的装配：Model/Record 的列属性读取器必须在场（否则两边不可比）
-        LegacyRowFieldGetter.install();
-    }
 
     /** 两边都跑，返回 [旧实现结果, 新实现结果]（异常以 `EX:类型` 表示） */
     private static String[] both(String template, LegacyKv kv) {

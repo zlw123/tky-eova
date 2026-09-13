@@ -22,10 +22,16 @@
              RenderOrElseDirective（首页模板使用）与 com.jfinal.kit.PathKit。
              SP2 实测：以 enjoy 5.3.0 渲染 login.html / index.html，
              输出与旧系统 golden 逐字节相同。详见 DES-002-R4 §2.1。 -->
+        <!-- ★ r310：enjoy 由 **compile** 降为 **test** —— 生产代码已零 com.jfinal 依赖
+             （判据 `EnjoyUsageInventoryTest` 双向冻结），它现在只服务一类用途：
+             **oracle 判据**（把本仓 port 与第三方真制品逐方法/逐字节比对），例如
+             `LegacyPathKitGoldenTest`、`LegacyTypeKitGoldenTest` 直接调 `com.jfinal.kit.*`。
+             ⇒ 生产编译与运行期都不再需要该制品（扫描第 4d 步会检查**运行进程的 -cp 里没有它**）。 -->
         <dependency>
             <groupId>com.jfinal</groupId>
             <artifactId>enjoy</artifactId>
             <version>5.3.0</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>

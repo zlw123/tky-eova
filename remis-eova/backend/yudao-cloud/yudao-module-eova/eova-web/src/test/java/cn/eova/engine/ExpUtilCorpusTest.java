@@ -193,10 +193,13 @@ class ExpUtilCorpusTest {
         //   而不是按下划线映射列名 ⇒ `user.company_id` 找不到 `getCompany_id()`（类里只有 `getCompanyId()`）
         //   —— 这也解释了语料为什么必须写成 `#(user.company_id??0)`（靠 `??` 吞掉"取不到"）。
         assertEquals("name = eova", ExpUtil.parseSql("name = #(user.name)", kv), "字符串属性插值（getter 口径）");
-        // ★ 属性链（语料 filter 的写法 `#(user.role.lv)`）：这里用**嵌套 Kv**钉"链式取值"这条语法；
-        //   Model/Record 的字段语义（`user.role.lv` 走 `LegacyRowFieldGetter`）由既有判据
-        //   `cn.eova.compat.template.LegacyRowFieldGetterOrderGoldenTest` 专测 —— 它需要**应用装配过的引擎**
-        //   （本判据不启 Spring，故不重复覆盖），分工写在这里以免日后误判"没人测"。
+        // ★ 属性链（语料 filter 的写法 `#(user.role.lv)`）：这里用**嵌套 Kv**钉"链式取值"这条语法。
+        //   ★ r310 追记：原来这一段的"Model/Record 字段语义由
+        //   `cn.eova.compat.template.LegacyRowFieldGetterOrderGoldenTest` 专测"已经**不成立** ——
+        //   那个类（以及它测的 `LegacyRowFieldGetter`）是**挂进 enjoy 引擎**的字段读取器，
+        //   已随引擎一起按口径授权删除；属性解析顺序现在由 `LegacyExprEvaluator` 自持
+        //   （getter → 公有字段 → Model.get(String) → Map），并由本判据与
+        //   `LegacyExprEvaluatorGoldenTest` 的真库语料直接钉住。
         LegacyKv nested = LegacyKv.of("a", LegacyKv.of("b", 5));
         assertEquals("b = 5", ExpUtil.parseSql("b = #(a.b)", nested), "嵌套属性链必须能求值");
 
@@ -209,8 +212,9 @@ class ExpUtilCorpusTest {
         //     `LegacyRowFieldGetter` ⇒ 之后 Model 的缺失属性返回 null（不抛）；
         //     而在没启过上下文的裸环境里，同样的表达式会抛 "public field not found"。
         //     本判据首版断言了"必须抛错"，单独跑绿、**整模块跑红**（测试间状态串扰）。
-        //     ⇒ 这里只钉**稳健**的那条（`??` 两条路径都成立）；Model 字段语义由
-        //     `cn.eova.compat.template.LegacyRowFieldGetterOrderGoldenTest` 在装配态下专测。
+        //     ⇒ 这里只钉**稳健**的那条（`??` 两条路径都成立）。
+        //     ★ r310：`LegacyRowFieldGetter`（当年那条"装配态差异"的来源）已随引擎删除 ⇒
+        //     这个全局状态串扰源**不存在了**；但仍保留"不钉易碎断言"的写法（它防的是同类问题）。
 
         // ④ `#if(...)#end` 条件：表达式为真/假两种形态都要能算
         String tpl = "#if(user.id != 0)uid = #(user.id) #end";

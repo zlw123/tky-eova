@@ -10,8 +10,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.jfinal.template.Directive;
-import com.jfinal.template.source.ISourceFactory;
 
 /**
  * jfinal 5.2.6 的 {@code com.jfinal.template.Engine} 的等价接缝（**配置面**）。
@@ -19,55 +17,38 @@ import com.jfinal.template.source.ISourceFactory;
  * <p>ported from: com.jfinal.template.Engine（jfinal 5.2.6 制品；该类由 enjoy 制品提供，新栈同源）
  *
  * <p><b>为什么是"配置面"：</b>旧 {@code EovaConfig.configEngine(Engine me)} 只做四件事：
- * {@code setSourceFactory(new EovaRenderSourceFactory())}、
+ * <s>{@code setSourceFactory(new EovaRenderSourceFactory())}</s>（★ r310：源工厂与引擎一起按口径授权摘除）、
  * {@code addSharedMethod(new BaseSharedMethod())}、
  * {@code addDirective("json", JsonDirective.class)}（★ r309：{@code JsonDirective} 已按授权删除，
  * {@code EovaConfig} 里这条注册同步移除 ⇒ 本映射在新栈为空）、
  * （注释掉的 {@code addSharedFunction/addSharedObject}）。
  * 真正渲染模板的是 enjoy 引擎；新栈的**页面渲染**已由 {@code LegacyPageRenderer}（极简渲染器，
- * 与 enjoy 逐字节等价）+ {@code LegacyTemplateRender}（接缝）承担，enjoy 引擎当前只是**兜底**
- * （实测回退 0 次：{@code LegacyTemplateRender#getEngineFallbackCount()} + 扫描 4d 门）。
- * 故本接缝<b>只记录</b>这些注册项，供引导驱动与判据读取，<b>不</b>再启动第二个引擎。</p>
+ * 与 enjoy 逐字节等价）+ {@code LegacyTemplateRender}（接缝）承担。
+ * ★ r310：引擎本身已按口径授权摘除（兜底实测 0 次 + 可达模板面逐面枚举）⇒ 本接缝现在只剩
+ * "记录配置项"这一个职责（供引导驱动与判据读取），<b>源工厂</b>那一项随之消失。</p>
  *
- * <p><b>类型说明：</b>{@code ISourceFactory}/{@code Directive} 直接使用 enjoy 制品里的
- * {@code com.jfinal.template.*}（eova-compat 已依赖 enjoy ⇒ 无需另设接缝）。</p>
+ * <p><b>类型说明（r310 起）：</b>本接缝**不再引用任何 enjoy 类型** —— 原有的
+ * {@code ISourceFactory}（源工厂）随引擎一起删除；指令类型退化为 {@code Class<?>}（纯记录项）。
+ * 这也是"生产代码零 {@code com.jfinal.*} 依赖"的一部分（判据：{@code EnjoyUsageInventoryTest}）。</p>
  */
 public class LegacyEngine {
-
-    /** 模板源工厂（EOVA 装 EovaRenderSourceFactory） */
-    private ISourceFactory sourceFactory;
 
     /** 共享方法（EOVA 装 BaseSharedMethod） */
     private final List<Object> sharedMethods = new ArrayList<>();
 
-    /** 指令：名字 → 类型（旧 EOVA 装 "json" → JsonDirective；该类已按授权删除 ⇒ 新栈为空映射） */
-    private final Map<String, Class<? extends Directive>> directives = new LinkedHashMap<>();
+    /**
+     * 指令：名字 → 类型。
+     *
+     * <p>★ r310：类型不再是 enjoy 的 {@code Directive} —— 引擎已摘除，"指令"在本接缝里只是**记录项**；
+     * 旧 EOVA 唯一的指令（{@code "json" → JsonDirective}）也已于 r309 按授权删除 ⇒ 实际恒为空映射。</p>
+     */
+    private final Map<String, Class<?>> directives = new LinkedHashMap<>();
 
     /** 共享模板函数（文件路径） */
     private final List<String> sharedFunctions = new ArrayList<>();
 
     /** 共享对象：名字 → 值 */
     private final Map<String, Object> sharedObjects = new LinkedHashMap<>();
-
-    /**
-     * 设置模板源工厂。
-     *
-     * @param sourceFactory 源工厂
-     * @return this
-     */
-    public LegacyEngine setSourceFactory(ISourceFactory sourceFactory) {
-        this.sourceFactory = sourceFactory;
-        return this;
-    }
-
-    /**
-     * 取模板源工厂。
-     *
-     * @return 源工厂；未设置为 null
-     */
-    public ISourceFactory getSourceFactory() {
-        return sourceFactory;
-    }
 
     /**
      * 追加共享方法对象。
@@ -96,7 +77,7 @@ public class LegacyEngine {
      * @param directive 指令类型
      * @return this
      */
-    public LegacyEngine addDirective(String name, Class<? extends Directive> directive) {
+    public LegacyEngine addDirective(String name, Class<?> directive) {
         directives.put(name, directive);
         return this;
     }
@@ -106,7 +87,7 @@ public class LegacyEngine {
      *
      * @return 名字 → 类型
      */
-    public Map<String, Class<? extends Directive>> getDirectives() {
+    public Map<String, Class<?>> getDirectives() {
         return directives;
     }
 

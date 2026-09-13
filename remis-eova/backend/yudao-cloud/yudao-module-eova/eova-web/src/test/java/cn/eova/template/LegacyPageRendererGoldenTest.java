@@ -21,7 +21,6 @@ import com.jfinal.kit.PathKit;
 import com.jfinal.template.Engine;
 import com.jfinal.template.source.FileSourceFactory;
 import cn.eova.compat.template.LegacyPageRenderer;
-import cn.eova.compat.template.LegacyRowFieldGetter;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -49,8 +48,8 @@ class LegacyPageRendererGoldenTest {
 
     @BeforeAll
     static void setUp() {
-        // 与生产一致：Model/Record 列属性读取器必须在场（Enjoy 侧靠它读 `template.name` 之类）
-        LegacyRowFieldGetter.install();
+        // r310：不再需要 `LegacyRowFieldGetter`（那是挂进 enjoy 引擎的字段读取器，已随引擎删除）；
+        // oracle 侧的作用域是 `LegacyKv`（Map）⇒ enjoy 用自带 MapFieldGetter 即可。
         Path dir = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         webRoot = dir.resolve("../../../../front/remis-eova-ui/src/legacy").toFile();
         assertTrue(webRoot.isDirectory(), "★ fail-closed：legacy 视图根不存在 " + webRoot);

@@ -37,17 +37,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 本轮实测就踩过"注释里提到类名被当成调用方"的坑（`ResourceRender` 首轮统计出 2 个"调用方"，
  * 实际全是 Javadoc 里的提及）。</p>
  *
- * <p><b>r309 现状（3 处死面 + 死链 5 类已按授权删除）</b>：</p>
+ * <p><b>r310 终局（引擎按口径授权摘除）</b>：</p>
  * <ul>
- *   <li><b>活面 5 类</b>：`LegacyTemplateRender`（`BaseController.render` 的执行者）·
- *       `LegacyEngine`（compat 引擎包装）· `EovaRenderSourceFactory`（`EovaConfig#setSourceFactory` 接线）·
- *       `LegacyViewSourceFactory`（`LegacyWebBootstrap` 接线）· `LegacyWebBootstrap`（装配）；</li>
- *   <li><b>EXPR 腿 2 类</b>：`PageConst`（页面渲染配置）· `LegacyRowFieldGetter`（表达式字段取值语义）
- *       —— 同属剩余的 enjoy 依赖面，一并冻结；</li>
- *   <li><b>已删除 9 个</b>：`EnjoyTemplateRenderService`/`TemplateRenderService`（引擎实现，无生产调用方）·
- *       `JsonDirective`（`#json` 唯一模板使用者已退役）· `RenderUtil` + 其 5 个无调用方实现
- *       （`Html2DocRender`/`Html2PdfRender`/`Html2XlsRender`/`OfficeRender`/`ResourceRender`）
- *       ⇒ 本判据改为**反向断言"文件必须不存在"**（删了却又回来 ⇒ 红）。</li>
+ *   <li><b>渲染链仍在、但不再接 enjoy</b>：`LegacyTemplateRender`（接缝）·
+ *       `LegacyPageRenderer`（自研极简渲染器）· `LegacyWebBootstrap`（装配）·
+ *       `BaseController`/`DefaultLegacyRenderFactory`（调用方）；</li>
+ *   <li><b>已删除</b>：`EnjoyTemplateRenderService`/`TemplateRenderService`（r309）·
+ *       `JsonDirective`/`RenderUtil` 死链（r309）· `EovaRenderSourceFactory`/`LegacyViewSourceFactory`
+ *       （r310：源工厂只服务引擎）· `LegacyRowFieldGetter`（r310：它挂的是 enjoy 的字段读取器链）；</li>
+ *   <li><b>本判据现在的两件事</b>：① 渲染链的**调用面**继续双向冻结（活面被拆 ⇒ 红）；
+ *       ② 引擎的**接线点与装配 API 必须不存在**（`me.setSourceFactory(…)`、`engine.setSourceFactory(…)`、
+ *       `LegacyTemplateRender#init(Engine)`、`Engine.create(`）—— 有人把引擎接回来 ⇒ 立刻红。</li>
  * </ul>
  *
  * <p><b>对退役的意义</b>：真正阻塞退役的是**活面 + 2 个仍由后端渲染的活页面**
@@ -70,20 +70,13 @@ class EnjoyRenderSurfaceTest {
                 "cn/eova/compat/jfinal/config/LegacyJFinalConfig.java",
                 "cn/eova/config/EovaConfig.java",
                 "cn/eova/web/LegacyWebBootstrap.java"));
-        DECLARED_CALLERS.put("cn.eova.ext.jfinal.EovaRenderSourceFactory", List.of(
-                "cn/eova/config/EovaConfig.java"));
-        DECLARED_CALLERS.put("cn.eova.web.LegacyViewSourceFactory", List.of(
-                "cn/eova/web/LegacyWebBootstrap.java"));
         DECLARED_CALLERS.put("cn.eova.web.LegacyWebBootstrap", List.of());
-        // ---- EXPR 腿：剩余的表达式求值/渲染配置（与上个判据的依赖面同口径）----
         DECLARED_CALLERS.put("cn.eova.config.PageConst", List.of(
                 "cn/eova/meta/api/TableController.java",
                 "cn/eova/meta/api/WidgetController.java",
                 "cn/eova/widget/WidgetCtrl.java",
                 "cn/eova/widget/WidgetManager.java",
                 "cn/eova/widget/grid/GridController.java"));
-        DECLARED_CALLERS.put("cn.eova.compat.template.LegacyRowFieldGetter", List.of(
-                "cn/eova/compat/jfinal/config/LegacyJFinalBoot.java"));
     }
 
     /**
@@ -102,7 +95,11 @@ class EnjoyRenderSurfaceTest {
             "cn.eova.common.render.Html2PdfRender",
             "cn.eova.common.render.Html2XlsRender",
             "cn.eova.common.render.OfficeRender",
-            "cn.eova.common.render.ResourceRender");
+            "cn.eova.common.render.ResourceRender",
+            // ---- r310：引擎兜底与接线（按口径授权摘除）----
+            "cn.eova.ext.jfinal.EovaRenderSourceFactory",
+            "cn.eova.web.LegacyViewSourceFactory",
+            "cn.eova.compat.template.LegacyRowFieldGetter");
 
     /** 反空断言用的**活面**代表类：必须存在（证明"找不到文件"不是因为源码根解析错了） */
     private static final String LIVE_CONTROL_CLASS = "cn.eova.compat.render.LegacyTemplateRender";
@@ -179,38 +176,54 @@ class EnjoyRenderSurfaceTest {
         assertTrue(mismatch.isEmpty(),
                 "★ 渲染腿调用面与声明不一致（退役影响面变了，必须显式改表）：\n    "
                         + String.join("\n    ", mismatch));
-        assertEquals(7, DECLARED_CALLERS.size(), "声明条数（RENDER 活面 5 + EXPR 2 = 与依赖面清单同为 7）");
+        assertEquals(4, DECLARED_CALLERS.size(),
+                "声明条数（渲染链活面 3：LegacyTemplateRender / LegacyEngine / LegacyWebBootstrap"
+                        + " + 配置面 1：PageConst —— r310 摘除引擎后由 7 降到 4）");
     }
 
     /** 渲染腿的**接线点**：路径 → （文件, 必须出现的代码片段） */
     private static final Map<String, String[]> WIRING = new java.util.LinkedHashMap<>();
 
     static {
-        WIRING.put("me.setSourceFactory(new EovaRenderSourceFactory())", new String[]{
-                "cn/eova/config/EovaConfig.java"});
-        WIRING.put("engine.setSourceFactory(new LegacyViewSourceFactory(viewRoot))", new String[]{
-                "cn/eova/web/LegacyWebBootstrap.java"});
+        // ★ r310：原来的两条接线点（`me.setSourceFactory(new EovaRenderSourceFactory())`、
+        //   `engine.setSourceFactory(new LegacyViewSourceFactory(viewRoot))`）已随引擎摘除 ⇒ 现在要断言
+        //   **它们不存在**（见下测试）。本表保留为空（结构不变，便于将来再有接线时直接加回来）。
     }
 
     @Test
-    @DisplayName("★ T04-12：渲染腿的**接线点**必须逐条在场（拆掉接线 ⇒ 立即红）")
-    void renderWiringPointsArePresent() throws IOException {
-        // ★ 这条是变异 M6 逼出来的：只统计"调用方文件清单"时，**删掉接线但留着 import**
-        //   会让清单不变 ⇒ 判据看不见"接线被拆"。故对每个接线点直接断言源码片段在场。
-        List<String> missing = new ArrayList<>();
-        for (Map.Entry<String, String[]> e : WIRING.entrySet()) {
-            for (String rel : e.getValue()) {
-                Path f = sourceRoots().stream().map(r -> r.resolve(rel)).filter(Files::isRegularFile)
-                        .findFirst().orElse(null);
-                if (f == null) {
-                    missing.add(rel + "（文件不存在）");
-                } else if (!Files.readString(f, StandardCharsets.UTF_8).contains(e.getKey())) {
-                    missing.add(rel + " 缺少接线：" + e.getKey());
+    @DisplayName("★ T04-12：引擎接线点**必须不存在**（有人把 enjoy 接回来 ⇒ 立即红）")
+    void engineWiringPointsAreGone() throws IOException {
+        // ★ 语义翻转（r310）：原来的这条判据断言"接线点在场"（那时引擎是活的兜底）；
+        //   引擎按口径授权摘除之后，同一件事实变成**反向**的：任何"把引擎接回来"的痕迹都必须红。
+        //   这一条同时也接过变异 M6 的职责（"拆掉接线但留着 import ⇒ 清单不变"看不见）。
+        List<String> resurrected = new ArrayList<>();
+        // 片段 → 它不得出现的理由
+        java.util.Map<String, String> forbidden = new java.util.LinkedHashMap<>();
+        forbidden.put("setSourceFactory(new EovaRenderSourceFactory()", "EovaConfig 的引擎源工厂接线");
+        forbidden.put("setSourceFactory(new LegacyViewSourceFactory(", "LegacyWebBootstrap 的引擎源工厂接线");
+        forbidden.put("Engine.create(", "自建 enjoy 引擎");
+        forbidden.put("LegacyTemplateRender.init(engine)", "把引擎注入渲染接缝");
+        for (Map.Entry<String, String> e : forbidden.entrySet()) {
+            for (Path root : sourceRoots()) {
+                try (Stream<Path> walk = Files.walk(root)) {
+                    for (Path f : walk.filter(x -> x.toString().endsWith(".java")).collect(Collectors.toList())) {
+                        String rel = root.relativize(f).toString();
+                        for (String line : Files.readAllLines(f, StandardCharsets.UTF_8)) {
+                            String t = line.strip();
+                            if (t.startsWith("*") || t.startsWith("//") || t.startsWith("/*") || t.startsWith("import ")) {
+                                continue;   // 注释里的提及不算接线（本轮踩过的坑）
+                            }
+                            if (line.contains(e.getKey())) {
+                                resurrected.add(rel + " 里出现了「" + e.getKey() + "」（= " + e.getValue() + "）");
+                            }
+                        }
+                    }
                 }
             }
         }
-        assertTrue(missing.isEmpty(), "★ 渲染腿接线点缺失（渲染链被拆）：" + missing);
-        assertEquals(2, WIRING.size(), "接线点清单条数（源工厂 ×2；json 指令注册随 JsonDirective 删除而消失）");
+        assertTrue(resurrected.isEmpty(),
+                "★ 引擎被接回来了（r310 已按口径授权摘除）：" + resurrected);
+        assertEquals(0, WIRING.size(), "接线点清单必须为空（引擎已摘除）");
     }
 
     @Test
@@ -240,7 +253,7 @@ class EnjoyRenderSurfaceTest {
         }
         assertTrue(resurrected.isEmpty(),
                 "★ 已删除的死面又出现了（必须重判它是不是活面）：" + resurrected);
-        assertEquals(9, DELETED_DEAD_FACES.size(), "r309 删除清单条数（死面 3 + 死链 5 + 接口 1）");
+        assertEquals(12, DELETED_DEAD_FACES.size(), "删除清单条数（r309 死面 3 + 死链 5 + 接口 1；r310 引擎侧 3）");
     }
 
     @Test

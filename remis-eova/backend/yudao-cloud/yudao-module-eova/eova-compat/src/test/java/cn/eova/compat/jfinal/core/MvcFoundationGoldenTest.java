@@ -40,6 +40,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -659,7 +660,7 @@ class MvcFoundationGoldenTest {
      * @throws Exception 反射失败
      */
     @Test
-    @DisplayName("LegacyTemplateRender：contentType/toString/init(null) 对照旧制品")
+    @DisplayName("LegacyTemplateRender：contentType/toString 对照旧制品（init(Engine) 已按口径删除）")
     void templateRenderMatchesOld() throws Exception {
         ClassLoader jf = OldImplementationLoader.createForJFinalOnly();
         Class<?> oldCls = Class.forName("com.jfinal.render.TemplateRender", true, jf);
@@ -694,9 +695,19 @@ class MvcFoundationGoldenTest {
                         throw new RuntimeException(e);
                     }
                 });
-        IllegalArgumentException newEx = org.junit.jupiter.api.Assertions.assertThrows(
-                IllegalArgumentException.class, () -> LegacyTemplateRender.init(null));
-        assertEquals(oldEx.getMessage(), newEx.getMessage(), "init(null) 的消息必须逐字一致");
+        // ★ r310 已声明差异：`init(Engine)` 随 enjoy 引擎一起按口径授权**删除**（新栈渲染底座是自研
+        //   极简渲染器）⇒ 不再有「消息逐字一致」可比。旧制品的行为仍由上面的 assertThrows 实测固化；
+        //   本侧改为断言**该 API 确实不存在**（防有人把引擎接回来 —— 那会让生产重新依赖 enjoy）。
+        assertEquals("engine can not be null", oldEx.getMessage(), "旧制品的消息（实测固化）");
+        for (java.lang.reflect.Method m : LegacyTemplateRender.class.getDeclaredMethods()) {
+            if (!m.getName().equals("init")) {
+                continue;
+            }
+            for (Class<?> t : m.getParameterTypes()) {
+                assertNotEquals("com.jfinal.template.Engine", t.getName(),
+                        "★ r310：LegacyTemplateRender 不得再有 init(Engine)");
+            }
+        }
     }
 
     /**

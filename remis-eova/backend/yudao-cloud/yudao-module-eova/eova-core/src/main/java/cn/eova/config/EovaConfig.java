@@ -30,7 +30,6 @@ import cn.eova.core.IndexController;
 import cn.eova.core.api.ApiRouterHandler;
 import cn.eova.core.type.Convertor;
 import cn.eova.ext.jfinal.DbCaptchaCache;
-import cn.eova.ext.jfinal.EovaRenderSourceFactory;
 import cn.eova.handler.UrlBanHandler;
 import cn.eova.handler.WAFHandler;
 import cn.eova.interceptor.ExceptionInterceptor;
@@ -331,7 +330,6 @@ public class EovaConfig extends LegacyJFinalConfig {
 //		me.setBaseTemplatePath(null);
         // 从 class path 和 jar 包加载模板配置
 //		me.setToClassPathSourceFactory();
-        me.setSourceFactory(new EovaRenderSourceFactory());
 
         // 模版常用共享方法
         me.addSharedMethod(new BaseSharedMethod());

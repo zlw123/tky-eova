@@ -9,7 +9,6 @@ import java.lang.reflect.Field;
 import java.util.Map;
 
 import cn.eova.tools.x;
-import com.jfinal.template.Engine;
 
 /**
  * <p>ported from: cn.eova.config.PageConst
@@ -17,7 +16,8 @@ import com.jfinal.template.Engine;
  * <br>本单元为逐行等价 port：文件体与旧实现逐字节一致，仅新增本追溯头。
  * <br><b>刻意保留的既有语义：</b>
  * <ol>
- *   <li>Enjoy 页面相关常量与共享方法注册；Engine 由 enjoy 提供 —— 逐字节</li>
+ *   <li>Enjoy 页面相关常量与共享方法注册；★ r310：原第一形参 {@code Engine me} 在本方法体里**从未使用**
+ *       （只写 {@code sharedVars}），而 enjoy 已按口径授权摘除 ⇒ 去掉该形参（唯一调用点在旧源码里也是注释态）</li>
  * </ol>
  */
 /**
@@ -59,7 +59,7 @@ public class PageConst {
     /**
      * 系统启动初始化加载 将常量全局化
      */
-    public static void init(Engine me, Map<String, Object> sharedVars) {
+    public static void init(Map<String, Object> sharedVars) {
         // long time = System.currentTimeMillis();
         System.err.println("Load Page Const Starting:");
         Field[] fds = PageConst.class.getDeclaredFields();

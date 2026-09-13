@@ -20,7 +20,6 @@ import cn.eova.compat.db.LegacyDataSourceWiring;
 import cn.eova.db.EovaModel;
 import cn.eova.compat.jfinal.config.LegacyEngine;
 import cn.eova.compat.jfinal.config.LegacyJFinalBoot;
-import com.jfinal.template.Engine;
 import cn.eova.compat.jfinal.config.LegacyRoutes;
 import cn.eova.compat.table.EovaTableMapping;
 import cn.eova.config.EovaConfig;
@@ -258,41 +257,19 @@ public class LegacyWebBootstrap {
         // ★ 渲染工厂：`LegacyRenderManager` 明确要求"由宿主在启动时注入"（其报错文案即
         //   "未装配渲染工厂…请由宿主在启动时注入"），而主代码里没有任何地方调用它 ——
         //   这就是 HTTP 容器层留给宿主的最后一块。实测：不装配时所有 render 路径 500。
-        // ★ 模板引擎也必须由宿主构造（结构性事实，第 250 轮查明）：
-        //   LegacyEngine 只是**配置收集器**（addSharedMethod/addDirective/addSourceFactory…），
-        //   它**不持有**原始 com.jfinal.template.Engine；而 LegacyTemplateRender.init(Engine)
-        //   在**全仓主代码里没有任何调用点** ⇒ 宿主需按收集到的设置自建 enjoy Engine 再注入。
-        Engine engine = Engine.create("eova-web");
-        LegacyEngine collected = this.boot.getEngine();
+        // ★ r310：**enjoy 引擎已按口径授权摘除**。历史上这里要"按收集到的设置自建 enjoy Engine
+        //   再注入"（LegacyEngine 只是配置收集器，不持有 Engine；`LegacyTemplateRender.init(Engine)`
+        //   在主代码里没有任何调用点 ⇒ 不构造就所有 render 路径 500）。
+        //   现在的渲染底座是**自研**：无指令模板直出 + `LegacyPageRenderer`（与 enjoy 逐字节等价，
+        //   差分判据 4/4 + 活页字节金标不变），遇到不支持的指令**响亮抛错**而不是回退引擎。
+        //   依据（全部实跑）：引擎兜底实测 0 次（判据 + 扫描 4d，日志确认为"当前后端"）·
+        //   可达模板面逐面枚举（LegacyTemplateFaceInventoryTest）。
         java.io.File viewRoot = resolveViewRoot();
-        if (viewRoot != null) {
-            // ★ 必须【覆盖】收集到的源工厂，而不是"null 才补"：旧栈把 `webapp` 放在 view 模块的
-            //   classpath 上，收集到的是 classpath 源，而 eova-web **不依赖**该模块 ⇒ 在本进程里
-            //   永远找不到模板（实测：File not found in CLASSPATH or JAR :
-            //   "webapp/eova/_view/index/login.html"）。且已核：新栈 main 资源里没有任何 html。
-            engine.setSourceFactory(new LegacyViewSourceFactory(viewRoot));
-            engine.setBaseTemplatePath(viewRoot.getAbsolutePath());
-            log.info("Eova Web 层：模板源 = 文件系统 {}（覆盖收集到的 {}）",
-                    viewRoot.getAbsolutePath(), collected.getSourceFactory());
-        } else if (collected.getSourceFactory() != null) {
-            engine.setSourceFactory(collected.getSourceFactory());
-            log.warn("Eova Web 层：未找到视图根目录（eova.webapp.root={}），模板走收集到的源 {} —— 页面渲染会失败",
-                    webappRoot, collected.getSourceFactory());
+        LegacyEngine collected = this.boot.getEngine();
+        if (viewRoot == null) {
+            log.error("Eova Web 层：未找到视图根目录（eova.webapp.root={}）—— 页面渲染将失败",
+                    webappRoot);
         }
-        for (Object m : collected.getSharedMethods()) {
-            engine.addSharedMethod(m);
-        }
-        for (java.util.Map.Entry<String, Class<? extends com.jfinal.template.Directive>> e
-                : collected.getDirectives().entrySet()) {
-            engine.addDirective(e.getKey(), e.getValue());
-        }
-        for (String f : collected.getSharedFunctions()) {
-            engine.addSharedFunction(f);
-        }
-        for (java.util.Map.Entry<String, Object> e : collected.getSharedObjects().entrySet()) {
-            engine.addSharedObject(e.getKey(), e.getValue());
-        }
-        LegacyTemplateRender.init(engine);
         // ★ r309 第 1 轮：注入**极简页面渲染器**（有指令模板先走它，与 enjoy 逐字节等价）。
         //   共享方法取引擎已注册的那批（`BaseSharedMethod` 的 `conf('…')`/`getUIConf()` 就在其中）。
         if (viewRoot != null) {
@@ -317,10 +294,8 @@ public class LegacyWebBootstrap {
                 }
             });
         }
-        log.info("Eova Web 层：模板引擎已构造并注入（源工厂={}，共享方法 {}，指令 {}，共享函数 {}，共享对象 {}）",
-                collected.getSourceFactory(), collected.getSharedMethods().size(),
-                collected.getDirectives().size(), collected.getSharedFunctions().size(),
-                collected.getSharedObjects().size());
+        log.info("Eova Web 层：页面渲染器已注入（视图根={}，共享方法 {}）—— 不再使用 enjoy 引擎",
+                viewRoot, collected.getSharedMethods().size());
 
         LegacyRenderManager.setRenderFactory(new DefaultLegacyRenderFactory());
         log.info("Eova Web 层：渲染工厂已装配（宿主职责）");

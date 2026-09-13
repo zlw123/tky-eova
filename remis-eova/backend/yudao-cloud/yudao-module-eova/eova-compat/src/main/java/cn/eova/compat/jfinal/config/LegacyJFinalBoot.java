@@ -118,9 +118,10 @@ public class LegacyJFinalBoot {
         config.configConstant(constants);
         config.configRoute(routes);
         config.configEngine(engine);
-        // 模板属性读取器：旧栈这一步由 jfinal jar 自带的 Model/Record 读取器在模板引擎类初始化时
-        // 完成（详见 LegacyRowFieldGetter 的实证说明）；新栈用纯 enjoy，必须在引导期显式安装。
-        cn.eova.compat.template.LegacyRowFieldGetter.install();
+        // ★ r310：原此处安装 `LegacyRowFieldGetter`（把 EOVA 的 Model/Record 列属性读取语义挂进
+        //   **enjoy 引擎**的字段读取器链）。引擎已按口径授权摘除 ⇒ 这条安装**没有对象**了：
+        //   表达式求值的属性解析顺序改由 `cn.eova.compat.template.LegacyExprEvaluator` 自持，
+        //   并由语料判据（`ExpUtilCorpusTest` / `LegacyExprEvaluatorGoldenTest`）钉住。
         config.configPlugin(plugins);
         config.configInterceptor(interceptors);
         config.configHandler(handlers);

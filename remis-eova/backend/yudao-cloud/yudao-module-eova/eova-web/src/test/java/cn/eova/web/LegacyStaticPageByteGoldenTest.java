@@ -80,23 +80,25 @@ class LegacyStaticPageByteGoldenTest {
     }
 
     @Test
-    @DisplayName("★ T04-31：活页渲染**不再需要 Enjoy 引擎**（引擎兜底计数必须为 0）")
+    @DisplayName("★ T04-31：活页渲染**已完全不需要引擎**（不支持指令计数必须为 0，且极简渲染计数必须增加）")
     void livePagesDoNotNeedTheEngine() {
-        long before = cn.eova.compat.render.LegacyTemplateRender.getEngineFallbackCount();
+        // ★ r310：引擎已按口径授权摘除 ⇒ 原来的「引擎兜底计数」改名为「不支持指令计数」：
+        //   它的语义从"回退了几次"变成"有几个活页踩到了不支持的指令（现在会 500）"。
+        long before = cn.eova.compat.render.LegacyTemplateRender.getUnsupportedTemplateCount();
         long miniBefore = cn.eova.compat.render.LegacyTemplateRender.getMiniRenderCount();
         HttpHeaders h = session();
-        // 两个活页各请求一次（有指令的那个才是关键：它本会走引擎）
+        // 两个活页各请求一次（有指令的那个才是关键：它历史上会走引擎）
         assertEquals(200, get(h, "/main").getStatusCode().value());
         assertEquals(200, get(h, "/excel/imports/sys_hotel").getStatusCode().value());
         long miniAfter = cn.eova.compat.render.LegacyTemplateRender.getMiniRenderCount();
-        long after = cn.eova.compat.render.LegacyTemplateRender.getEngineFallbackCount();
+        long after = cn.eova.compat.render.LegacyTemplateRender.getUnsupportedTemplateCount();
         // ★ 同时证明"接缝真的切过去了"：极简渲染计数必须增加（只证明"没兜底"是不够的 ——
-        //   把整段极简渲染关掉也满足"兜底为 0"）
+        //   把整段极简渲染关掉也满足"不支持计数为 0"）
         assertTrue(miniAfter > miniBefore,
                 "★ 极简渲染计数必须增加（before=" + miniBefore + " after=" + miniAfter + "）");
         assertEquals(before, after,
-                "★ 引擎兜底计数必须为 0（before=" + before + " after=" + after + "）—— "
-                        + "计数大于 0 说明有活页用到了极简渲染器不支持的指令，必须扩规格或修实现");
+                "★ 不支持指令计数必须为 0（before=" + before + " after=" + after + "）—— "
+                        + "计数大于 0 说明有活页用到了极简渲染器不支持的指令（现在会 500），必须扩规格或修实现");
     }
 
     private org.springframework.http.ResponseEntity<String> get(HttpHeaders h, String path) {
