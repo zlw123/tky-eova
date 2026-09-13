@@ -192,6 +192,16 @@ import {
   toggleFullscreen as toggleFullscreenByRules,
   type RefreshableIframe
 } from '@/utils/frame'
+// ★★ 第 302 轮补：首页**页面级布局样式**（旧 `eova/_view/index/index.html:7` 的
+//   `<link rel="stylesheet" href="/eova/_view/index/index.css?v=241231">`）。
+//
+//   漏它的后果是**成类缺陷**且**所有行为判据都看不见**（Home.spec 绿、S5 真浏览器 6/6 绿、
+//   构建绿）：`.eova-home_menu/_head/_tabs/_body` 的定位与高度规则全在这份 CSS 里，
+//   缺了它们容器退回正常流 ⇒ 实测 `#app` 被内容撑到 **1881px**、`scrollHeight` **1347**，
+//   而**旧栈是 813**（旧栈根节点 `html/body/#app` 高度均为 0，靠子容器自定位铺满视口）。
+//   这是 it 视觉对照（阶段 2 判据第三根支柱）才能抓到的差异。
+//   ⇒ 按既有口径**只引用、不修改**冻结资产（与 `Login.vue:54` 引 `login.css` 同款）。
+import '../legacy/eova/_view/index/index.css'
 import { getEovaMe } from '@/compat/eova-runtime'
 import { closeAllTab, closeTab, initTabs, openTab, toTab, type TabItem } from '@/utils/tab'
 
