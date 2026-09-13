@@ -12,7 +12,6 @@ import java.util.Map;
 import cn.eova.tools.EovaTool;
 import cn.eova.tools.x;
 import cn.eova.compat.jfinal.kit.LegacyKv;
-import com.jfinal.template.Engine;
 
 /**
  * <p>ported from: cn.eova.engine.ExpUtil
@@ -75,23 +74,6 @@ public class ExpUtil {
         return parse(exp, kv);
     }
 
-    /**
-     * 字符串模版解析
-     * @param path 模版文件路径
-     * @param kv 对象参数
-     * @return
-     */
-    public static String parseTemplate(String path, LegacyKv kv) {
-        if (x.isEmpty(path) || kv == null) {
-            return path;
-        }
-
-        // ⚠️ 本方法是 `ExpUtil` 里**最后一条 Enjoy 用法**：它渲染的是**模板文件**（不是业务表达式），
-        //   属「页面渲染腿」（RENDER）。当前调用方只有 `RenderUtil.renderFile`，而 `RenderUtil`
-        //   在渲染腿清单里已被判定为**死链**（见 `EnjoyRenderSurfaceTest`）⇒ 该链一经口径确认删除，
-        //   本文件即可整体离开 enjoy 依赖面。
-        return Engine.use().getTemplate(path).renderToString(kv);
-    }
 
     /**
      * 解析EovaOption 表达式与参数

@@ -31,9 +31,14 @@ import java.net.URL;
  * </ul>
  *
  * <p>★ <b>与 Enjoy 的耦合（必须知道）</b>：旧栈里 {@code PathKit.setWebRootPath(...)} 不只是给本仓代码看的
- * —— **Enjoy 的 {@code FileSource}/{@code Engine} 内部也会读它**（{@code EnjoyTemplateRenderService} 的类注释
- * 把这条标为"最隐蔽的一条"）。故在 Enjoy 退役之前，设置 web 根的地方必须**两边同时设**，
- * 否则会出现"本仓读到默认值、Enjoy 读到宿主值"的静默分歧。判据：
+ * —— **Enjoy 的 {@code FileSource}/{@code Engine} 内部也会读它**。故在 enjoy 还在依赖面上的这段时间里，
+ * 任何设置 web 根的地方必须**两边同时设**（{@code com.jfinal.kit.PathKit} + 本 port），
+ * 否则会出现"本仓读到默认值、Enjoy 读到宿主值"的静默分歧。</p>
+ *
+ * <p><b>r309 现状</b>：旧栈里做"两边同时设"的那处（{@code EnjoyTemplateRenderService} 构造器）
+ * 已按授权删除，**生产代码里现在没有任何地方设置 web 根** ⇒ 本 port 取默认值（classpath 推导）。
+ * 已知影响面：{@code EovaConst.DIR_PLUGINS} 是**唯一**读 {@code getWebRootPath()} 的静态常量，
+ * 而它在全仓**无使用点** ⇒ 当前不可观测（登记为待办，不静默）。判据：
  * {@code LegacyPathKitGoldenTest#webRootStaysInSyncWithEnjoyPathKit}。</p>
  */
 public class LegacyPathKit {
@@ -93,7 +98,7 @@ public class LegacyPathKit {
     /**
      * 设置 web 根（旧实现：可变静态值）。
      *
-     * <p>⚠️ 在 Enjoy 退役之前，调用本方法的地方**必须同时**调用 {@code com.jfinal.kit.PathKit#setWebRootPath}
+     * <p>⚠️ 在 enjoy 仍在依赖面上的期间，调用本方法的地方**必须同时**调用 {@code com.jfinal.kit.PathKit#setWebRootPath}
      * —— Enjoy 内部也读后者（见类注释）。</p>
      *
      * @param webRootPath web 根

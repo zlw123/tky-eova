@@ -37,20 +37,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 本轮实测就踩过"注释里提到类名被当成调用方"的坑（`ResourceRender` 首轮统计出 2 个"调用方"，
  * 实际全是 Javadoc 里的提及）。</p>
  *
- * <p><b>r308 第 3 轮取证结论</b>：</p>
+ * <p><b>r309 现状（3 处死面 + 死链 5 类已按授权删除）</b>：</p>
  * <ul>
- *   <li><b>活面 6 类</b>：`LegacyTemplateRender`（`BaseController.render` 的执行者）·
- *       `EnjoyTemplateRenderService`（引擎实现）· `LegacyEngine`（compat 引擎包装）·
- *       `EovaRenderSourceFactory`（`EovaConfig#setSourceFactory` 接线）·
+ *   <li><b>活面 5 类</b>：`LegacyTemplateRender`（`BaseController.render` 的执行者）·
+ *       `LegacyEngine`（compat 引擎包装）· `EovaRenderSourceFactory`（`EovaConfig#setSourceFactory` 接线）·
  *       `LegacyViewSourceFactory`（`LegacyWebBootstrap` 接线）· `LegacyWebBootstrap`（装配）；</li>
- *   <li><b>启动期注册 1 处</b>：`JsonDirective`（`EovaConfig#addDirective("json", …)`）——
- *       但它在模板里的**唯一使用者**是 `eova/_view/meta/reorder/app.html`，而 `/meta/reorder`
- *       已在 U1 退役为 SPA 壳 ⇒ 该指令**实际不再被任何活模板使用**（登记为"可随依赖一起删"的候选）；</li>
- *   <li><b>死链 6 个</b>：`RenderUtil` 的全部调用方（`Html2DocRender`/`Html2PdfRender`/`Html2XlsRender`/
- *       `OfficeRender`/`ResourceRender`）**自身都没有调用方** ⇒ 这条链在新栈里**完全不可达**
- *       ⇒ `RenderUtil` 对 Enjoy（`Engine` + `ClassPathSourceFactory`）的依赖是**死依赖**；</li>
- *   <li><b>另有 1 个"接线但无生产调用方"</b>：`EnjoyTemplateRenderService`（只有它自己的单测在用；
- *       `LegacyEngine` 的注释说"新栈由它承担"是**过时注释** —— 实际由 `LegacyTemplateRender` 直接用 `Engine`）。</li>
+ *   <li><b>EXPR 腿 2 类</b>：`PageConst`（页面渲染配置）· `LegacyRowFieldGetter`（表达式字段取值语义）
+ *       —— 同属剩余的 enjoy 依赖面，一并冻结；</li>
+ *   <li><b>已删除 9 个</b>：`EnjoyTemplateRenderService`/`TemplateRenderService`（引擎实现，无生产调用方）·
+ *       `JsonDirective`（`#json` 唯一模板使用者已退役）· `RenderUtil` + 其 5 个无调用方实现
+ *       （`Html2DocRender`/`Html2PdfRender`/`Html2XlsRender`/`OfficeRender`/`ResourceRender`）
+ *       ⇒ 本判据改为**反向断言"文件必须不存在"**（删了却又回来 ⇒ 红）。</li>
  * </ul>
  *
  * <p><b>对退役的意义</b>：真正阻塞退役的是**活面 + 2 个仍由后端渲染的活页面**
@@ -63,18 +60,11 @@ class EnjoyRenderSurfaceTest {
     private static final Map<String, List<String>> DECLARED_CALLERS = new LinkedHashMap<>();
 
     static {
-        // ---- 活面：渲染链路上真正被接线的两类 ----
+        // ---- 活面：渲染链路上真正被接线的 5 类（实测调用方，逐条冻结）----
         DECLARED_CALLERS.put("cn.eova.compat.render.LegacyTemplateRender", List.of(
                 "cn/eova/common/base/BaseController.java",
                 "cn/eova/compat/render/DefaultLegacyRenderFactory.java",
                 "cn/eova/web/LegacyWebBootstrap.java"));
-        // ★ 实测纠正（两处都是我首版声明的错）：
-        //   ① 键写成 `cn/eova/...`（斜杠路径）⇒ 内部简单名取不到 ⇒ 恒为"无调用方"（假绿）。
-        //      教训：**声明的键必须与扫描算法取简单名的方式一致**（点号 FQCN）。
-        //   ② 该类在生产代码里**只被 Javadoc 提及**（`LegacyEngine` 的注释说"新栈由它承担"，
-        //      但新栈实际是 `LegacyTemplateRender` 直接用 `Engine`；全仓无生产调用方、无反射装配，
-        //      只有它自己的 `EnjoyTemplateRenderServiceTest` 在用）⇒ 声明为**空**（= 断言"无生产调用方"）。
-        DECLARED_CALLERS.put("cn.eova.compat.template.EnjoyTemplateRenderService", List.of());
         DECLARED_CALLERS.put("cn.eova.compat.jfinal.config.LegacyEngine", List.of(
                 "cn/eova/compat/jfinal/config/LegacyJFinalBoot.java",
                 "cn/eova/compat/jfinal/config/LegacyJFinalConfig.java",
@@ -84,25 +74,38 @@ class EnjoyRenderSurfaceTest {
                 "cn/eova/config/EovaConfig.java"));
         DECLARED_CALLERS.put("cn.eova.web.LegacyViewSourceFactory", List.of(
                 "cn/eova/web/LegacyWebBootstrap.java"));
-        // ---- 启动期注册：被接线，但活的模板使用者已随 U1 退役 ----
-        DECLARED_CALLERS.put("cn.eova.ext.jfinal.directive.JsonDirective", List.of(
-                "cn/eova/config/EovaConfig.java"));
-        // ---- 死链：这些类彼此调用，但**入口无调用方** ----
-        DECLARED_CALLERS.put("cn.eova.common.render.RenderUtil", List.of(
-                "cn/eova/common/render/Html2DocRender.java",
-                "cn/eova/common/render/Html2PdfRender.java",
-                "cn/eova/common/render/Html2XlsRender.java",
-                "cn/eova/common/render/OfficeRender.java",
-                "cn/eova/common/render/ResourceRender.java"));
+        DECLARED_CALLERS.put("cn.eova.web.LegacyWebBootstrap", List.of());
+        // ---- EXPR 腿：剩余的表达式求值/渲染配置（与上个判据的依赖面同口径）----
+        DECLARED_CALLERS.put("cn.eova.config.PageConst", List.of(
+                "cn/eova/meta/api/TableController.java",
+                "cn/eova/meta/api/WidgetController.java",
+                "cn/eova/widget/WidgetCtrl.java",
+                "cn/eova/widget/WidgetManager.java",
+                "cn/eova/widget/grid/GridController.java"));
+        DECLARED_CALLERS.put("cn.eova.compat.template.LegacyRowFieldGetter", List.of(
+                "cn/eova/compat/jfinal/config/LegacyJFinalBoot.java"));
     }
 
-    /** **入口类**：无调用方即"整条链不可达"（死面） */
-    private static final List<String> DEAD_CHAIN_ENTRIES = List.of(
-            "cn/eova/common/render/Html2DocRender",
-            "cn/eova/common/render/Html2PdfRender",
-            "cn/eova/common/render/Html2XlsRender",
-            "cn/eova/common/render/OfficeRender",
-            "cn/eova/common/render/ResourceRender");
+    /**
+     * **r309 按授权删除的死面**（3 处死面 + 死链 5 类）：这些 {@code .java} 必须**不存在**。
+     *
+     * <p>保留这份清单的意义：删掉的东西**不得复活**（有人 {@code git checkout} 回来，
+     * 或新写一个同名类重新接上 enjoy）—— 那是必须显式改表的重判点。</p>
+     */
+    private static final List<String> DELETED_DEAD_FACES = List.of(
+            // ★ 必须是**点号 FQCN**：写成斜杠路径会让下面的引用检查（按简单名匹配）空转 ⇒ 假绿。
+            "cn.eova.compat.template.EnjoyTemplateRenderService",
+            "cn.eova.compat.template.TemplateRenderService",
+            "cn.eova.ext.jfinal.directive.JsonDirective",
+            "cn.eova.common.render.RenderUtil",
+            "cn.eova.common.render.Html2DocRender",
+            "cn.eova.common.render.Html2PdfRender",
+            "cn.eova.common.render.Html2XlsRender",
+            "cn.eova.common.render.OfficeRender",
+            "cn.eova.common.render.ResourceRender");
+
+    /** 反空断言用的**活面**代表类：必须存在（证明"找不到文件"不是因为源码根解析错了） */
+    private static final String LIVE_CONTROL_CLASS = "cn.eova.compat.render.LegacyTemplateRender";
 
     private static Path moduleDir() {
         Path dir = Path.of(System.getProperty("user.dir")).toAbsolutePath();
@@ -176,7 +179,7 @@ class EnjoyRenderSurfaceTest {
         assertTrue(mismatch.isEmpty(),
                 "★ 渲染腿调用面与声明不一致（退役影响面变了，必须显式改表）：\n    "
                         + String.join("\n    ", mismatch));
-        assertEquals(7, DECLARED_CALLERS.size(), "声明条数（活面 5 + 注册 1 + 死链入口 1）");
+        assertEquals(7, DECLARED_CALLERS.size(), "声明条数（RENDER 活面 5 + EXPR 2 = 与依赖面清单同为 7）");
     }
 
     /** 渲染腿的**接线点**：路径 → （文件, 必须出现的代码片段） */
@@ -187,8 +190,6 @@ class EnjoyRenderSurfaceTest {
                 "cn/eova/config/EovaConfig.java"});
         WIRING.put("engine.setSourceFactory(new LegacyViewSourceFactory(viewRoot))", new String[]{
                 "cn/eova/web/LegacyWebBootstrap.java"});
-        WIRING.put("me.addDirective(\"json\", JsonDirective.class)", new String[]{
-                "cn/eova/config/EovaConfig.java"});
     }
 
     @Test
@@ -209,46 +210,46 @@ class EnjoyRenderSurfaceTest {
             }
         }
         assertTrue(missing.isEmpty(), "★ 渲染腿接线点缺失（渲染链被拆）：" + missing);
-        assertEquals(3, WIRING.size(), "接线点清单条数（源工厂 ×2 + json 指令注册）");
+        assertEquals(2, WIRING.size(), "接线点清单条数（源工厂 ×2；json 指令注册随 JsonDirective 删除而消失）");
     }
 
     @Test
-    @DisplayName("★ T04-10：死链入口**确实无调用方**（= 这 6 个渲染器在新栈不可达，可随依赖一起删）")
-    void deadChainHasNoCallers() throws IOException {
-        List<String> halfDead = new ArrayList<>();
-        for (String fqcn : DEAD_CHAIN_ENTRIES) {
+    @DisplayName("★ T04-10：r309 已删除的死面**不得复活**（文件不存在 + 无残留引用）")
+    void deletedDeadFacesAreGone() throws IOException {
+        // 反空断言：活面代表类必须存在 —— 否则"找不到文件"可能只是源码根解析错了（假绿）
+        boolean controlExists = sourceRoots().stream()
+                .anyMatch(r -> Files.isRegularFile(r.resolve(LIVE_CONTROL_CLASS.replace('.', '/') + ".java")));
+        assertTrue(controlExists, "★ fail-closed：活面代表类不存在 " + LIVE_CONTROL_CLASS + " ⇒ 源码根解析有问题");
+
+        List<String> resurrected = new ArrayList<>();
+        for (String fqcn : DELETED_DEAD_FACES) {
+            // 反空断言：条目必须是点号 FQCN（含包名）—— 曾因写成斜杠路径而让"引用清零"检查空转
+            assertTrue(fqcn.contains(".") && !fqcn.contains("/"),
+                    "★ 删除清单条目必须是点号 FQCN：" + fqcn);
+            String rel = fqcn.replace('.', '/') + ".java";
+            for (Path root : sourceRoots()) {
+                if (Files.isRegularFile(root.resolve(rel))) {
+                    resurrected.add(rel);
+                }
+            }
+            // 代码引用也必须清零（删除只删文件、留下引用会立刻编译失败；这里防"引用被挪到别处"）
             List<String> callers = callersOf(fqcn);
             if (!callers.isEmpty()) {
-                // `RenderUtil` 在链内互相调用是允许的：只有"链外调用方"才算接上线
-                List<String> outside = callers.stream()
-                        .filter(c -> !c.startsWith("cn/eova/common/render/"))
-                        .collect(Collectors.toList());
-                if (!outside.isEmpty()) {
-                    halfDead.add(fqcn + " 被链外调用：" + outside);
-                }
+                resurrected.add(fqcn + " 仍被引用：" + callers);
             }
         }
-        assertTrue(halfDead.isEmpty(),
-                "★ 死链被接上线了（那它就不再是'可随依赖一起删'的候选，必须重判）：" + halfDead);
-        // 反空断言：这 5 个类必须真的存在于源码里（防"类被删了、判据却因为找不到而通过"）
-        List<String> existing = new ArrayList<>();
-        for (Path root : sourceRoots()) {
-            for (String fqcn : DEAD_CHAIN_ENTRIES) {
-                Path f = root.resolve(fqcn.replace('.', '/') + ".java");
-                if (Files.isRegularFile(f)) {
-                    existing.add(fqcn);
-                }
-            }
-        }
-        assertEquals(DEAD_CHAIN_ENTRIES.size(), existing.size(),
-                "★ 死链类应全部存在（若已删除，请把它们从 DEAD_CHAIN_ENTRIES 移除并记录退役进度）");
+        assertTrue(resurrected.isEmpty(),
+                "★ 已删除的死面又出现了（必须重判它是不是活面）：" + resurrected);
+        assertEquals(9, DELETED_DEAD_FACES.size(), "r309 删除清单条数（死面 3 + 死链 5 + 接口 1）");
     }
 
     @Test
-    @DisplayName("★ T04-11：`#json` 指令的唯一模板使用者仍是**已退役**的页面（登记：可随依赖一起删）")
-    void jsonDirectiveHasNoLiveTemplateUser() throws IOException {
-        // 取证：`#json` 在 legacy 根模板里只出现在 `eova/_view/meta/reorder/app.html`，
-        // 而 `/meta/reorder` 已在 U1 退役为 SPA 壳（`SPA_OWNED_PATHS`）⇒ 该模板不再被渲染。
+    @DisplayName("★ T04-11：`#json` 的模板使用者仍**冻结**在已退役页，且 `JsonDirective` 已删除")
+    void jsonDirectiveIsGone() throws IOException {
+        // 口径依据（删除前取证）：`#json` 在 legacy 根模板里只出现在 `eova/_view/meta/reorder/app.html`，
+        // 而 `/meta/reorder` 已在 U1 退役为 SPA 壳 ⇒ 该指令不再被任何活模板使用 ⇒ 授权删除。
+        // 这一半仍然冻结：**模板侧的 `#json` 使用者清单不得变化**（变了说明有活页开始用 `#json`，
+        // 那就必须重做一个渲染器侧的 `#json` 支持，而不是继续删）。
         Path legacy = moduleDir().resolve("../../../../front/remis-eova-ui/src/legacy").normalize();
         assertTrue(Files.isDirectory(legacy), "★ fail-closed：legacy 视图根不存在 " + legacy);
         List<String> users = new ArrayList<>();
@@ -260,6 +261,15 @@ class EnjoyRenderSurfaceTest {
             }
         }
         assertEquals(List.of("eova/_view/meta/reorder/app.html"), users,
-                "★ `#json` 的模板使用者清单变了 ⇒ 必须重判 `JsonDirective` 是活面还是可删（期望：只剩那个已退役页）");
+                "★ `#json` 的模板使用者清单变了 ⇒ 必须重判：新渲染器是否需要支持 `#json`");
+
+        // 另一半：指令类与启动期注册都必须消失
+        assertTrue(DELETED_DEAD_FACES.contains("cn.eova.ext.jfinal.directive.JsonDirective"),
+                "★ `JsonDirective` 应在 r309 删除清单里");
+        Path config = sourceRoots().stream().map(r -> r.resolve("cn/eova/config/EovaConfig.java"))
+                .filter(Files::isRegularFile).findFirst().orElseThrow();
+        String src = Files.readString(config, StandardCharsets.UTF_8);
+        assertTrue(!src.contains("addDirective"), "★ `EovaConfig` 里不得再有 `addDirective` 注册（json 指令已删）");
+        assertTrue(!src.contains("JsonDirective"), "★ `EovaConfig` 里不得再提到 `JsonDirective`");
     }
 }

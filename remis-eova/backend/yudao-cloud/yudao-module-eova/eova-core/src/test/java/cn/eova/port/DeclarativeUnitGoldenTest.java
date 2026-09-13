@@ -74,7 +74,6 @@ class DeclarativeUnitGoldenTest {
             "cn.eova.sql.ddl.DefineConfig",
             "cn.eova.mod.EovaModPackage",
             "cn.eova.core.button.ButtonFactory",
-            "cn.eova.ext.jfinal.directive.JsonDirective",
             "cn.eova.template.Template");
 
     private static final List<String> UNITS_NEED_JFINAL = List.of(

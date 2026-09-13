@@ -66,7 +66,7 @@ class LegacyPathKitGoldenTest {
     }
 
     @Test
-    @DisplayName("★ T04-6：getPackagePath 等价（ResourceRender 就是靠它拼 resources/ 路径）")
+    @DisplayName("★ T04-6：getPackagePath 等价（已删除的 ResourceRender 曾靠它拼 resources/ 路径）")
     void packagePathMatchesOldPathKit() {
         for (Object o : new Object[]{this, "x", new Object()}) {
             assertEquals(com.jfinal.kit.PathKit.getPackagePath(o), LegacyPathKit.getPackagePath(o),
@@ -98,7 +98,9 @@ class LegacyPathKitGoldenTest {
     @DisplayName("★ T04-8：**web 根必须与 Enjoy 侧保持同步**（否则本仓读默认值、Enjoy 读宿主值）")
     void webRootStaysInSyncWithEnjoyPathKit() throws Exception {
         // 旧栈里 PathKit.setWebRootPath 同时喂两边：本仓代码 + **Enjoy 内部**（FileSource/Engine 也读它）
-        // ⇒ 在 Enjoy 退役前，设置点必须两边同时设；本判据钉住"设置之后两边一致"。
+        // ⇒ 在 enjoy 退役前，设置点必须两边同时设；本判据钉住"设置之后两边一致"。
+        // ★ r309 说明：生产代码里做这件事的那处（`EnjoyTemplateRenderService` 构造器）已删除，
+        //   自此**没有任何生产设置点**（本判据因此只剩"port 本身不失同步"的运行时探针作用）。
         com.jfinal.kit.PathKit.setWebRootPath("/tmp/sync-probe");
         LegacyPathKit.setWebRootPath("/tmp/sync-probe");
         assertEquals(com.jfinal.kit.PathKit.getWebRootPath(), LegacyPathKit.getWebRootPath(),

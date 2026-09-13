@@ -15,7 +15,11 @@ import java.util.Map;
 
 import cn.eova.common.base.BaseSharedMethod;
 import cn.eova.compat.jfinal.kit.LegacyKv;
-import cn.eova.compat.template.EnjoyTemplateRenderService;
+import cn.eova.compat.jfinal.kit.LegacyPathKit;
+import com.jfinal.kit.Kv;
+import com.jfinal.kit.PathKit;
+import com.jfinal.template.Engine;
+import com.jfinal.template.source.FileSourceFactory;
 import cn.eova.compat.template.LegacyPageRenderer;
 import cn.eova.compat.template.LegacyRowFieldGetter;
 import org.junit.jupiter.api.BeforeAll;
@@ -29,7 +33,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * **T04 收官判据：极简渲染器 vs Enjoy 的差分等价**（真实活页模板 + 同一份数据，**逐字节**比对）。
  *
- * <p>左侧 oracle = `EnjoyTemplateRenderService`（现成的 Enjoy 包装，生产里已属死面 ⇒ 当测试基准正合适）；
+ * <p>左侧 oracle = **裸 Enjoy 引擎**（构造逐行取自已按授权删除的 `EnjoyTemplateRenderService#构造器`：
+ * `PathKit.setWebRootPath` + `LegacyPathKit.setWebRootPath` + `Engine.createIfAbsent` + `FileSourceFactory`
+ * + `addSharedMethod`）—— 该类已删，故在此内联；oracle 因此**不再依赖任何生产类**；
  * 右侧 = 本仓 `LegacyPageRenderer`。两者都喂**同一份数据与同一份共享方法**
  * （`BaseSharedMethod`：`conf('…')`/`getUIConf()` 的来源）。</p>
  *
@@ -50,9 +56,27 @@ class LegacyPageRendererGoldenTest {
         assertTrue(webRoot.isDirectory(), "★ fail-closed：legacy 视图根不存在 " + webRoot);
     }
 
-    /** Enjoy 侧 oracle */
-    private static EnjoyTemplateRenderService enjoy() {
-        return new EnjoyTemplateRenderService(webRoot.getAbsolutePath(), new BaseSharedMethod());
+    /**
+     * Enjoy 侧 oracle：用**裸引擎**渲染。
+     *
+     * <p>ported from: cn.eova.compat.template.EnjoyTemplateRenderService（已按授权删除，构造条件在此原样固化）</p>
+     *
+     * @param templatePath 模板路径（相对 webRoot）
+     * @param scope        作用域
+     * @return 渲染结果
+     */
+    private static String enjoy(String templatePath, Map<String, Object> scope) {
+        PathKit.setWebRootPath(webRoot.getAbsolutePath());
+        LegacyPathKit.setWebRootPath(webRoot.getAbsolutePath());
+        Engine engine = Engine.createIfAbsent("golden-oracle-" + Integer.toHexString(webRoot.hashCode()), e -> {
+            e.setDevMode(false)
+                    .setBaseTemplatePath(webRoot.getAbsolutePath())
+                    .setSourceFactory(new FileSourceFactory());
+            e.addSharedMethod(new BaseSharedMethod());
+        });
+        Kv kv = Kv.create();
+        kv.set(scope);
+        return engine.getTemplate(templatePath).renderToString(kv);
     }
 
     /** 本仓侧实现 */
@@ -79,7 +103,7 @@ class LegacyPageRendererGoldenTest {
     @DisplayName("★ T04-27：`/main`（零指令）两边逐字节一致")
     void mainPageMatches() throws Exception {
         String path = "/_view/theme/index.html";
-        String oldOut = enjoy().render(path, new LinkedHashMap<>());
+        String oldOut = enjoy(path, new LinkedHashMap<>());
         String newOut = mini().render(path, new LinkedHashMap<>());
         assertEquals(oldOut, newOut, "★ /main 渲染结果必须逐字节一致");
         // 与模板文件本身一致（零指令 ⇒ 纯静态）
@@ -93,7 +117,7 @@ class LegacyPageRendererGoldenTest {
     void excelImportPageMatches() {
         String path = "/excel/import/app.html";
         Map<String, Object> scope = importPageScope();
-        String oldOut = enjoy().render(path, scope);
+        String oldOut = enjoy(path, scope);
         String newOut = mini().render(path, scope);
         assertEquals(oldOut, newOut, "★ Excel 导入页渲染结果必须逐字节一致（含 include 闭包与共享方法）");
         // 反空断言：真的渲染出了内容（防"两边都空 ⇒ 假绿"）
@@ -107,7 +131,7 @@ class LegacyPageRendererGoldenTest {
         String path = "/excel/import/app.html";
         Map<String, Object> scope = importPageScope();
         ((LegacyKv) scope.get("template")).set("info", null);   // 让 `#if(template.info)` 取假分支
-        String oldOut = enjoy().render(path, scope);
+        String oldOut = enjoy(path, scope);
         String newOut = mini().render(path, scope);
         assertEquals(oldOut, newOut, "★ 取假分支时也必须逐字节一致（含 `#else` 前不裁空格的细节）");
     }

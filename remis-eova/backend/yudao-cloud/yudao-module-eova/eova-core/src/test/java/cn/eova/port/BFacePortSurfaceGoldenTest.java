@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>覆盖 8 个单元：{@code cn.eova.common.utils.HttpUtils}、
  * {@code cn.eova.common.utils.web.RequestUtil}（决策 1：javax→jakarta），
- * {@code cn.eova.common.render.{RenderUtil,LogRender,XmlRender,DownloadRender,ZipRender,ResourceRender}}
+ * {@code cn.eova.common.render.{LogRender,XmlRender,DownloadRender,ZipRender,CsvRender,XlsxRender}}（其中 6 个死面类已按授权删除）
  * （决策 2：Render 家族）。</p>
  *
  * <p><b>为什么"逐字节一致"还不够：</b>这 8 个单元都是<b>逐行对应 port</b>
@@ -48,17 +48,11 @@ class BFacePortSurfaceGoldenTest {
     private static final List<String> UNITS = List.of(
             "cn.eova.common.utils.HttpUtils",
             "cn.eova.common.utils.web.RequestUtil",
-            "cn.eova.common.render.RenderUtil",
             "cn.eova.common.render.LogRender",
             "cn.eova.common.render.XmlRender",
             "cn.eova.common.render.DownloadRender",
             "cn.eova.common.render.ZipRender",
-            "cn.eova.common.render.ResourceRender",
             // 第二轮：Excel 导出链 + HTML/Office 渲染（同样是逐行对应 port）
-            "cn.eova.common.render.Html2DocRender",
-            "cn.eova.common.render.Html2PdfRender",
-            "cn.eova.common.render.Html2XlsRender",
-            "cn.eova.common.render.OfficeRender",
             "cn.eova.common.render.CsvRender",
             "cn.eova.common.render.XlsxRender",
             "cn.eova.common.utils.excel.ExceUtil",
@@ -100,11 +94,6 @@ class BFacePortSurfaceGoldenTest {
             "cn.eova.common.render.XmlRender",
             "cn.eova.common.render.DownloadRender",
             "cn.eova.common.render.ZipRender",
-            "cn.eova.common.render.ResourceRender",
-            "cn.eova.common.render.Html2DocRender",
-            "cn.eova.common.render.Html2PdfRender",
-            "cn.eova.common.render.Html2XlsRender",
-            "cn.eova.common.render.OfficeRender",
             "cn.eova.common.render.CsvRender",
             "cn.eova.common.render.XlsxRender");
 
@@ -125,11 +114,6 @@ class BFacePortSurfaceGoldenTest {
             "cn.eova.common.render.XmlRender",
             "cn.eova.common.render.DownloadRender",
             "cn.eova.common.render.ZipRender",
-            "cn.eova.common.render.ResourceRender",
-            "cn.eova.common.render.Html2DocRender",
-            "cn.eova.common.render.Html2PdfRender",
-            "cn.eova.common.render.Html2XlsRender",
-            "cn.eova.common.render.OfficeRender",
             "cn.eova.common.render.CsvRender",
             "cn.eova.common.render.XlsxRender");
 

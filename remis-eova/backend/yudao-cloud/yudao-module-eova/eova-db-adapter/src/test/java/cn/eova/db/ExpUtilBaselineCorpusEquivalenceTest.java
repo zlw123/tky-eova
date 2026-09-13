@@ -37,6 +37,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 判错就意味着一整类"查询框/下拉框"取数错误。这正是 R79 说的第二种可能：
  * **不是"已覆盖"，而是整条没人管**。
  *
+ * <p>★ r309 追记：上段提到的 {@code parseTemplate} 是**渲染模板文件**（不属表达式求值），
+ * 它已随死链 {@code RenderUtil}（其唯一调用方）一起按口径授权删除 ⇒ {@code ExpUtil} 现在只有
+ * 5 个公开方法（{@code parse}/{@code parseSql}/{@code buildExpPara}/{@code buildSqlPara}/{@code getSqlParam}），
+ * 且**已整体离开 enjoy 依赖面**。本判据覆盖的仍是表达式求值这一半。</p>
+ *
  * <p><b>本判据的做法（用真实语料 + 旧实现真身比对，而不是自己写期望值）：</b>
  * <ol>
  *   <li>语料 = 真实 baseline 库 `eova_meta.eova_field.exp` 里**全部非空 exp**（实测 65 条，

@@ -21,10 +21,12 @@ import com.jfinal.template.source.ISourceFactory;
  * <p><b>为什么是"配置面"：</b>旧 {@code EovaConfig.configEngine(Engine me)} 只做四件事：
  * {@code setSourceFactory(new EovaRenderSourceFactory())}、
  * {@code addSharedMethod(new BaseSharedMethod())}、
- * {@code addDirective("json", JsonDirective.class)}、
+ * {@code addDirective("json", JsonDirective.class)}（★ r309：{@code JsonDirective} 已按授权删除，
+ * {@code EovaConfig} 里这条注册同步移除 ⇒ 本映射在新栈为空）、
  * （注释掉的 {@code addSharedFunction/addSharedObject}）。
- * 真正渲染模板的是 enjoy 引擎，新栈已由 {@code EnjoyTemplateRenderService} 承担
- * （它自己 {@code setBaseTemplatePath} + {@code FileSourceFactory}），
+ * 真正渲染模板的是 enjoy 引擎；新栈的**页面渲染**已由 {@code LegacyPageRenderer}（极简渲染器，
+ * 与 enjoy 逐字节等价）+ {@code LegacyTemplateRender}（接缝）承担，enjoy 引擎当前只是**兜底**
+ * （实测回退 0 次：{@code LegacyTemplateRender#getEngineFallbackCount()} + 扫描 4d 门）。
  * 故本接缝<b>只记录</b>这些注册项，供引导驱动与判据读取，<b>不</b>再启动第二个引擎。</p>
  *
  * <p><b>类型说明：</b>{@code ISourceFactory}/{@code Directive} 直接使用 enjoy 制品里的
@@ -38,7 +40,7 @@ public class LegacyEngine {
     /** 共享方法（EOVA 装 BaseSharedMethod） */
     private final List<Object> sharedMethods = new ArrayList<>();
 
-    /** 指令：名字 → 类型（EOVA 装 "json" → JsonDirective） */
+    /** 指令：名字 → 类型（旧 EOVA 装 "json" → JsonDirective；该类已按授权删除 ⇒ 新栈为空映射） */
     private final Map<String, Class<? extends Directive>> directives = new LinkedHashMap<>();
 
     /** 共享模板函数（文件路径） */

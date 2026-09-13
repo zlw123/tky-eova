@@ -41,8 +41,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *       {@code ExpUtil#parse} 用 {@code Engine.use().getTemplateByString(...).renderToString(pms)}；
  *       {@code AuthUri} 的 URI 规则同样按字符串模板求值；
  *       {@code LegacyRowFieldGetter extends FieldGetter} 提供表达式里 Model/Record 的字段取值语义；</li>
- *   <li>{@code RENDER}〔页面渲染接缝〕—— {@code LegacyTemplateRender}/{@code EnjoyTemplateRenderService}/
- *       {@code LegacyEngine}/{@code *SourceFactory}/{@code JsonDirective}/{@code RenderUtil}/引导类；</li>
+ *   <li>{@code RENDER}〔页面渲染接缝〕—— {@code LegacyTemplateRender}/{@code LegacyEngine}/
+ *       {@code *SourceFactory}/引导类（{@code EnjoyTemplateRenderService}/{@code JsonDirective}/
+ *       {@code RenderUtil} 链已于 r309 按授权删除 ⇒ 不再出现在依赖面上）；</li>
  *   <li>{@code UTIL}〔路径与字符串工具〕—— {@code PathKit}（5 处）、{@code StrKit}（1 处）：
  *       与模板无关，可直接换实现（{@code StrKit} 在 compat 里已有 port：{@code LegacyStrKit}）。</li>
  * </ul>
@@ -54,14 +55,11 @@ class EnjoyUsageInventoryTest {
     /** 生产源码里对 enjoy 制品的依赖面：文件（相对源码根） → 用到的类（排序后） */
     private static final Map<String, List<String>> DECLARED = new TreeMap<>(Map.ofEntries(
             // ---- EXPR：表达式求值 / 业务字符串模板（阻塞项）----
-            Map.entry("cn/eova/engine/ExpUtil.java", List.of("template.Engine")),
             Map.entry("cn/eova/config/PageConst.java", List.of("template.Engine")),
             Map.entry("cn/eova/compat/template/LegacyRowFieldGetter.java",
                     List.of("template.Engine", "template.expr.ast.FieldGetter")),
             // ---- RENDER：页面渲染接缝 ----
             Map.entry("cn/eova/compat/render/LegacyTemplateRender.java", List.of("template.Engine")),
-            Map.entry("cn/eova/compat/template/EnjoyTemplateRenderService.java",
-                    List.of("kit.Kv", "kit.PathKit", "template.Engine", "template.source.FileSourceFactory")),
             Map.entry("cn/eova/compat/jfinal/config/LegacyEngine.java",
                     List.of("template.Directive", "template.source.ISourceFactory")),
             Map.entry("cn/eova/ext/jfinal/EovaRenderSourceFactory.java",
@@ -70,10 +68,6 @@ class EnjoyUsageInventoryTest {
             Map.entry("cn/eova/web/LegacyViewSourceFactory.java",
                     List.of("template.source.FileSource", "template.source.ISource",
                             "template.source.ISourceFactory")),
-            Map.entry("cn/eova/ext/jfinal/directive/JsonDirective.java",
-                    List.of("template.Directive", "template.Env", "template.io.Writer", "template.stat.Scope")),
-            Map.entry("cn/eova/common/render/RenderUtil.java",
-                    List.of("template.Engine", "template.source.ClassPathSourceFactory")),
             Map.entry("cn/eova/web/LegacyWebBootstrap.java", List.of("template.Engine"))
             // ---- UTIL：与模板无关的路径/字符串工具（可直接换实现）----
     ));
@@ -131,11 +125,25 @@ class EnjoyUsageInventoryTest {
         Map<String, List<String>> actual = scan();
 
         // 反空断言：扫描规则失效时不得"因为扫不到而通过"
-        // 反空断言：门限**随退役进度**下调（当前基线 12；UTIL 腿退役前是 17）。
-        //   ⚠️ 真正防"扫描失效"的是下面两条"必须扫到已知文件"的断言 —— 门限只防"扫了个空"。
-        assertTrue(actual.size() >= 10, "★ 扫到的依赖文件数异常少（" + actual.size() + "）⇒ 扫描规则可能已失效");
-        assertTrue(actual.containsKey("cn/eova/engine/ExpUtil.java"), "★ 未扫到表达式求值入口 ExpUtil");
-        assertTrue(actual.containsKey("cn/eova/compat/render/LegacyTemplateRender.java"), "★ 未扫到渲染接缝");
+        // 反空断言：门限**随退役进度**下调（r309 死面删除后基线 7；UTIL 腿退役前是 17）。
+        //   ⚠️ 真正防"扫描失效"的是下面"必须扫到已知文件"的断言 —— 门限只防"扫了个空"。
+        assertTrue(actual.size() >= 5, "★ 扫到的依赖文件数异常少（" + actual.size() + "）⇒ 扫描规则可能已失效");
+                assertTrue(actual.containsKey("cn/eova/compat/render/LegacyTemplateRender.java"), "★ 未扫到渲染接缝");
+        // 反空断言 + 退役进度：已退役的 4 个文件不得再出现
+        for (String gone : List.of(
+                "cn/eova/engine/ExpUtil.java",
+                // ---- r309 授权删除的 3 处死面（+ 死链 5 类）----
+                "cn/eova/compat/template/EnjoyTemplateRenderService.java",
+                "cn/eova/compat/template/TemplateRenderService.java",
+                "cn/eova/ext/jfinal/directive/JsonDirective.java",
+                "cn/eova/common/render/RenderUtil.java",
+                "cn/eova/common/render/ResourceRender.java",
+                "cn/eova/common/render/Html2DocRender.java",
+                "cn/eova/common/render/Html2PdfRender.java",
+                "cn/eova/common/render/Html2XlsRender.java",
+                "cn/eova/common/render/OfficeRender.java")) {
+            assertFalse(DECLARED.containsKey(gone), "已退役，不得再出现在依赖面清单里：" + gone);
+        }
 
         List<String> undeclared = new ArrayList<>();
         for (String f : actual.keySet()) {
@@ -151,24 +159,22 @@ class EnjoyUsageInventoryTest {
                 "★ 出现**未声明**的 enjoy 依赖（退役时会漏）：" + undeclared + " —— 请先在 DECLARED 里登记并分类");
         assertTrue(gone.isEmpty(),
                 "★ 已声明的依赖消失：" + gone + " —— 若是退役成功，请同步更新 DECLARED（这就是进度账本）");
-        assertEquals(11, DECLARED.size(), "依赖面文件数（17 − UTIL 腿 5 − 第 6 轮 AuthUri 1）");
+        assertEquals(7, DECLARED.size(), "依赖面文件数（17 − UTIL 5 − AuthUri 1 − 死面/死链 4：EnjoyTemplateRenderService/RenderUtil 链/JsonDirective）");
     }
 
     @Test
     @DisplayName("★ T04-2：分类计数冻结（EXPR 是阻塞项 —— 退役前必须先把它们解决或登记阻塞）")
     void categoriesAreCounted() {
-        // ★ r308 第 6 轮：`AuthUri` 已切成 `LegacyExprEvaluator` ⇒ 离开依赖面（EXPR 4 → 3）。
-        //   `ExpUtil` 仍在面上：它的 `parse`/`parseSql`（业务表达式）已切换，但 `parseTemplate`
-        //   （模板**文件**渲染，属 RENDER 腿）仍走 Enjoy —— 该方法的唯一调用方是死链 `RenderUtil`。
+        // ★ r309：`ExpUtil` 已整条离开依赖面（`parseTemplate` 随死链 `RenderUtil` 一起删除）；
+        //   EXPR 腿上余下 2 个文件都属页面渲染侧（`PageConst` 配置 / `LegacyRowFieldGetter` 语义）。
         List<String> expr = List.of(
-                "cn/eova/engine/ExpUtil.java",
                 "cn/eova/config/PageConst.java",
                 "cn/eova/compat/template/LegacyRowFieldGetter.java");
         for (String f : expr) {
             assertTrue(DECLARED.containsKey(f), "EXPR 类文件必须在清单里：" + f);
         }
-        assertEquals(3, expr.size(), "EXPR〔表达式求值/业务字符串模板〕文件数（阻塞项；AuthUri 已退役）");
-        assertEquals(8, DECLARED.size() - expr.size(), "RENDER〔页面渲染接缝〕文件数");
+        assertEquals(2, expr.size(), "EXPR 文件数（业务表达式已全部切换；余下 PageConst 属页面渲染配置）");
+        assertEquals(5, DECLARED.size() - expr.size(), "RENDER〔页面渲染接缝〕文件数（r309 删掉 3 处死面后 8 → 5）");
         // 反空断言：`AuthUri` 必须真的不在清单里（防"退役了却忘了改表"）
         assertFalse(DECLARED.containsKey("cn/eova/auth/AuthUri.java"), "AuthUri 已退役，不得再出现在依赖面清单里");
         // ★ UTIL 腿**已清零**（r308 第 2 轮）：`PathKit`(5 处) 与 `StrKit`(1 处) 全部换到 compat port

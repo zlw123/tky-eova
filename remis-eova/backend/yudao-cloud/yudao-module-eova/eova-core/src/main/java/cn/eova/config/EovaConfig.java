@@ -31,7 +31,6 @@ import cn.eova.core.api.ApiRouterHandler;
 import cn.eova.core.type.Convertor;
 import cn.eova.ext.jfinal.DbCaptchaCache;
 import cn.eova.ext.jfinal.EovaRenderSourceFactory;
-import cn.eova.ext.jfinal.directive.JsonDirective;
 import cn.eova.handler.UrlBanHandler;
 import cn.eova.handler.WAFHandler;
 import cn.eova.interceptor.ExceptionInterceptor;
@@ -338,7 +337,6 @@ public class EovaConfig extends LegacyJFinalConfig {
         me.addSharedMethod(new BaseSharedMethod());
 
         // me.addSharedFunction("/WEB-INF/_layout/pager.html");
-        me.addDirective("json", JsonDirective.class);
         // 共享常量
 //        EovaConst.getPageConst().forEach((k, v) -> {
 //            me.addSharedObject(k, v);
