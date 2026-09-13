@@ -293,6 +293,24 @@ public class LegacyWebBootstrap {
             engine.addSharedObject(e.getKey(), e.getValue());
         }
         LegacyTemplateRender.init(engine);
+        // ★ r308 第 8 轮：注入**模板源读取器**（供"无指令模板直出"快路径用）。
+        //   视图名口径与引擎一致（相对视图根，形如 `/eova/_view/...` 或 `/_view/theme/index.html`）。
+        if (viewRoot != null) {
+            LegacyTemplateRender.initSourceReader(v -> {
+                String rel = v.startsWith("/") ? v.substring(1) : v;
+                java.io.File f = new java.io.File(viewRoot, rel);
+                if (!f.isFile()) {
+                    return null;
+                }
+                try {
+                    return new String(java.nio.file.Files.readAllBytes(f.toPath()),
+                            java.nio.charset.StandardCharsets.UTF_8);
+                } catch (java.io.IOException e) {
+                    log.warn("Eova Web 层：模板源读取失败（{}）⇒ 回退模板引擎", f.getAbsolutePath());
+                    return null;
+                }
+            });
+        }
         log.info("Eova Web 层：模板引擎已构造并注入（源工厂={}，共享方法 {}，指令 {}，共享函数 {}，共享对象 {}）",
                 collected.getSourceFactory(), collected.getSharedMethods().size(),
                 collected.getDirectives().size(), collected.getSharedFunctions().size(),

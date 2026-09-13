@@ -56,6 +56,26 @@ public class LegacyTemplateRender extends LegacyRender {
     protected static Engine engine;
 
     /**
+     * 模板**源文本**读取器（宿主注入；用于"无指令模板直出"快路径）。
+     *
+     * <p>为 null 时总是走模板引擎（保持既有行为）。</p>
+     */
+    private static java.util.function.Function<String, String> sourceReader;
+
+    /**
+     * 直出计数（"无指令模板直出"快路径被真正走过的次数）。
+     *
+     * <p>为什么要它：**字节等价判据证明不了机制生效** —— 直出与引擎渲染本来就该字节相同
+     * （那正是等价性的内容）。要证明"这条快路径真的在用"，只能数它。故判据断言"请求 `/main` 后计数增加"。</p>
+     */
+    private static final java.util.concurrent.atomic.AtomicLong DIRECT_RENDER_COUNT =
+            new java.util.concurrent.atomic.AtomicLong();
+
+    /** 指令 token：`#(`（输出指令）或 `#name(`（块/扩展指令） */
+    private static final java.util.regex.Pattern DIRECTIVE =
+            java.util.regex.Pattern.compile("#\\(|#[A-Za-z_][A-Za-z0-9_]*\\s*\\(");
+
+    /**
      * 注入模板引擎（宿主启动时调用）。
      *
      * @param engine 引擎；不得为 null
@@ -74,6 +94,37 @@ public class LegacyTemplateRender extends LegacyRender {
      */
     public static Engine getEngine() {
         return engine;
+    }
+
+    /**
+     * 注入模板源读取器（宿主启动时调用）。
+     *
+     * @param reader 视图名 → 模板源文本；为 null 时关闭快路径
+     */
+    public static void initSourceReader(java.util.function.Function<String, String> reader) {
+        sourceReader = reader;
+    }
+
+    /**
+     * 取直出计数（判据用：证明快路径被真正走过）。
+     *
+     * @return 累计直出次数
+     */
+    public static long getDirectRenderCount() {
+        return DIRECT_RENDER_COUNT.get();
+    }
+
+    /**
+     * 模板是否**不含任何指令**。
+     *
+     * <p>判定只认指令 token（`#(` / `#name(`），不认 HTML/CSS/JS 里到处都是的裸 `#`
+     * （`#app`、`#fff` 会被误判）。无指令时 enjoy 的渲染结果就是**逐字节原文**。</p>
+     *
+     * @param text 模板源文本
+     * @return 是否无指令
+     */
+    static boolean hasNoDirective(String text) {
+        return text != null && !DIRECTIVE.matcher(text).find();
     }
 
     /**
@@ -111,6 +162,25 @@ public class LegacyTemplateRender extends LegacyRender {
         ServletOutputStream os = null;
         try {
             os = response.getOutputStream();
+            // ★ r308（T04 第二段 · 第 8 轮）：**无指令模板直出**（不经模板引擎）。
+            //   依据（实测，判据 `LegacyPageRenderSpecTest#mainThemePageIsStatic`）：`/main` 主题页模板
+            //   一条指令都没有 ⇒ enjoy 渲染它等于逐字节复制原文 ⇒ 直出**字节相同**
+            //   （由页面 sha256 金标 + 真浏览器 iframe 面共同保证）。
+            //   意义：把"活页面对 enjoy 的运行时依赖"从 2 个减到 1 个，也是将来自研渲染器的第一段。
+            if (sourceReader != null) {
+                String text = null;
+                try {
+                    text = sourceReader.apply(view);
+                } catch (RuntimeException ignored) {
+                    // 读不到就老实回退引擎（读失败不该把渲染打挂）
+                }
+                if (hasNoDirective(text)) {
+                    DIRECT_RENDER_COUNT.incrementAndGet();
+                    os.write(text.getBytes(getEncoding()));
+                    os.flush();
+                    return;
+                }
+            }
             engine.getTemplate(view).render(data, os);
             os.flush();
         } catch (Exception e) {
