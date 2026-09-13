@@ -79,7 +79,15 @@ describe('视图文件没有孤儿', () => {
     // 反空断言：扫描规则失效时不能"因为找不到而通过"
     expect(views.length).toBeGreaterThanOrEqual(19)
 
-    const referenced = referencedViews(['src/router/index.ts', 'src/views/template/registry.ts'])
+    // ★ r319：引用源新增 `src/views/custom/registry.ts`（**自定义 app 组件注册表**）。
+    //   旧栈的自定义 app 由 `_eova/assets/eova.vue.config.js` 在**运行时**装配（`me.vue.mount(app, key)`），
+    //   在 SPA 里改为构建期注册表 ⇒ 那里的组件**不在路由表、也不在模版组件表**，但**有真实入口**
+    //   （列表页/表单页按 key 命中后挂载）。不登记它会把"实现"误判成"孤儿"（本轮实测踩到）。
+    const referenced = referencedViews([
+      'src/router/index.ts',
+      'src/views/template/registry.ts',
+      'src/views/custom/registry.ts'
+    ])
     expect(referenced.size, '未从两个入口扫到任何引用').toBeGreaterThanOrEqual(16)
 
     const orphans = views.filter((v) => !referenced.has(v))

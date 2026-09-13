@@ -137,6 +137,16 @@
         </div>
       </div>
     </div>
+    <!--
+      ★ r319（U4 切片 A）：**自定义 app 叠加挂载**。
+      旧栈 `template/table/index.js:318` 用 `me.vue.mount(app, `table_${menuCode}`)` 把自定义模版
+      **挂在标准页面之上**（不是替换 —— CDP 实测旧栈 `/app/meta_hotel`：标准表格 6 行 + 工具栏照常，
+      同时 `.sword-go`/`#imageContainer` 也在 DOM 里）。
+      本处按同一口径：命中注册键且**已实现**时渲染对应组件（未实现的表单键不渲染 ⇒ 走标准模版）。
+      `currentRow`/`showLinking` 正是旧 `hotel/app.vue` 里 `v-model` / `v-model:show` 绑的那两个变量，
+      本组件早已维护它们（`onRowClick` 写、`onQuery` 复位）⇒ 无需新增状态。
+    -->
+    <component :is="customApp" v-if="customApp" v-model="currentRow" v-model:show="showLinking" />
     <EovaAdminPanel :is-admin="isAdmin" />
   </div>
 </template>
@@ -147,6 +157,8 @@ import { useRoute } from 'vue-router'
 import axios from 'axios'
 import EovaToolbar from '@/components/EovaToolbar.vue'
 import EovaAdminPanel from '@/components/EovaAdminPanel.vue'
+import { customAppComponent } from '@/views/custom/registry'
+import { listCustomAppKey } from '@/compat/custom-apps'
 import { getEovaMe, getEovaTools } from '@/compat/eova-runtime'
 import { callUzooHook, getUzooPage, setUzooApp, setUzooPage } from '@/compat/eova-ext'
 import { PAGE_URLS } from '@/compat/ui-urls'
@@ -225,6 +237,11 @@ const auths = ref<unknown>(undefined)
 const queryHeight = ref(0)
 /** 表格高度（旧 `let tableHeight = ref(600)`） */
 const tableHeight = ref(600)
+
+/** 本页命中的自定义 app 组件（旧 `me.vue.mount(app, `table_${menuCode}`)`；未实现 ⇒ undefined） */
+const customApp = computed(() =>
+  customAppComponent(listCustomAppKey(String(props.bootstrap.menu?.template ?? ''), menuCode))
+)
 
 /** 当前选中行（旧 `currentRow = ref({})`） */
 const currentRow = ref<Record<string, unknown>>({})

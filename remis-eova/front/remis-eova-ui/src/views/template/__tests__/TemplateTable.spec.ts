@@ -28,6 +28,7 @@ import { defineComponent, h, nextTick } from 'vue'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import axios from 'axios'
 import TemplateTable from '../TemplateTable.vue'
+import SwordComing from '@/views/custom/SwordComing.vue'
 import { getUzooApp, getUzooPage, type Uzoo } from '@/compat/eova-ext'
 import { setEovaMe, setEovaTools, type EovaMe, type EovaTools } from '@/compat/eova-runtime'
 import { PAGE_URLS } from '@/compat/ui-urls'
@@ -541,6 +542,18 @@ describe('TemplateTable.vue（旧 template/table 的行为等价）', () => {
     // 本判据钉住"载荷 → 属性"这条链（后端下发端由 PageBootstrapAssemblerGoldenTest 钉）。
     const w = mountPage({ object: { code: 'eova_config', is_celledit: true } as never })
     expect(w.findComponent(stubs.EvTable).props('isEdit')).toBe(true)
+  })
+
+  it('⑯c ★ r319（U4 切片 A）：列表页**命中自定义 app 键** ⇒ 叠加挂载；未命中不挂载', () => {
+    // 口径（旧 `template/table/index.js:318` 的 `me.vue.mount(app, `table_${menuCode}`)`）：
+    // 键 = `${template}_${menuCode}`；命中且**已实现**时把自定义组件挂在标准页面**之上**（不是替换）。
+    // ⚠️ 反向用例不可省：若把"未命中"也渲染，`meta_product` 等页会凭空多出酒店面板。
+    expect(mountPage().findComponent(SwordComing).exists()).toBe(false)
+    routeState.params = { menuCode: 'meta_hotel' }
+    const w = mountPage()
+    expect(w.findComponent(SwordComing).exists()).toBe(true)
+    // 叠加而非替换：标准表格必须**仍在**
+    expect(w.findComponent(stubs.EvTable).exists()).toBe(true)
   })
 
   it('⑰ 缺 object.code ⇒ 告警 + 仍渲染（不编造 object code）', async () => {
