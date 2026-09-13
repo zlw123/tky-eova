@@ -101,6 +101,30 @@ public class EovaDataSource {
                 pwd = cn.eova.common.utils.string.AESUtil.decrypt(pwd);
             }
 
+            registerOne(ds, url, user, pwd, driver, filters, plugins);
+        }
+    }
+
+    /**
+     * 注册**单个**数据源（旧 {@code create()} 的循环体，逐行等价）。
+     *
+     * <p>★ 抽成独立方法的原因（第 305 轮）：循环体里那步"方言族注册"是**必须发生**的副作用
+     * （见 {@link #registerDialectFamily(String, DbType)}），而 {@code create()} 依赖
+     * {@code db.datasource} 配置 —— 单测环境没有该配置时，任何"跑一遍 create 再看结果"的判据
+     * 都会**静默空跑**（本轮的判据首版正是如此，被变异纪律抓出来）。
+     * 抽出来后判据可直接驱动这一步，M1 变异（删掉注册调用）必被捕获。</p>
+     *
+     * @param ds       数据源名
+     * @param url      JDBC URL
+     * @param user     用户名
+     * @param pwd      密码（已解密）
+     * @param driver   驱动类名
+     * @param filters  Druid 过滤器串
+     * @param plugins  宿主插件收集器
+     */
+    public static void registerOne(String ds, String url, String user, String pwd, String driver,
+                                   String filters, cn.eova.compat.jfinal.config.LegacyPlugins plugins) {
+        {
             // 【已声明适配】旧栈在此建 DruidPlugin + ActiveRecordPlugin 并 plugins.add(dp).add(arp)；
             // 新栈把坐标登记给宿主装配层（连接池归 Spring，ARP 归 LegacyActiveRecordPlugin + 网关）
             cn.eova.compat.db.LegacyDataSourceWiring.Spec spec =
@@ -115,6 +139,21 @@ public class EovaDataSource {
             } catch (java.sql.SQLException e) {
                 e.printStackTrace();
             }
+
+            // ★★ 第 305 轮补（真缺陷，P2）：旧栈在每个 ds 上都会调用
+            //    `buildDialect(dbType, ds, dp)`，而该方法的**末尾三行是注册副作用**：
+            //      EovaConfig.addQueryDialect(ds, queryDialect);
+            //      EovaConfig.addConvertor(ds, convertor);
+            //      DefineDialectFactory.addDialect(ds, defineDialect);
+            //    本轮之前的 port 只保留了"方言族选择"（baseDialectFamily/businessDialectModName），
+            //    **丢掉了这三行注册** ⇒ EovaConfig.queryDialectMap 恒空 ⇒
+            //    WidgetManager.buildQueryCondition(ds, ...) 里 `getQueryDialect(ds).single(...)`
+            //    直接 NPE（实测服务端栈：NullPointerException at WidgetManager.java:327）
+            //    ⇒ 凡是**带查询条件**的表格查询都返回「查询条件错误, 请检查查询条件!」，
+            //    症状是 `/meta/edit?object=…`、`/meta/field?object=…` 等页面**有接口、有数据、页面空**。
+            //    旧栈同请求（POST /api/table/query/eova_field_code?…&biz=meta_eidt + {object_code}）
+            //    返回 count=14 的 14 行，新栈返回 state=fail。
+            registerDialectFamily(ds, dataSources.get(ds));
             // 【已声明适配】旧栈在此 EovaConfig.arps.put(ds, arp)：ARP 同时是"该 ds 的映射登记句柄"，
             // 被 EovaConfig.mappingEova(arps.get(Ds.EOVA)) / mapping(arps) 读取。
             // 新栈用 LegacyActiveRecordPlugin 承担这一角色（其 addMapping 落到 EovaTableMapping），
@@ -122,6 +161,53 @@ public class EovaDataSource {
             cn.eova.config.EovaConfig.arps.put(ds, new cn.eova.compat.jfinal.plugin.activerecord.LegacyActiveRecordPlugin(ds));
             plugins.add(new cn.eova.compat.db.LegacyDbPlugin(spec));
         }
+    }
+
+    /**
+     * 注册某数据源的**方言族三件套**（{@code QueryDialect}/{@code Convertor}/{@code DefineDialect}）。
+     *
+     * <p>ported from: {@code cn.eova.config.EovaDataSource#buildDialect(DbType, String, DruidPlugin)}
+     * （旧 251-298 行）的**注册半部分**。旧方法同时装配 JFinal 插件（DruidPlugin/ARP/Dialect），
+     * 那部分在新栈由 Spring 与 {@link cn.eova.compat.db.LegacyDataSourceWiring} 承担；
+     * 但**末尾三行注册**是 Eova 侧自身状态，必须照样发生 —— 否则
+     * {@code WidgetManager#buildQueryCondition} 会在带条件的查询上 NPE（第 305 轮实测）。</p>
+     *
+     * <p>语义逐条对齐旧实现：默认 {@code Mysql*} 三件套；{@code oracle/postgresql/sqlserver/dm}
+     * 先尝试反射加载商业 Mod 的 {@code com.eova.mod.eova.<name>.<Name>{Convertor,QueryDialect,DefineDialect}}
+     * （开源版不含这些类 ⇒ 恒加载失败，与旧实现一致），失败时按 {@code db.support.info} 决定是否记日志；
+     * 注册**无条件发生**（与旧实现相同：注册在 try/catch 之后）。</p>
+     *
+     * @param ds     数据源名
+     * @param dbType 数据库类型（可空 ⇒ 落默认 MySQL 分支）
+     */
+    public static void registerDialectFamily(String ds, DbType dbType) {
+        cn.eova.sql.dql.dialect.QueryDialect queryDialect = new cn.eova.sql.dql.dialect.MysqlQueryDialect();
+        cn.eova.sql.ddl.dialect.DefineDialect defineDialect = new cn.eova.sql.ddl.dialect.MysqlDefineDialect();
+        cn.eova.core.type.Convertor convertor = new cn.eova.core.type.MysqlConvertor();
+
+        // Eova 平台业务兼容方言（商业 Mod）：包名段由 businessDialectModName 决定，无对应 Mod 时为 null
+        String modName = businessDialectModName(dbType);
+        if (modName != null) {
+            String base = "com.eova.mod.eova." + modName + ".";
+            String prefix = Character.toUpperCase(modName.charAt(0)) + modName.substring(1);
+            if ("postgresql".equals(modName)) {
+                prefix = "PostgreSql"; // 旧实现的类名前缀就是这种大小写（PostgreSqlQueryDialect）
+            }
+            try {
+                convertor = cn.eova.common.utils.io.ClassUtil.newClass(base + prefix + "Convertor");
+                queryDialect = cn.eova.common.utils.io.ClassUtil.newClass(base + prefix + "QueryDialect");
+                defineDialect = cn.eova.common.utils.io.ClassUtil.newClass(base + prefix + "DefineDialect");
+            } catch (Exception e) {
+                if (x.conf.getBool("db.support.info", true)) {
+                    x.log.error("如果仅添加数据源通过JFinal查库，则无需Eova兼容方言支持，可主动屏蔽本异常提示：db.support.info=false");
+                    x.log.error("EovaDB兼容方言加载异常：Eova默认仅提供Mysql支持，如需在其它DB下使用Eova，请升级服务 https://www.eova.cn/eovapro#commerces", e);
+                }
+            }
+        }
+
+        EovaConfig.addQueryDialect(ds, queryDialect);
+        EovaConfig.addConvertor(ds, convertor);
+        cn.eova.sql.ddl.DefineDialectFactory.addDialect(ds, defineDialect);
     }
 
     /**

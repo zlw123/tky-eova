@@ -16,6 +16,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -172,5 +174,83 @@ class EovaDataSourceGoldenTest {
 
         System.out.println("[数据源] SqlUtil.getSequence 一致：Oracle=" + oracle
                 + "；PG=" + pg + "；MySQL/Kingbase=null（SEQ_=" + EovaConst.SEQ_ + "）");
+    }
+
+    /**
+     * **方言族三件套必须真的被注册**（第 305 轮 · 真缺陷 P2 回归锁）。
+     *
+     * <p><b>缺陷现场</b>：旧栈 {@code EovaDataSource#buildDialect} 的末尾三行是注册副作用 ——
+     * {@code EovaConfig.addQueryDialect(ds, queryDialect)}、{@code addConvertor(ds, convertor)}、
+     * {@code DefineDialectFactory.addDialect(ds, defineDialect)}；本轮之前的 port 只保留了
+     * "方言族选择"（{@code baseDialectFamily}/{@code businessDialectModName}），
+     * <b>把这三行丢了</b> ⇒ {@code EovaConfig.queryDialectMap} 恒空 ⇒
+     * {@code WidgetManager#buildQueryCondition} 在**带查询条件**的表格查询上 NPE
+     * （服务端栈实测：{@code NullPointerException ... getQueryDialect(String) is null at WidgetManager.java:327}）
+     * ⇒ 接口返回「查询条件错误, 请检查查询条件!」⇒ 页面"有接口、有数据、页面空"。</p>
+     *
+     * <p>实测对照（同一请求 {@code POST /api/table/query/eova_field_code?page=1&limit=99999&sort=&biz=meta_eidt}
+     * + {@code {"object_code":"meta_product"}}）：旧栈 200 ok / count=14 / 14 行；
+     * 修前新栈 200 {@code state=fail}；修后新栈 200 ok / count=14 / 14 行。</p>
+     */
+    @Test
+    @DisplayName("方言族三件套注册：逐 ds 落到 EovaConfig/DefineDialectFactory（缺则带条件查询必 NPE）")
+    void dialectFamilyIsRegisteredPerDataSource() {
+        cn.eova.sql.dql.dialect.QueryDialect before = cn.eova.config.EovaConfig.getQueryDialect("__golden_ds__");
+        cn.eova.core.type.Convertor beforeCv = cn.eova.config.EovaConfig.getConvertor("__golden_ds__");
+        cn.eova.sql.ddl.dialect.DefineDialect beforeDd = cn.eova.sql.ddl.DefineDialectFactory.getDialect("__golden_ds__");
+        try {
+            cn.eova.config.EovaDataSource.registerDialectFamily("__golden_ds__", com.alibaba.druid.DbType.mysql);
+
+            cn.eova.sql.dql.dialect.QueryDialect qd = cn.eova.config.EovaConfig.getQueryDialect("__golden_ds__");
+            cn.eova.core.type.Convertor cv = cn.eova.config.EovaConfig.getConvertor("__golden_ds__");
+            cn.eova.sql.ddl.dialect.DefineDialect dd = cn.eova.sql.ddl.DefineDialectFactory.getDialect("__golden_ds__");
+            assertNotNull(qd, "QueryDialect 必须被注册（否则带条件的查询会 NPE）");
+            assertNotNull(cv, "Convertor 必须被注册");
+            assertNotNull(dd, "DefineDialect 必须被注册");
+            assertTrue(qd instanceof cn.eova.sql.dql.dialect.MysqlQueryDialect,
+                    "MySQL 数据源落默认分支（与旧 buildDialect 的默认值一致）");
+            assertTrue(dd instanceof cn.eova.sql.ddl.dialect.MysqlDefineDialect,
+                    "DefineDialect 同理落默认分支");
+
+            // 反空断言：注册必须**按 ds 建条目**，不得共用同一个 key（否则多数据源会互相覆盖）
+            cn.eova.config.EovaDataSource.registerDialectFamily("__golden_ds2__", com.alibaba.druid.DbType.mysql);
+            assertNotNull(cn.eova.config.EovaConfig.getQueryDialect("__golden_ds2__"),
+                    "另一个 ds 也必须有自己的条目");
+            assertNotSame(cn.eova.config.EovaConfig.getQueryDialect("__golden_ds__"),
+                    cn.eova.config.EovaConfig.getQueryDialect("__golden_ds2__"),
+                    "两个 ds 的 QueryDialect 不得是同一个实例被复用为同一 key");
+        } finally {
+            cn.eova.config.EovaConfig.addQueryDialect("__golden_ds__", before);
+            cn.eova.config.EovaConfig.addQueryDialect("__golden_ds2__", null);
+        }
+    }
+
+    /**
+     * **注册动作必须挂在 ds 注册这一步上**（第 305 轮 · 判据首版是**空跑**，被变异纪律抓出）。
+     *
+     * <p>判据口径：直接驱动 {@code registerOne(...)}（{@code create()} 的循环体，已抽出以便判据驱动），
+     * 断言"注册完一个 ds 之后，该 ds 的方言三件套都已在位"。
+     * 不得写成"跑一遍 {@code create()} 再看结果" —— 单测环境没有 {@code db.datasource} 配置，
+     * 那种写法会**静默空跑**（本判据首版即如此：8/8 全绿，但 M1 变异抓不到，属假绿）。</p>
+     */
+    @Test
+    @DisplayName("registerOne：注册一个 ds 之后其方言族即刻在位（旧栈在 ds 循环里调 buildDialect 的同一点）")
+    void registerOneRegistersDialect() {
+        String ds = "__golden_one__";
+        try {
+            cn.eova.config.EovaDataSource.registerOne(ds, "jdbc:mysql://127.0.0.1:3306/golden", "u", "p",
+                    "com.mysql.cj.jdbc.Driver", "log4j",
+                    new cn.eova.compat.jfinal.config.LegacyPlugins());
+            assertNotNull(cn.eova.config.EovaConfig.getQueryDialect(ds),
+                    "registerOne 之后必须有 QueryDialect（否则该 ds 上带条件的查询必 NPE）");
+            assertNotNull(cn.eova.config.EovaConfig.getConvertor(ds), "registerOne 之后必须有 Convertor");
+            assertNotNull(cn.eova.sql.ddl.DefineDialectFactory.getDialect(ds), "registerOne 之后必须有 DefineDialect");
+            assertTrue(cn.eova.config.EovaConfig.getQueryDialect(ds)
+                            instanceof cn.eova.sql.dql.dialect.MysqlQueryDialect,
+                    "MySQL 数据源落默认分支（与旧 buildDialect 默认值一致）");
+        } finally {
+            cn.eova.config.EovaConfig.addQueryDialect(ds, null);
+            cn.eova.config.EovaConfig.addConvertor(ds, null);
+        }
     }
 }
