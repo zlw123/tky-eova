@@ -187,14 +187,27 @@ public class PageBootstrapAssembler {
     /**
      * `menu` 的字段映射（`template` 是 r118 起 SPA 的**分派键**）。
      *
+     * <p>★ <b>必须含 {@code conf}</b>（第 303 轮修的真缺陷 D6）：旧页 `_view/_page/list.html:9` 是
+     * {@code menu_conf: #(menu.conf)} —— 即前端 {@code uzoo.page.menu_conf} 的内容来自
+     * {@link Menu#getConf()}（`config` 列的原文）。`tree`/`tree_table` 两族的模板**全靠它**：
+     * {@code {"object_code":"goods_style","tree_object_code":"demo_cat","tree_query_field":"cat_id",…}}
+     * 是这两个页面拿到元对象与树对象的**唯一来源**（{@code eova_menu.objects} 列在这些菜单上是空的）。</p>
+     *
+     * <p>漏了它的实测后果：前端 {@code menuConfOf()} 返回空对象 ⇒ {@code TemplateTreeTable} 的
+     * {@code :object} 为空 ⇒ 制品里 {@code x.str.template('/api/meta/table/{{object}}', kv)} **替换不出值**
+     * ⇒ 真浏览器实测请求 {@code /api/meta/table/%7B%7Bobject%7D%7D} **500**、
+     * 页面 0 列、树空（旧栈同页 18 列 + 47 个树节点）。</p>
+     *
      * @param menu 菜单
-     * @return 只含 code/name/template
+     * @return code/name/template/conf（`conf` 是 `config` 列原文，可能为 null）
      */
     public static LegacyKv menuKv(Menu menu) {
         LegacyKv kv = new LegacyKv();
         kv.set("code", menu.getStr("code"));
         kv.set("name", menu.getStr("name"));
         kv.set("template", menu.getTemplate());
+        // 菜单配置原文（旧 `#(menu.conf)`；tree / tree_table 页面的 object_code/tree_object_code 来源）
+        kv.set("conf", menu.getConf());
         return kv;
     }
 

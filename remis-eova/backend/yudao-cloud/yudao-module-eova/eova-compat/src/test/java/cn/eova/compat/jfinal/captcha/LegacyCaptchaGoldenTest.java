@@ -6,16 +6,20 @@
 package cn.eova.compat.jfinal.captcha;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Proxy;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
+import cn.eova.compat.jfinal.config.LegacyConstants;
 import cn.eova.testkit.OldImplementationLoader;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -192,6 +196,99 @@ class LegacyCaptchaGoldenTest {
         IllegalArgumentException newEx2 = assertThrows(IllegalArgumentException.class,
                 () -> new LegacyCaptcha("k", null, 10));
         assertEquals(oldEx2.getMessage(), newEx2.getMessage());
+    }
+
+    /**
+     * {@code setCaptchaCache} 的<b>委派语义</b>跨实现对等（第 303 轮修的真缺陷）。
+     *
+     * <p><b>缺陷现场：</b>移植版 {@code LegacyConstants#setCaptchaCache} 只写了本地字段、
+     * <b>丢了委派</b>，于是 {@code LegacyCaptchaManager} 永远未装配，
+     * {@code LegacyCaptchaRender#render} 第 103 行 NPE ⇒ {@code GET /user/captcha}
+     * 返回 <b>500</b>（旧栈同请求 {@code 200 image/jpeg} 108x40）。</p>
+     *
+     * <p><b>为什么此前全绿：</b>本环境 {@code isCaptcha=false} ⇒ 旧登录页不显示验证码、
+     * 也就不请求该端点；是第 303 轮的真浏览器验收（登录页因配置缺口显示了验证码）
+     * 才把它暴露出来。</p>
+     *
+     * <p><b>旧侧证据不止"读源码"：</b>本判据把 jfinal 5.2.6 制品加载进环上，
+     * 让<b>旧 {@code com.jfinal.config.Constants} 自己作证</b>该类方法就是纯委派
+     * （字节码：{@code invokestatic CaptchaManager.me()} + {@code invokevirtual setCaptchaCache}），
+     * 再要求新接缝行为一致 —— 只断言"我们写了委派"是不够的。</p>
+     *
+     * @throws Exception 反射/IO 失败
+     */
+    @Test
+    @DisplayName("setCaptchaCache 委派给 CaptchaManager：旧 jfinal 制品与移植版行为一致（r303 真缺陷回归锁）")
+    void setCaptchaCacheDelegatesToCaptchaManagerLikeOld() throws Exception {
+        ClassLoader jf = OldImplementationLoader.createForJFinalOnly();
+        Class<?> oldConstantsCls = Class.forName("com.jfinal.config.Constants", true, jf);
+        Class<?> oldManagerCls = Class.forName("com.jfinal.captcha.CaptchaManager", true, jf);
+        Class<?> oldCacheIface = Class.forName("com.jfinal.captcha.ICaptchaCache", true, jf);
+        OldImplementationLoader.assertFromJar(oldConstantsCls, OldImplementationLoader.oldJFinalJar());
+        assertTrue(oldConstantsCls != LegacyConstants.class, "旧侧不得就是新接缝本身");
+
+        // 旧侧：动态代理造一个 ICaptchaCache（旧接口的方法不会真被调用，只验"存取同一实例"）
+        Object oldCache = Proxy.newProxyInstance(jf, new Class<?>[]{oldCacheIface}, (p, m, a) -> null);
+        Object oldConstants = oldConstantsCls.getDeclaredConstructor().newInstance();
+        oldConstantsCls.getMethod("setCaptchaCache", oldCacheIface).invoke(oldConstants, oldCache);
+        Object oldManager = oldManagerCls.getMethod("me").invoke(null);
+        assertSame(oldCache, oldManagerCls.getMethod("getCaptchaCache").invoke(oldManager),
+                "旧 Constants#setCaptchaCache 必须委派给 CaptchaManager#setCaptchaCache（否则旧栈的验证码端点同样会 NPE）");
+
+        // 新侧：同一语义 —— 只写本地字段会让下面这条断言红（就是本轮修掉的形态）
+        LegacyCaptchaCache newCache = new RecordingCaptchaCache();
+        LegacyCaptchaCache before = LegacyCaptchaManager.me().getCaptchaCache();
+        try {
+            new LegacyConstants().setCaptchaCache(newCache);
+            assertSame(newCache, LegacyCaptchaManager.me().getCaptchaCache(),
+                    "LegacyConstants#setCaptchaCache 必须委派给 LegacyCaptchaManager（缺了它 /user/captcha 必 500）");
+        } finally {
+            // 单例状态：必须还原，避免污染同 JVM 的其它判据
+            LegacyCaptchaManager.me().setCaptchaCache(before);
+        }
+        assertSame(before, LegacyCaptchaManager.me().getCaptchaCache(), "还原失败会让后续判据看到脏状态");
+    }
+
+    /**
+     * 未装配时读回 {@code null}（旧实现如此：静态初始化不给默认实现）。
+     */
+    @Test
+    @DisplayName("未装配时 getCaptchaCache() 返回 null（旧实现不给默认实现，故渲染期才会 NPE）")
+    void unsetCacheStaysNull() {
+        LegacyCaptchaCache before = LegacyCaptchaManager.me().getCaptchaCache();
+        try {
+            LegacyCaptchaManager.me().setCaptchaCache(null);
+            assertNull(LegacyCaptchaManager.me().getCaptchaCache(),
+                    "不得悄悄塞一个默认缓存 —— 那会掩盖装配缺口");
+        } finally {
+            LegacyCaptchaManager.me().setCaptchaCache(before);
+        }
+    }
+
+    /**
+     * 只用于判据的验证码缓存替身（记录调用，不落库）。
+     */
+    private static final class RecordingCaptchaCache implements LegacyCaptchaCache {
+
+        @Override
+        public void put(LegacyCaptcha captcha) {
+            // 判据不驱动读写，仅用于标识"被装配的是哪一个"
+        }
+
+        @Override
+        public LegacyCaptcha get(String key) {
+            return null;
+        }
+
+        @Override
+        public void remove(String key) {
+            // 同上
+        }
+
+        @Override
+        public void removeAll() {
+            // 同上
+        }
     }
 
     /**

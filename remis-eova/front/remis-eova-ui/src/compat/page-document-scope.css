@@ -1,0 +1,45 @@
+/*
+ * SPA 底座适配：**页面级 CSS 的文档级作用域**（第 303 轮 · 真回归修复）
+ *
+ * ★ 病症（真浏览器实测，两栈同视口 1440×900）：
+ *   新栈 `/app/meta_product`：`#app` 被推到 `top=407`、`scrollHeight=1205`（整页滚动）；
+ *   旧栈同页：`#app` `top=0`、`scrollHeight=813=clientH`（不整页滚动）。
+ *
+ * ★ 根因（不是"少加载 CSS"，而是**多泄漏 CSS**）：
+ *   旧栈每个页面是**独立文档**（`_view/index/login.html` 自己一份 `<html>/<body>`），
+ *   页面级 CSS 里对 `html`/`body` 的规则**只作用于该文档**；
+ *   SPA 把页面 CSS 并进**同一个文档**，于是
+ *   `src/legacy/eova/_view/index/login.css` 的
+ *   `body { display:flex; justify-content:center; align-items:center; height:100vh; margin:0 }`
+ *   （它本是为"登录框在视口正中"写的）**泄漏到所有页面**。
+ *   而模板页的 `#app` 高度为 0（内容全是绝对定位的 `.eova-layout`）⇒ 作为 flex 子项
+ *   被 `align-items:center` **居中到 top=407**（=(813-0)/2），整页内容跟着下移 ⇒ 1205。
+ *   ⇒ 这是 MPA→SPA 的**结构性回归**，与行为/契约判据无关，故此前全绿也发现不了。
+ *
+ * ★ 修法（为什么不去改 `login.css`）：
+ *   `src/legacy/**` 是**冻结资产**（有 sha256 账本，纪律是"只引用、不修改"）
+ *   ⇒ 改动落在 **SPA 自己的底座样式**里，用"页面在场即保留该页的文档级语义"复现旧栈的**文档作用域**：
+ *   `.eova-login` 是登录页根选择器（旧 `login.html` 与 `Login.vue` 同名同义），
+ *   仅在登录路由挂载期存在 ⇒ `:not(:has(.eova-login))` 即"非登录页"。
+ *   ⚠️ `.eova-login_input` 是**另一个类**，`:has(.eova-login)` 按类名精确匹配，不会误命中。
+ *
+ * ★ 值与旧栈**逐项一致**（外部事实来自旧栈 9090 实测 computed）：
+ *   旧栈 `/app/meta_product`：body `display:block`、`align-items:normal`、
+ *   `justify-content:normal`、`height` 算得 `0px`、`margin:0`；
+ *   旧栈 `/user/login`：body `display:flex`、`align-items:center`、
+ *   `justify-content:center`、`height:813px`（=100vh）—— **故登录页不加任何覆盖**。
+ *   具体度：(0,1,0)（`body` + `:not(:has(...))`）> (0,0,1)（`body`）⇒ 与 CSS 注入顺序无关。
+ *
+ * ★ 判据（两层，互不替代）：
+ *   ① 静态清单：`src/__tests__/page-document-scope.spec.ts` 扫描**全部**被引入的页面级 CSS
+ *      （`src/legacy/**\/*.css` + 各 `.vue` 的**非 scoped** `<style>`）里"`html`/`body` 起头
+ *      且带布局属性"的规则，逐条登记；新泄漏会让清单失配而红。
+ *   ② 真浏览器：`s5-browser-acceptance.mjs` ⑧⑨ 真实测两路由的 computed 值（旧栈同值）。
+ */
+body:not(:has(.eova-login)) {
+  display: block;
+  justify-content: normal;
+  align-items: normal;
+  height: auto;
+  margin: 0;
+}

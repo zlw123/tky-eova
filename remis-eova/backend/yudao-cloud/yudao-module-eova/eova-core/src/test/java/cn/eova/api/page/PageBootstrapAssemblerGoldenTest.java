@@ -68,6 +68,8 @@ class PageBootstrapAssemblerGoldenTest {
         attrs.put("code", "meta_hotel");
         attrs.put("name", "酒店管理");
         attrs.put("template", "table");
+        // config 列（原文 JSON 串）：tree/tree_table 页面族的 object_code/tree_object_code 来源
+        attrs.put("config", "{\"object_code\":\"goods_style\",\"tree_object_code\":\"demo_cat\"}");
         m._setAttrs(attrs);
         return m;
     }
@@ -153,12 +155,21 @@ class PageBootstrapAssemblerGoldenTest {
     }
 
     @Test
-    @DisplayName("③ menu 含 code/name/template（template 是 SPA 的分派键）")
+    @DisplayName("③ menu 含 code/name/template/conf（template 是 SPA 的分派键；conf 是 tree 族的元对象来源）")
     void menuKeyMapping() {
         LegacyKv m = PageBootstrapAssembler.menuKv(menu());
         assertEquals("meta_hotel", m.get("code"));
         assertEquals("酒店管理", m.get("name"));
         assertEquals("table", m.get("template"));
+        // ★ r303：`conf` 是 `config` 列**原文**（旧 `#(menu.conf)`），tree/tree_table 页面靠它拿
+        //   object_code/tree_object_code —— 漏了它这两个页面族的请求会带着 `{{object}}` 占位符发出去（实测 500）
+        assertEquals("{\"object_code\":\"goods_style\",\"tree_object_code\":\"demo_cat\"}", m.get("conf"),
+                "conf 必须是 config 列原文（前端 menuConfOf 会解析它）");
+        // 键集合精确：少一个（如 conf）会让 tree 族整页失效，多一个则说明映射超出旧页所需
+        assertEquals(
+                java.util.Set.of("code", "name", "template", "conf"),
+                new java.util.HashSet<>(m.keySet()),
+                "menu 的键集合必须精确");
     }
 
     @Test

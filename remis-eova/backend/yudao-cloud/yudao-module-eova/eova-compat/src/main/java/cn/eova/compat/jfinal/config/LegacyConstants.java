@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import cn.eova.compat.jfinal.captcha.LegacyCaptchaCache;
+import cn.eova.compat.jfinal.captcha.LegacyCaptchaManager;
 
 /**
  * jfinal 5.2.6 的 {@code com.jfinal.config.Constants} 的等价接缝（**数据面**）。
@@ -293,9 +294,29 @@ public final class LegacyConstants {
     /**
      * 设置验证码缓存（旧栈 EOVA 注入 {@code DbCaptchaCache}）。
      *
+     * <p>ported from: {@code com.jfinal.config.Constants#setCaptchaCache}（jfinal 5.2.6）——
+     * <b>旧实现是纯委派</b>，字节码实证（{@code javap -c com.jfinal.config.Constants}）：
+     * <pre>
+     *   invokestatic  CaptchaManager.me()
+     *   aload_1
+     *   invokevirtual CaptchaManager.setCaptchaCache(ICaptchaCache)
+     * </pre>
+     * 即 {@code Constants} <b>自己不存</b>该缓存，而是转交给 {@code CaptchaManager} 单例
+     * （渲染期 {@code CaptchaRender} 正是从 {@code CaptchaManager.me().getCaptchaCache()} 取）。</p>
+     *
+     * <p>★ 第 303 轮修的真缺陷：本方法原实现**只写了本地字段、丢了委派分支** ⇒
+     * {@link cn.eova.compat.jfinal.captcha.LegacyCaptchaManager} 永远未装配 ⇒
+     * {@code LegacyCaptchaRender#render} 第 103 行 NPE ⇒ {@code GET /user/captcha} 返回
+     * <b>500</b>（旧栈同请求 {@code 200 image/jpeg}）。它此前没被发现，是因为本环境
+     * {@code isCaptcha=false}：旧登录页**不显示验证码图片**、也就不请求该端点，
+     * 而真浏览器验收（S5）里 SPA 因登录页配置缺口显示了验证码，才把这个 500 暴露出来。</p>
+     *
      * @param captchaCache 缓存
      */
     public void setCaptchaCache(LegacyCaptchaCache captchaCache) {
+        // 旧实现的委派（缺了它，验证码端点必 NPE）
+        LegacyCaptchaManager.me().setCaptchaCache(captchaCache);
+        // 移植层附加的本地留存（供 getCaptchaCache()，非 jfinal API）
         this.captchaCache = captchaCache;
     }
 

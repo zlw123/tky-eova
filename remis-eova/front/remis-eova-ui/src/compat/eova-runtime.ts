@@ -219,6 +219,45 @@ export function getEovaMe(): EovaMe {
 }
 
 /**
+ * 从"全局形状"解析出 `EovaTools` 工具对象（**纯函数**，判据直接钉形状表）。
+ *
+ * ★ 为什么必须单独抽出来（第 303 轮实测出来的真缺陷）：
+ * 制品是 **UMD 命名空间**，实测两端形状完全一致：
+ * ```js
+ * window.EovaTools = { EovaTools, ValidateTool, default, eova, x }   // ← 命名空间
+ * window.EovaTools.x.validate  // → object  ← ★ 真正的工具对象在这里
+ * ```
+ * 旧页脚本取的正是 `const {x} = EovaTools`（如 `_view/template/form/add/index.js:3`）。
+ * 而本接缝原先只认 `globalThis.EovaTools`（整体）与 `globalThis.eova?.x`
+ * ⇒ **在真浏览器里从未解析成功过**（命名空间上没有 `validate`）。
+ *
+ * 为什么所有判据都没发现：① 组件测试用 `setEovaTools(替身)` **绕过了**真实解析；
+ * ② S5 真浏览器判据只查 `typeof EovaTools === 'object'`（**存在性**，不查**形状**）。
+ * ⇒ 只有会调用 `getEovaTools()` 的页面（`TemplateTable` 族）才暴露：`doResize` 抛错导致
+ * 表格高度算不出、工具栏按钮（新增/删除/导出）点击即抛。**修前真浏览器实测每页 2 个未捕获异常。**
+ *
+ * 优先级（`x` 是命名空间里那个真对象，故它优先于整体）：
+ * ① `globalThis.EovaTools.x`（实测形状）→ ② `globalThis.eova.x` → ③ `globalThis.EovaTools`
+ * （**仅当它自身带 `validate`**，兼容"直接挂工具对象"的其它装配方式）。
+ *
+ * @param g 全局形状（判据可注入）
+ * @returns 工具对象；解析不出返回 null
+ */
+export function resolveEovaTools(g: {
+  // 真命名空间还有 `EovaTools/ValidateTool/default/eova` 等成员 ⇒ 用 Record 放行额外键
+  EovaTools?: Record<string, unknown> & { x?: unknown; validate?: unknown }
+  eova?: { x?: unknown }
+}): EovaTools | null {
+  const candidates: unknown[] = [g.EovaTools?.x, g.eova?.x, g.EovaTools]
+  for (const c of candidates) {
+    if (c != null && typeof (c as EovaTools).validate !== 'undefined') {
+      return c as EovaTools
+    }
+  }
+  return null
+}
+
+/**
  * 取 `EovaTools`（`{x}`）。
  *
  * 解析顺序：注入实例 → `globalThis.EovaTools` → `globalThis.eova.x`。
@@ -230,9 +269,12 @@ export function getEovaTools(): EovaTools {
   if (injectedTools) {
     return injectedTools
   }
-  const g = globalThis as unknown as { EovaTools?: EovaTools; eova?: { x?: EovaTools } }
-  const tools = g.EovaTools ?? g.eova?.x
-  if (!tools || !tools.validate) {
+  const g = globalThis as unknown as {
+    EovaTools?: EovaTools & { x?: EovaTools }
+    eova?: { x?: EovaTools }
+  }
+  const tools = resolveEovaTools(g)
+  if (!tools) {
     throw new Error(
       'EovaTools 未装配：未找到全局 `EovaTools`（应由 legacy 制品 eova-tools.umd.js 提供）。' +
         '此为响亮失败 —— 否则表单会跳过校验直接提交。'

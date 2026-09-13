@@ -1,6 +1,8 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
+// ★ 第 303 轮：SPA 底座样式 —— 复现旧栈"页面级 CSS 只作用于本文档"的作用域（修登录页 body 规则泄漏）
+import './compat/page-document-scope.css'
 import router from './router'
 import { loadLegacyRuntime } from './compat/legacy-runtime'
 import { installAuthGuard } from './router/auth-guard'
