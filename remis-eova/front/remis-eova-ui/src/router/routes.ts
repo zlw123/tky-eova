@@ -32,6 +32,8 @@ export const SPA_OWNED_PATHS: readonly string[] = [
   '/ip',
   '/sso',
   '/',
+  // ★ r305：旧栈 `/su` 与 `/` 同为落地页（实测两者都跳 /main）⇒ SPA 接管，避免被代理去后端
+  '/su',
   '/placeholder',
   '/user/login',
   '/user/password',

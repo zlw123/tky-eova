@@ -34,6 +34,14 @@ export const routes: RouteRecordRaw[] = [
     component: Home
   },
   {
+    // ★ r305：旧栈 `/su` 与 `/` **是同一个落地页**（真浏览器实测：两者都跳 `/main`，
+    //   title、119 个菜单项、正文逐字相同）⇒ SPA 必须同样接管，否则 `/su` 落到未匹配路由
+    //   而**静默渲染空白**（实测：新栈 `/su` 文本长度 0，旧栈 182）。
+    path: '/su',
+    name: 'su-landing',
+    redirect: '/'
+  },
+  {
     path: '/placeholder',
     name: 'placeholder',
     component: Placeholder
