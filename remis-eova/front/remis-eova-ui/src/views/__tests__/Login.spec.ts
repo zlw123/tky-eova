@@ -15,6 +15,13 @@ import Login from '../Login.vue'
 
 vi.mock('axios')
 
+// ★ r311：本页现在还会拉一次**页面级配置**（`POST /api/page/bootstrap`，`path=/user/login`）。
+//   若不隔离，它会占用被 mock 的 `axios.post` ⇒ 本文件既有的"调用次数"断言会误红。
+//   配置面的行为等价由 `LoginVisibleFace.spec.ts` 专测。
+vi.mock('@/compat/page-bootstrap-fetcher', () => ({
+  createBootstrapFetcher: () => async () => null
+}))
+
 const post = axios.post as unknown as ReturnType<typeof vi.fn>
 
 /** 挂载页面（可注入 conf） */

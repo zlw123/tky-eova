@@ -81,6 +81,26 @@ public class PageBootstrapController {
     public void bootstrap(@RequestBody(required = false) Map<String, Object> body,
             HttpServletRequest request, HttpServletResponse response) throws IOException {
 
+        // ★★ r311：**登录页配置**（唯一允许**匿名**访问的页面级配置）。
+        //
+        //   为什么必须匿名：登录页天然未登录，而本端点默认 401（旧 LoginInterceptor 的形态）。
+        //   为什么必须下发：旧栈的 7 个值由**服务端渲染**注入 `login.html`
+        //   （`#(isCaptcha??false)` / `#(copyright)` / `#(app_name??'EOVA低代码开发平台')` / `dev.login_*`）；
+        //   SPA 接管登录页后模板不再渲染 ⇒ 不显式下发时前端只剩硬编码默认值，实测三处可见差异：
+        //   ① 验证码恒显示（旧栈由 `isCaptcha` 决定，本环境配置为 false ⇒ 旧栈不显示）；
+        //   ② `.eova-footer` 整块缺失（旧栈 40px 高、文案 `© 2015-2026 EOVA.CN`）；
+        //   ③ 标题恒为"账号密码登录"（旧栈为配置的 `app.name` ⇒ `EOVA低代码开发平台`）。
+        //
+        //   豁免范围**只有一个路径**（`/user/login`），且取数走 `UserController.loginPageConf(...)`
+        //   —— 与旧 `login()` 同一份代码（单一事实源，避免两处漂移）。
+        String earlyPath = str(body == null ? null : body.get("path"));
+        if (earlyPath != null && earlyPath.startsWith("/user/login")) {
+            LegacyKv kv = cn.eova.user.UserController.loginPageConf(str(body.get("back")));
+            kv.set("state", "ok");
+            writeJson(response, kv);
+            return;
+        }
+
         // ① 会话：未登录 ⇒ 401（形态与旧栈 LoginInterceptor 的 ctrl.renderError(401) 完全一致）
         User user = sessionUser(request);
         if (user == null) {

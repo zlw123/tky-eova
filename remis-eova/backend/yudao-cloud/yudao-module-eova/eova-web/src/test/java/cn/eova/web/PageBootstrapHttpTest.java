@@ -243,4 +243,33 @@ class PageBootstrapHttpTest {
         assertNotNull(params, "缺 biz 时也必须走页面自有引导数据分支（不得落到动作页装配）");
         assertEquals("field", params.get("biz"), "缺省场景必须是 field");
     }
+
+    @Test
+    @DisplayName("★ r311：登录页配置在**匿名**下可取（旧栈由服务端渲染注入，SPA 必须经本端点拿到）")
+    void loginPageConfIsAnonymousAndComesFromConfig() throws Exception {
+        // ★ 本端点的默认形态是"未登录 ⇒ 401"（旧 LoginInterceptor）。登录页天然未登录，
+        //   故 `/user/login` 是**唯一**豁免路径 —— 本判据同时钉住"豁免存在"与"豁免不外溢"。
+        ResponseEntity<String> resp = postBootstrap(null, "{\"path\":\"/user/login\"}");
+        assertEquals(200, resp.getStatusCode().value(), "登录页配置必须匿名可取（否则前端只剩硬编码默认值）");
+        Map<?, ?> body = JSON.readValue(resp.getBody(), Map.class);
+
+        assertEquals("ok", body.get("state"));
+        // 取值与配置同源（`x.conf`）：本环境 `isCaptcha=false` ⇒ 与旧栈登录页"不显示验证码"一致
+        Object isCaptcha = body.get("isCaptcha");
+        assertNotNull(isCaptcha, "必须下发 isCaptcha（旧模板 `#(isCaptcha??false)`）");
+        assertEquals(cn.eova.tools.x.conf.getBool("isCaptcha", true), isCaptcha,
+                "isCaptcha 必须与配置同源（不得另发明默认值）");
+        // 版权：`app.copyright` 为空时是 `© 2015-<今年> EOVA.CN`（旧 login() 的兜底文案）
+        Object cp = body.get("copyright");
+        assertNotNull(cp, "必须下发 copyright（旧栈页脚 `.eova-footer` 靠它）");
+        assertTrue(String.valueOf(cp).startsWith("© 2015-"),
+                "copyright 兜底形态必须与旧实现一致，实际=" + cp);
+        // 开发免输（旧 set("login_id"/"login_pwd")）
+        assertTrue(body.containsKey("login_id") && body.containsKey("login_pwd"),
+                "必须含 dev.login_id/dev.login_pwd 两个键（旧栈渲染进输入框）");
+        // 豁免不外溢：非登录页仍必须 401
+        ResponseEntity<String> other = postBootstrap(null, "{\"path\":\"/app/meta_product\"}");
+        assertEquals(401, other.getStatusCode().value(),
+                "★ 匿名豁免只允许 `/user/login`：其它页面必须仍然 401");
+    }
 }

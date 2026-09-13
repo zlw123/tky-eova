@@ -103,6 +103,9 @@ describe('legacy-runtime · 装配顺序', () => {
       '/eova/_view/template/eova.template.js',
       // ★ r304：工程级扩展资产（注册表格单元格渲染器 `eova-table-cell`）。
       //   缺了它的实测症状：列表页有数据、表头与分页都对，但**每个数据格都是空的**。
+      // ★ r311：主题脚本按旧 `_eova/include.html` 的相对顺序排在扩展资产**之前**
+      //   （它给 `document.body` 加 `eova-theme_default` 并加载主题 CSS）。
+      '/_eova/theme/eova.theme.js',
       '/_eova/assets/eova.ui.ext.js'
     ])
   })
@@ -181,6 +184,8 @@ describe('legacy-runtime · 幂等与失败语义', () => {
       '/eova/lib/eova/eovaui.js',
       '/eova/ui/meta/eova.meta.js',
       '/eova/_view/template/eova.template.js',
+      // ★ r311：主题脚本（旧 `_eova/include.html` 的顺序：主题在扩展资产之前）
+      '/_eova/theme/eova.theme.js',
       '/_eova/assets/eova.ui.ext.js'
     ])
     expect((target['EovaTools'] as { kept?: boolean }).kept).toBe(true)

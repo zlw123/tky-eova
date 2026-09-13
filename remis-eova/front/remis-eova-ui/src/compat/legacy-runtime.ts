@@ -64,6 +64,12 @@ export const LEGACY_RUNTIME_SCRIPTS: readonly string[] = [
   //   旧栈是页面 `<head>` 里的经典 `<script src="/_eova/assets/eova.ui.ext.js">`（实测 200），
   //   排在 `eova.template.js` 之后 ⇒ 这里按同一相对顺序追加。
   //   依赖：脚本顶部即读 `Vue`/`EovaUI.me`/`EovaTools`，故**必须在 vendor 与页面脚本之后**。
+  // ★★ r311 追加（阶段 2 剩余可见差异 · 主题类）：`_eova/theme/eova.theme.js` 是**工程级资产**，
+  //   旧栈在 `_eova/include.html` 里与 `eova.ui.ext.js` 一起加载（顺序：theme.js 在前）。
+  //   它做两件事：加载 `/_eova/theme/eova.theme.default.css` + 给 `document.body` 加
+  //   `eova-theme_default` 类。缺它的实测后果：SPA 正文没有主题类、主题 CSS 一个字节都不加载
+  //   （探针实测：新栈 `themeJsRequested=false`、`bodyClass=""`；旧栈 `true` / `eova-theme_default`）。
+  '/_eova/theme/eova.theme.js',
   '/_eova/assets/eova.ui.ext.js'
 ]
 
@@ -176,6 +182,97 @@ export function assertCellRendererRegistered(
 }
 
 /**
+ * 冻结主题资产声明的主题名（**唯一事实源 = `src/legacy/_eova/theme/eova.theme.js` 的 `EOVA_THEME`**）。
+ *
+ * ★ 为什么不直接 fetch 资产再解析：那会为一次页面加载多加一个请求；这里用常量 + **防漂移判据**
+ *   （`legacy-theme.spec.ts` 会读冻结资产文件原文做正则解析并与本常量比对）：资产改了而常量没跟 ⇒ 判据红。
+ *   资产原文：`let EOVA_THEME = 'default'// dark`。
+ */
+export const LEGACY_THEME_NAME = 'default'
+
+/**
+ * 从冻结主题资产**原文**里解析主题名（判据与宿主共用同一解析规则）。
+ *
+ * @param assetText `eova.theme.js` 的源码文本
+ * @returns 主题名；解析不到时 null
+ */
+export function parseThemeName(assetText: string): string | null {
+  const m = /EOVA_THEME\s*=\s*'([^']+)'/.exec(assetText)
+  return m ? m[1] : null
+}
+
+/** 主题落地的注入点（判据用：不碰真实 DOM/全局即可验证） */
+export interface ThemeApplyOptions {
+  /** 文档对象（默认 `document`） */
+  doc?: Document
+  /** 主题名（默认 {@link LEGACY_THEME_NAME}） */
+  name?: string
+  /** 加载 CSS 的函数（默认取全局 `EovaTools.x.dom.loadCSS`，缺失时退回插入 `<link>`） */
+  loadCss?: (href: string) => void
+}
+
+/**
+ * **确定性落地主题类**（`eova-theme_<name>` + 主题 CSS）。
+ *
+ * ★★ 为什么宿主必须自己做这件事（第 311 轮实测，不是偏好）：
+ *   冻结资产 `_eova/theme/eova.theme.js` 的全部逻辑写在
+ *   `document.addEventListener('DOMContentLoaded', ...)` 里；旧栈它是 `<head>` 里的**经典同步脚本**
+ *   （解析期执行 ⇒ 监听一定赶在 DOMContentLoaded 之前注册）。SPA 里这些资产由**异步装配器**
+ *   动态插入 ⇒ 实测 `readyState` 在装配完成前就已是 `complete`，**监听永不触发**：
+ *   探针实测新栈 `body.className === ""`、`eova.theme.default.css` 一个字节都不加载，
+ *   而旧栈是 `eova-theme_default` + 该 CSS 已加载。
+ *   故宿主按**同一口径**（同一主题名常量、同一 CSS 路径、优先复用制品自己的 `EovaTools.x.dom.loadCSS`）
+ *   在装配后落地；若文档仍在解析中（`readyState === 'loading'`）则交给资产自己的监听，不重复插链接。
+ *
+ * @param options 注入点（判据用）
+ */
+export function applyLegacyTheme(options: ThemeApplyOptions = {}): void {
+  const doc = options.doc ?? (typeof document === 'undefined' ? null : document)
+  if (!doc) {
+    return
+  }
+  const name = options.name ?? LEGACY_THEME_NAME
+  const cls = `eova-theme_${name}`
+  const href = `/_eova/theme/eova.theme.${name}.css`
+
+  const apply = (): void => {
+    if (doc.body && !doc.body.classList.contains(cls)) {
+      doc.body.classList.add(cls)
+    }
+    const exists = [...doc.querySelectorAll('link')].some((l) =>
+      (l.getAttribute('href') ?? '').includes(href)
+    )
+    if (exists) {
+      return
+    }
+    const load = options.loadCss ?? pickLegacyLoadCss()
+    if (load) {
+      load(href)
+      return
+    }
+    const el = doc.createElement('link')
+    el.rel = 'stylesheet'
+    el.href = href
+    doc.head.appendChild(el)
+  }
+
+  if (doc.readyState === 'loading') {
+    doc.addEventListener('DOMContentLoaded', apply, { once: true })
+    return
+  }
+  apply()
+}
+
+/** 取制品自带的 CSS 加载器（与资产自身用的是同一个方法） */
+function pickLegacyLoadCss(): ((href: string) => void) | null {
+  const g = globalThis as unknown as {
+    EovaTools?: { x?: { dom?: { loadCSS?: (href: string) => void } } }
+  }
+  const fn = g.EovaTools?.x?.dom?.loadCSS
+  return typeof fn === 'function' ? (href: string) => fn.call(g.EovaTools?.x?.dom, href) : null
+}
+
+/**
  * 判定 legacy 运行时是否已装配（用于幂等）。
  *
  * @param target 全局对象
@@ -203,6 +300,8 @@ export async function loadLegacyRuntime(options: LoadOptions = {}): Promise<void
     unknown
   >
   if (isLegacyRuntimeLoaded(target)) {
+    // 已装配（热更新重入）也要保证主题落地：它是幂等的
+    applyLegacyTheme()
     return
   }
   const globals = options.globals ?? { Vue, axios }
@@ -236,6 +335,9 @@ export async function loadLegacyRuntime(options: LoadOptions = {}): Promise<void
 
   // ④ 渲染器闸门：缺了它列表页会"有数据但格子全空"（静默失效，必须响亮抛）
   assertCellRendererRegistered(target)
+
+  // ⑤ 主题落地：资产自己的 DOMContentLoaded 监听在 SPA 里赶不上（见 applyLegacyTheme 的取证）
+  applyLegacyTheme()
 }
 
 /**

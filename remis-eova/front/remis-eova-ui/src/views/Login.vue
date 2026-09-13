@@ -47,6 +47,9 @@
       <span style="color: red" v-html="data.msg"></span>
     </form>
   </div>
+  <!-- ★ r311：页脚（旧 `login.html:43-45` 的 `.eova-footer` + `{{ conf.copyright }}`；样式在冻结 login.css 里）。
+       缺它的实测后果：旧栈该元素 40px 高、文案 `© 2015-2026 EOVA.CN`，新栈整块不存在。 -->
+  <div class="eova-footer">{{ conf.copyright }}</div>
 </template>
 
 <script setup lang="ts">
@@ -55,6 +58,7 @@ import '../legacy/eova/_view/index/login.css'
 import { computed, onBeforeMount, onMounted, reactive, ref } from 'vue'
 import axios from 'axios'
 import { callUzooHook } from '@/compat/eova-ext'
+import { createBootstrapFetcher } from '@/compat/page-bootstrap-fetcher'
 
 /** 与旧页面同名的响应式数据（字段名属契约：后端按这些名字取参） */
 const data = reactive({
@@ -64,12 +68,25 @@ const data = reactive({
   msg: ''
 })
 
-/** 登录配置（旧实现由服务端渲染注入；分离后由 `/user/login` 的页面级配置提供，这里先留可注入的口） */
+/**
+ * 登录配置。
+ *
+ * <p>旧栈由**服务端渲染**注入（`login.html` 的 `#(isCaptcha??false)` / `#(copyright)` /
+ * `#(app_name??'EOVA低代码开发平台')`）；SPA 接管后经引导端点下发（`POST /api/page/bootstrap`，
+ * `path=/user/login`，服务端唯一事实源 = `UserController.loginPageConf(...)`）。</p>
+ *
+ * <p>★ 默认值必须与旧模板的 `??` 兜底一致：`is_captcha` 默认 **false**
+ * （旧模板写的是 `#(isCaptcha??false)`）。此前这里硬编码 `true`，而本环境配置 `isCaptcha=false`
+ * ⇒ 实测旧栈**不显示**验证码、新栈**恒显示**（可见差异 D3b）。</p>
+ */
 const conf = reactive({
   app_name: '',
-  is_captcha: true,
+  is_captcha: false,
   copyright: ''
 })
+
+/** 应用名兜底（旧模板 `#(app_name??'EOVA低代码开发平台')`；页面标题与 h2 共用） */
+const DEFAULT_APP_NAME = 'EOVA低代码开发平台'
 
 const appName = computed(() => conf.app_name)
 const isCaptcha = computed(() => conf.is_captcha === true || String(conf.is_captcha) === 'true')
@@ -136,6 +153,47 @@ async function onSubmit(): Promise<void> {
     data.msg = '客户端请求异常'
   }
 }
+
+/**
+ * 拉取登录页配置（页面级引导数据）。
+ *
+ * 失败**不阻断登录**（旧栈同语义：字段缺失 ⇒ 模板 `??` 兜底为默认值）。
+ */
+async function loadPageConf(fetcher = createBootstrapFetcher()): Promise<void> {
+  try {
+    const text = await fetcher({ url: {} })
+    if (!text) {
+      return
+    }
+    const kv = JSON.parse(text) as Record<string, unknown>
+    if (kv['state'] !== 'ok') {
+      return
+    }
+    // ★ 与旧模板逐字等价：`#(app_name??'EOVA低代码开发平台')` —— 只有 **null** 才兜底，
+    //   空串按配置原样（此时 h2 再走 `|| '账号密码登录'`）
+    conf.app_name = (kv['app_name'] as string) ?? DEFAULT_APP_NAME
+    conf.is_captcha = kv['isCaptcha'] === true || String(kv['isCaptcha']) === 'true'
+    conf.copyright = (kv['copyright'] as string) ?? ''
+    // 旧栈把 `dev.login_id`/`dev.login_pwd` 直接渲染进输入框（开发免输）；此处按同一口径回填
+    if (kv['login_id']) {
+      data.login_id = String(kv['login_id'])
+    }
+    if (kv['login_pwd']) {
+      data.login_pwd = String(kv['login_pwd'])
+    }
+    // 页面标题：旧登录页是 `<title>#(app_name??'EOVA低代码开发平台')</title>`
+    // （同族做法见 `views/meta/MetaEdit.vue` 的 document.title）
+    document.title = conf.app_name
+  } catch {
+    // 配置不可得不阻断登录（与旧栈"字段缺失⇒走模板默认值"等价）
+  }
+}
+
+onBeforeMount(() => {
+  // 标题先落到旧模板的兜底值（拿不到配置时与旧栈一致，不留 `EovaMeta`）
+  document.title = DEFAULT_APP_NAME
+  void loadPageConf()
+})
 
 onMounted(() => {
   // 旧页面在 iframe 内会跳出框架（EWOA-LOGIN 关键词）

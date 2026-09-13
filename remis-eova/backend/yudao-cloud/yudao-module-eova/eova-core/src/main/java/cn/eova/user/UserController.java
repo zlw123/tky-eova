@@ -27,6 +27,7 @@ import cn.eova.service.LoginService;
 import cn.eova.service.biz;
 import cn.eova.service.sm;
 import cn.eova.tools.x;
+import cn.eova.compat.jfinal.kit.LegacyKv;
 import com.alibaba.fastjson.JSONObject;
 import cn.eova.compat.jfinal.captcha.LegacyCaptchaRender;
 import cn.eova.compat.jfinal.kit.LegacyRet;
@@ -78,11 +79,45 @@ public class UserController extends BaseController {
 
     public void login() {
 
-        boolean isCaptcha = x.conf.getBool("isCaptcha", true);
-        boolean isI18N = x.conf.getBool("isI18N", false);
+        // ★ r311：登录页配置抽成**单一事实源** `loginPageConf(...)` —— 因为前端接管后服务端不再渲染模板，
+        //   这些值必须**经引导端点下发**（否则 SPA 拿不到配置：实测 captcha 恒显示、页脚恒缺失、
+        //   应用名恒为模板默认值）。本方法仍是旧 `UserController#login()` 的逐条等价 port。
+        LegacyKv conf = loginPageConf(get("back"));
 
-        set("isCaptcha", isCaptcha);
-        set("isI18N", isI18N);
+        set("isCaptcha", conf.get("isCaptcha"));
+        set("isI18N", conf.get("isI18N"));
+        set("copyright", conf.get("copyright"));
+        set("app_name", conf.get("app_name"));
+        set("login_id", conf.get("login_id"));
+        set("login_pwd", conf.get("login_pwd"));
+        set("source", conf.get("source"));
+
+        renderSpaShell(); // r305 U1：登录页由 SPA 接管（/user/login）；app.login.page 配置随之失效（登记）
+    }
+
+    /**
+     * 登录页的页面级配置（**旧 {@code login()} 里 7 个 {@code set(...)} 的等价抽取**）。
+     *
+     * <p>为什么要有它：旧栈这 7 个值由**服务端渲染**注入模板（{@code login.html} 的
+     * {@code #(isCaptcha??false)} / {@code #(copyright)} / {@code #(app_name??'EOVA低代码开发平台')}）；
+     * SPA 接管登录页后模板不再渲染 ⇒ 若不显式下发，前端只剩硬编码默认值，实测三处可见差异：
+     * 验证码恒显示（旧栈由 {@code isCaptcha} 决定）、页脚整块缺失、标题恒为"账号密码登录"。</p>
+     *
+     * <p>取值口径与旧实现**逐条一致**（含注释里的那句版权兜底文案）：
+     * {@code isCaptcha} 默认 true、{@code isI18N} 默认 false、{@code copyright} 取 {@code app.copyright}
+     * 或 {@code © 2015-<今年> EOVA.CN}、{@code app_name} 取 {@code app.name}、
+     * {@code login_id}/{@code login_pwd} 取 {@code dev.login_id}/{@code dev.login_pwd}（开发免输）、
+     * {@code source} 取请求参数 {@code back}。</p>
+     *
+     * @param source 请求参数 {@code back}（旧 {@code set("source", get("back"))}）
+     * @return 配置（键名即旧 {@code set} 名，供引导端点原样下发）
+     */
+    public static LegacyKv loginPageConf(String source) {
+
+        LegacyKv kv = new LegacyKv();
+
+        kv.set("isCaptcha", x.conf.getBool("isCaptcha", true));
+        kv.set("isI18N", x.conf.getBool("isI18N", false));
 
         // 应用版权配置
         String cp = x.conf.get("app.copyright");
@@ -90,14 +125,13 @@ public class UserController extends BaseController {
             // 十年仰望星空，指尖磨出银河的纹路；所谓情怀，不过是把一句承诺，熬成永恒的星光。
             cp = String.format("© 2015-%s EOVA.CN", LocalDate.now().getYear());
         }
-        set("copyright", cp);
-        set("app_name", x.conf.get("app.name", null));
-        set("login_id", x.conf.get("dev.login_id"));
-        set("login_pwd", x.conf.get("dev.login_pwd"));
+        kv.set("copyright", cp);
+        kv.set("app_name", x.conf.get("app.name", null));
+        kv.set("login_id", x.conf.get("dev.login_id"));
+        kv.set("login_pwd", x.conf.get("dev.login_pwd"));
+        kv.set("source", source);
 
-        set("source", get("back"));
-
-        renderSpaShell(); // r305 U1：登录页由 SPA 接管（/user/login）；app.login.page 配置随之失效（登记）
+        return kv;
     }
 
     public void doLogin() {
