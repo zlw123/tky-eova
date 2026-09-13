@@ -170,7 +170,11 @@ export const routes: RouteRecordRaw[] = [
   { path: '/theme', component: Placeholder },
   { path: '/test', component: Placeholder },
   { path: '/ip', component: Placeholder },
-  { path: '/sso', component: Placeholder }
+  { path: '/sso', component: Placeholder },
+  // ★ r305（U1）：**兜底路由** —— 旧栈对任何未命中路径都会落到 `IndexController#index()`（`/` 是兜底路由，
+  //   实测旧栈 `/zzz_unknown`、`/su` 都返回首页 title `Eova Meta 2026`）。SPA 侧必须同样兜底，
+  //   否则生产态访问未知 URL 会得到**空白页**（而旧栈给首页）—— 等价性缺口。
+  { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
 
 const router = createRouter({

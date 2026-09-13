@@ -150,7 +150,7 @@ public class MetaController extends BaseController {
 //            set("where", String.format("{ object_code: '%s', mode: '%s' }", objectCode, mode));
 //        }
 
-        renderEnjoy("/eova/_view/meta/edit/app.html");
+        renderSpaShell(); // r305 U1：元字段编辑页由 SPA 接管（/meta/edit）
     }
 
 
@@ -167,7 +167,7 @@ public class MetaController extends BaseController {
         MetaObject object = sm.meta.getMeta(objectCode);
         set("object", object);
 
-        renderEnjoy("/eova/_view/meta/field/index.html");
+        renderSpaShell(); // r305 U1：元字段列表页由 SPA 接管（/meta/field）
     }
 
     // 重新排序
@@ -197,7 +197,7 @@ public class MetaController extends BaseController {
         }
 
 
-        renderEnjoy("/eova/_view/meta/reorder/app.html");
+        renderSpaShell(); // r305 U1：字段排序页由 SPA 接管（/meta/reorder）
     }
 
     // 获取需要排序的数据
@@ -246,7 +246,7 @@ public class MetaController extends BaseController {
     // 导入页面
     public void imports() {
         setAttr("dataSources", EovaDataSource.map());
-        renderEnjoy("/eova/_view/meta/import/app.html");
+        renderSpaShell(); // r305 U1：导入元数据页由 SPA 接管（/meta/imports）
     }
 
     // 查找表结构表头

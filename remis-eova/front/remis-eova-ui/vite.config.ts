@@ -32,6 +32,10 @@ const proxy = Object.fromEntries(
 
 // remis-eova-ui 构建配置：工程选型对齐 platform/fornt/yudao-ui，降低集成期摩擦
 export default defineConfig({
+  build: {
+    // ★ r305（U1）：产物目录带命名空间，避免与后端路由撞名
+    assetsDir: 'eova-assets'
+  },
   // Vitest（阶段 2 行为等价判据）：jsdom 环境下挂载 SFC
   test: {
     environment: 'jsdom',

@@ -58,7 +58,7 @@ public class AdminController extends BaseController {
         // 自动重登
         reLogin();
 
-        render("/eova/user/su/app.html");
+        renderSpaShell(); // r305 U1：SU 页由 SPA 接管（/eova/admin/su）
     }
 
     private static String LOGIN_ID = "login_id";

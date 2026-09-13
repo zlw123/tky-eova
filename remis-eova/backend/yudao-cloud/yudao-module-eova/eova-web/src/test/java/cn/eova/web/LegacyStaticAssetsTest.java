@@ -16,6 +16,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -92,5 +93,28 @@ class LegacyStaticAssetsTest {
     void missingRootYieldsNothing(@TempDir Path dir) {
         LegacyStaticAssets assets = new LegacyStaticAssets(null);
         assertNull(assets.resolve("/eova/lib/eova/eovaui.css"), "根缺失时不得命中");
+    }
+
+    /**
+     * **静态空间不得吞掉接口前缀**（第 305 轮 · U1 配套）。
+     *
+     * <p>为什么需要"结构性"断言：壳供给引入后，静态空间一旦把 `/api/**` 也算进来，
+     * 行为上**看不出来**（`/api/home/menu` 在静态根下没有同名文件 ⇒ `resolve()` 返回 null ⇒
+     * 照旧走动作路由）—— 实测该变异（M4）在 HTTP 判据下**未被捕获**，属"等价变异"。
+     * 但意图必须钉住：静态空间就是那三个前缀，不得扩到接口/动作上。</p>
+     */
+    @Test
+    @DisplayName("静态空间只认 /eova/**、/_eova/**、/eova-assets/**、/demo/** —— /api 与动作路径都不算")
+    void staticSpaceDoesNotSwallowApi() {
+        LegacyStaticAssets assets = new LegacyStaticAssets(null, null);
+        assertTrue(assets.isStaticSpace("/eova/lib/eova/eovaui.js"), "/eova/** 是静态空间");
+        assertTrue(assets.isStaticSpace("/_eova/assets/eova.ui.ext.js"), "/_eova/** 是静态空间");
+        assertTrue(assets.isStaticSpace("/eova-assets/index-abc.js"), "SPA 产物是静态空间");
+        assertTrue(assets.isStaticSpace("/demo/test/btn.js"),
+                "/demo/** 是静态空间（按钮脚本按该 URL 取；旧栈实测 200 application/javascript）");
+        assertFalse(assets.isStaticSpace("/api/home/menu"), "/api/** 不是静态空间（那是接口）");
+        for (String p : new String[]{"/api/home/menu", "/menu/add", "/meta/reorder_data", "/app/meta_product"}) {
+            assertFalse(assets.isStaticSpace(p), p + " 不得被静态空间吞掉");
+        }
     }
 }

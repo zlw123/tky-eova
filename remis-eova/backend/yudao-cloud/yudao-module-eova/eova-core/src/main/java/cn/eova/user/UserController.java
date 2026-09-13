@@ -97,7 +97,7 @@ public class UserController extends BaseController {
 
         set("source", get("back"));
 
-        render(x.conf.get("app.login.page", "/eova/index/login.html"));
+        renderSpaShell(); // r305 U1：登录页由 SPA 接管（/user/login）；app.login.page 配置随之失效（登记）
     }
 
     public void doLogin() {
@@ -236,7 +236,7 @@ public class UserController extends BaseController {
     // 首页>修改密码
     public void password() {
 //        renderBeetl("/eova/updatePwd.html");
-        render("/eova/user/password/app.html");
+        renderSpaShell(); // r305 U1：改密页由 SPA 接管（/user/password）
     }
 
     // 首页>修改密码

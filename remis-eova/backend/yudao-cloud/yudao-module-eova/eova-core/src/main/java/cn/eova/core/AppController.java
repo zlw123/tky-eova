@@ -100,7 +100,7 @@ public class AppController extends IndexController {
         set("menuCode", menuCode);
         setAttr("btnList", btnList);
 
-        renderEnjoy(String.format("/eova/_view/template/%s/index.html", templdate));
+        renderSpaShell(); // r305 U1：模板页由 SPA 接管（/app/<menuCode>）
     }
 
     @LegacyClear
@@ -135,7 +135,7 @@ public class AppController extends IndexController {
         set("pk", "id");
         set("fixed", fixed.toJson());
 
-        renderEnjoy("/eova/_view/template/form/add/index.html");
+        renderSpaShell(); // r305 U1：表单新增页由 SPA 接管（/app/add/<object>）
     }
 
     /**
@@ -163,7 +163,7 @@ public class AppController extends IndexController {
         set("biz", biz);
         set("object", o);
         set("id", id);
-        renderEnjoy("/eova/_view/template/form/update/index.html");
+        renderSpaShell(); // r305 U1：表单修改页由 SPA 接管
     }
 
 
@@ -184,7 +184,7 @@ public class AppController extends IndexController {
         set("biz", biz);
         set("object", o);
         set("id", id);
-        renderEnjoy("/eova/_view/template/form/detail/index.html");
+        renderSpaShell(); // r305 U1：表单查看页由 SPA 接管
     }
 
 

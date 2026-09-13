@@ -49,7 +49,7 @@ public class ButtonController extends BaseController {
     public void add() {
         set("menuCode", get(0));
         set("role", EovaConst.ADMIN_RID);
-        render("/eova/button/add/app.html");
+        renderSpaShell(); // r305 U1：快速添加按钮页由 SPA 接管（/button/add/<code>）
     }
 
     @LegacyBefore(LegacyTx.class)

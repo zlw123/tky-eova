@@ -7,6 +7,7 @@ package cn.eova;
 
 import cn.eova.config.WebRoutes;
 import cn.eova.core.HomeController;
+import cn.eova.core.SpaShellController;
 import cn.eova.core.admin.AdminController;
 import cn.eova.core.auth.AuthController;
 import cn.eova.core.button.ButtonController;
@@ -71,6 +72,25 @@ public class EovaWebRoutes extends WebRoutes {
         add("/auth", AuthController.class);
         add("/task", TaskController.class);
         add("/dict", DictController.class);
+
+        // ★ r305（U1）：**SPA 独有页面**的壳接管（旧栈由 demo 工程或前端跳转处理，后端本无路由）。
+        //   实测（带会话直连 8080）这些 URL 此前全部 404 ⇒ 生产态下 SPA 拿不到它们。
+        //   登记在这里 = 走同一套全局拦截器链（未登录仍 302 到 /user/login），只换响应体为壳。
+        add("/su", SpaShellController.class);
+        add("/placeholder", SpaShellController.class);
+        add("/main", SpaShellController.class);
+        add("/theme", SpaShellController.class);
+        add("/test", SpaShellController.class);
+        add("/test/sse", SpaShellController.class);
+        add("/ip", SpaShellController.class);
+        add("/sso", SpaShellController.class);
+        // `/widget` 是 EovaUI 组件演示页：旧栈由 demo 的 AppController#widget() 渲染，
+        // 新栈后端无对应路由（SPA 侧已登记 `/widget`）⇒ 同样由壳接管。
+        add("/widget", SpaShellController.class);
+        // 角色授权页：SPA 路由是 `/eova/role/auth/:rid`，而后端侧**旧页面 URL 是 `/auth`**（实测 `/auth` 200、
+        // `/role/auth/1` 404）⇒ 两处不一致属**待取证**的 URL 契约问题（登记在案）。这里先让 SPA 自己的
+        // URL 有响应，`/auth` 仍由 AuthController#index 渲染旧页（未退役，等取证后一并处理）。
+        add("/eova/role/auth", SpaShellController.class);
 
         // LoginInterceptor.excludes.add(String.format("%s/**/**", ApiRouterHandler.ROUTER));
 

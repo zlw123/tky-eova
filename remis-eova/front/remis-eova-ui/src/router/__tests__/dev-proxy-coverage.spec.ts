@@ -123,6 +123,25 @@ function spaLiteralPaths(): string[] {
   return [...new Set(out)]
 }
 
+/**
+ * 壳路由（后端为"生产态供给"登记的 SPA 独有 URL）——dev 期必须由 SPA 供给，故不要求出现在代理表里。
+ *
+ * ★ r305（U1）：这些路径同时出现在后端路由表与前端 `SPA_OWNED_PATHS` 里，两边**都有意为之**：
+ *   后端登记是为了生产态有响应（否则 404），前端登记是为了 dev 期不被代理走。
+ */
+const SHELL_ROUTE_PATHS: readonly string[] = [
+  '/su',
+  '/placeholder',
+  '/main',
+  '/theme',
+  '/test',
+  '/test/sse',
+  '/ip',
+  '/sso',
+  '/widget',
+  '/eova/role/auth'
+]
+
 describe('dev 代理覆盖', () => {
   it('③ 不得代理 `/`（那是 SPA 首页）', () => {
     expect(Object.keys(proxyTable())).not.toContain('/')
@@ -139,12 +158,20 @@ describe('dev 代理覆盖', () => {
 
     const proxy = proxyTable()
     for (const p of prefixes) {
+      // ★ r305（U1）：**壳路由**（`SpaShellController`）例外 —— 它们注册在后端只是为了让"生产态"有壳可给，
+      //   而这些 URL 本来就归 SPA 所有 ⇒ dev 期必须由 SPA 供给（代理表里**不该**有它们，
+      //   有了反而会被代理去后端）。要求"必须被代理"对它们恰好是反的。
+      if (SHELL_ROUTE_PATHS.includes(p)) {
+        continue
+      }
       const seg = firstSegment(p)
       expect(
         Object.prototype.hasOwnProperty.call(proxy, seg),
         `后端路由前缀 ${p}（首段 ${seg}）不在 dev 代理表里 ⇒ dev 环境该请求会落到 SPA 回退`
       ).toBe(true)
     }
+    // 反空断言：壳路由确实被识别到了（否则上面的 continue 永不生效 ⇒ 判据退化成"全都要求被代理"）
+    expect(SHELL_ROUTE_PATHS.length).toBeGreaterThanOrEqual(9)
   })
 
   it('② SPA 源码里的每个字面量路径，要么归 SPA、要么首段在代理表里（含反空断言）', () => {

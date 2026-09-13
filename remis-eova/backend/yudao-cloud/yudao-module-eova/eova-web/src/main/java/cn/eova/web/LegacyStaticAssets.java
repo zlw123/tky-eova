@@ -59,6 +59,33 @@ public class LegacyStaticAssets {
      */
     public static final String PRIVATE_PREFIX = "/_eova/";
 
+    /**
+     * 静态空间之三：**SPA 打包产物**（{@code /eova-assets/**}，第 305 轮 U1 新增）。
+     *
+     * <p>前端工程把 {@code build.assetsDir} 设为 {@code eova-assets}（不用 Vite 默认的
+     * {@code assets}）—— 这样后端只需认领一个**带命名空间的前缀**，不会与将来任何后端路由
+     * （{@code /assets/...}）撞名。壳 {@code index.html} 由 {@code LegacySpaShellRender} 供给，
+     * 它引用的就是这些资源。</p>
+     */
+    public static final String SPA_ASSETS_PREFIX = "/eova-assets/";
+
+    /**
+     * 静态空间之四：**demo 工程静态资产**（{@code /demo/**}，第 305 轮 U1 新增）。
+     *
+     * <p><b>为什么它必须被供给</b>：种子数据里的自定义按钮把 {@code eova_button.ui} 指向
+     * {@code /demo/test/btn.js}（demo webapp 的静态文件）—— 页面加载按钮脚本时按该 URL 取。
+     * 实测旧栈：{@code GET /demo/test/btn.js} → **200 application/javascript**；
+     * 而新栈此前落进"动作/兜底"层 ⇒ 返回 HTML ⇒ 浏览器执行 HTML 当脚本 ⇒
+     * {@code SyntaxError: Unexpected token '<'}`（本轮 S5 ⑨ 被它打红）。</p>
+     *
+     * <p>与 {@code /_eova/**} 同一判例（r304）：这是**被核心页面按 URL 引用的静态资产**，
+     * 不是"迁移 demo 应用"（口径④不迁的是 demo 的**页面/路由**）。</p>
+     *
+     * <p>⚠️ 顺带纠正一条错记：既有笔记写"旧栈此处同样是 404" —— <b>实测是 200</b>
+     * （{@code application/javascript}）。错记会让人把"资产没供给"当成"两端一致"而放过。</p>
+     */
+    public static final String DEMO_PREFIX = "/demo/";
+
     /** 扩展名 → Content-Type（旧栈实测：css=text/css、js=application/javascript） */
     private static final Map<String, String> TYPES = new HashMap<>();
 
@@ -89,14 +116,32 @@ public class LegacyStaticAssets {
     /** 私有静态根（{@code <web 根>/_eova}）；不可用时为 null */
     private final File privateRoot;
 
+    /** SPA 产物静态根（{@code <dist>/eova-assets}）；不可用时为 null */
+    private final File spaAssetsRoot;
+
+    /** demo 静态资产根（{@code <web 根>/demo}）；不可用时为 null */
+    private final File demoRoot;
+
     /**
      * 构造。
      *
      * @param webRoot web 根目录（含 {@code eova/} 的那一层）；为 null 时本组件不供给任何资源
      */
     public LegacyStaticAssets(File webRoot) {
+        this(webRoot, null);
+    }
+
+    /**
+     * 构造（含 SPA 产物空间）。
+     *
+     * @param webRoot       web 根目录（含 {@code eova/} 与 {@code _eova/} 的那一层）
+     * @param spaDistRoot   前端打包产物根（含 index.html）；为 null 时 {@code /eova-assets/**} 不供给
+     */
+    public LegacyStaticAssets(File webRoot, File spaDistRoot) {
         this.root = webRoot == null ? null : new File(webRoot, "eova");
         this.privateRoot = webRoot == null ? null : new File(webRoot, "_eova");
+        this.spaAssetsRoot = spaDistRoot == null ? null : new File(spaDistRoot, "eova-assets");
+        this.demoRoot = webRoot == null ? null : new File(webRoot, "demo");
         if (root != null && !root.isDirectory()) {
             log.warn("Eova Web 层：静态空间根不存在（{}）⇒ /eova/** 静态资源不会被供给", root.getAbsolutePath());
         }
@@ -113,7 +158,8 @@ public class LegacyStaticAssets {
      * @return 是否静态空间
      */
     public boolean isStaticSpace(String path) {
-        return path != null && (path.startsWith(PREFIX) || path.startsWith(PRIVATE_PREFIX));
+        return path != null && (path.startsWith(PREFIX) || path.startsWith(PRIVATE_PREFIX)
+                || path.startsWith(SPA_ASSETS_PREFIX) || path.startsWith(DEMO_PREFIX));
     }
 
     /**
@@ -124,8 +170,23 @@ public class LegacyStaticAssets {
      */
     public File resolve(String path) {
         // 两个静态空间各映射到 web 根下的同名目录（`/eova/**` 与 `/_eova/**`）
-        File spaceRoot = path != null && path.startsWith(PRIVATE_PREFIX) ? privateRoot : root;
-        String prefix = path != null && path.startsWith(PRIVATE_PREFIX) ? PRIVATE_PREFIX : PREFIX;
+        boolean isSpaAssets = path != null && path.startsWith(SPA_ASSETS_PREFIX);
+        boolean isDemo = path != null && path.startsWith(DEMO_PREFIX);
+        File spaceRoot;
+        String prefix;
+        if (isSpaAssets) {
+            spaceRoot = spaAssetsRoot;
+            prefix = SPA_ASSETS_PREFIX;
+        } else if (isDemo) {
+            spaceRoot = demoRoot;
+            prefix = DEMO_PREFIX;
+        } else if (path != null && path.startsWith(PRIVATE_PREFIX)) {
+            spaceRoot = privateRoot;
+            prefix = PRIVATE_PREFIX;
+        } else {
+            spaceRoot = root;
+            prefix = PREFIX;
+        }
         // ★ 前缀判断必须**由本方法自己做**，不能依赖调用方：下面是"按固定长度剥离前缀"，
         //   一旦调用方用了更宽的前缀判断（例如放宽成"任意路径"），固定剥离就会产生**路径别名**
         //   （`/xxxxx/lib/x.css` 被当成 `lib/x.css` 命中静态文件）——r247 的 M6 变异实测暴露了这个风险。

@@ -82,7 +82,7 @@ public class MenuController extends BaseController {
         List<EovaTemplate> tps = EovaTemplate.dao.findAll();
         set("templates", tps);
 
-        render("/eova/menu/add/app.html");
+        renderSpaShell(); // r305 U1：新增菜单页由 SPA 接管（/menu/toAdd）
     }
 
     public void props() {
@@ -489,7 +489,7 @@ public class MenuController extends BaseController {
 //        setAttr("auths", auths);
         set("id", id);
 
-        render("/eova/menu/auth/app.html");
+        renderSpaShell(); // r305 U1：菜单授权页由 SPA 接管（/menu/auth/<id>）
     }
 
     public void authData() {

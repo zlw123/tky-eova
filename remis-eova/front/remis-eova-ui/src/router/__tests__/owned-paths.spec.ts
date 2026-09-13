@@ -13,6 +13,11 @@ import { routes } from '../index'
 describe('router · SPA 拥有的路径', () => {
   it('router 里**每一条**路由都被 SPA 所有权规则覆盖（漏登记/漏接线 ⇒ dev 代理会把它送去后端）', () => {
     for (const p of routePathsOf(routes)) {
+      // ★ r305（U1）：**兜底路由**（catch-all）不是一条真实路径，它接的是"所有未匹配"的情况
+      //   （旧栈由 `/` 兜底：实测 `/zzz_unknown`、`/su` 都给首页）⇒ 不参与所有权判定。
+      if (p.includes('*')) {
+        continue
+      }
       // 把动态段换成具体值得到一条真实可访问的 URL，再问**运行时那条规则**（与 vite 代理共用同一个函数）。
       // 例：`/app/:menuCode` ⇒ `/app/sample`（不能换成动作名 —— 那些按规则本来就该归后端）。
       const sample = p.replace(/:([A-Za-z_$][\w$]*)/g, 'sample')

@@ -32,7 +32,9 @@ import cn.eova.compat.render.DefaultLegacyRenderFactory;
 import cn.eova.compat.render.LegacyRender;
 import cn.eova.compat.render.LegacyRenderFactory;
 import cn.eova.compat.render.LegacyRenderManager;
+import cn.eova.compat.render.LegacySpaShellRender;
 import cn.eova.config.EovaConfig;
+import cn.eova.core.SpaShellController;
 import cn.eova.core.admin.AdminController;
 import cn.eova.core.auth.AuthController;
 import cn.eova.core.button.ButtonController;
@@ -464,8 +466,13 @@ class CaptchaAndUserFamilyGoldenTest {
 
         ProbeUser c2 = ctrl(new Captured());
         c2.password();
-        // EOVA 自有 BaseController.render(String) 会把 /eova/x 重写成 /eova/_view/x（既有契约，逐字保留）
-        assertEquals("/eova/_view/user/password/app.html", c2.getRender().getView());
+        // r305 U1【契约变更·已声明】：`/user/password` 属**页面入口**，已退役为 SPA 壳。
+        //   旧判据锁的是 `/eova/_view/user/password/app.html`（经 BaseController.render 的 _view 重写）；
+        //   新判据锁新契约：渲染必须是壳，**且不得**再落旧模板（防止退役被悄悄回退）。
+        assertInstanceOf(LegacySpaShellRender.class, c2.getRender(),
+                "r305 U1：/user/password 页面入口应返回 SPA 壳");
+        assertFalse(c2.getRender() instanceof cn.eova.compat.render.LegacyTemplateRender,
+                "r305 U1：页面入口不得再渲染旧 Enjoy 模板");
     }
 
     @Test
@@ -481,8 +488,15 @@ class CaptchaAndUserFamilyGoldenTest {
         assertEquals("探针系统", c.req.attrs.get("app_name"));
         String cp = (String) c.req.attrs.get("copyright");
         assertTrue(cp.contains("© 2015-" + LocalDate.now().getYear() + " EOVA.CN"), cp);
-        assertEquals("/eova/_view/index/login.html", c.getRender().getView(),
-                "默认登录页 /eova/index/login.html 经 BaseController.render 的 _view 重写后落点");
+        // r305 U1【契约变更·已声明】：`/user/login` 页面入口退役为 SPA 壳。
+        //   旧判据锁 `render(x.conf.get("app.login.page", "/eova/index/login.html"))` 的落点
+        //   `/eova/_view/index/login.html`；新判据锁壳，且不得再落旧模板。
+        //   **副作用已登记**：配置键 `app.login.page` 对页面入口不再生效（登录页由前端路由决定），
+        //   键本身仍留在 baseline 配置里未清理（T04 第二段一并处理）。
+        assertInstanceOf(LegacySpaShellRender.class, c.getRender(),
+                "r305 U1：/user/login 页面入口应返回 SPA 壳");
+        assertFalse(c.getRender() instanceof cn.eova.compat.render.LegacyTemplateRender,
+                "r305 U1：页面入口不得再渲染旧 Enjoy 模板");
     }
 
     @Test
@@ -574,17 +588,29 @@ class CaptchaAndUserFamilyGoldenTest {
             paths.add(r.getControllerPath());
             classes.add(r.getControllerClass());
         }
-        assertEquals(List.of(
+        // r305 U1【契约变更·已声明】：尾部新增 10 条 **SPA 壳路由**（旧栈这些页面 URL 由 demo 工程
+        //   或前端跳转处理，后端本无路由 ⇒ 生产态 404）。为免新增项掩盖旧项被改动，旧 18 条改用
+        //   subList 逐条顺序锁死，新增段单独锁死。
+        List<String> legacyContract = List.of(
                 "/api/home", "/api/meta", "/api/widget", "/api/form", "/api/table", "/api/tree",
                 "/excel", "/upload", "/sse", "/eova/admin", "/eova/ops", "/user",
-                "/meta", "/menu", "/button", "/auth", "/task", "/dict"), paths, "18 条路由的顺序与路径属契约");
+                "/meta", "/menu", "/button", "/auth", "/task", "/dict");
+        assertEquals(legacyContract, paths.subList(0, legacyContract.size()), "18 条路由的顺序与路径属契约");
+        assertEquals(List.of(
+                "/su", "/placeholder", "/main", "/theme", "/test", "/test/sse",
+                "/ip", "/sso", "/widget", "/eova/role/auth"),
+                paths.subList(legacyContract.size(), paths.size()),
+                "r305 U1：SPA 壳路由的顺序/路径锁死（新增须同步 SPA_OWNED_PATHS 与壳判据）");
+        for (int i = legacyContract.size(); i < classes.size(); i++) {
+            assertEquals(SpaShellController.class, classes.get(i), "壳路由必须指向 SpaShellController");
+        }
         assertEquals(List.of(
                 HomeController.class, MetaControler.class, WidgetController.class, FormControler.class,
                 TableController.class, TreeController.class, cn.eova.meta.api.ExcelController.class,
                 UploadController.class, SSEController.class, AdminController.class, OpsController.class,
                 UserController.class, cn.eova.core.meta.MetaController.class, MenuController.class,
                 ButtonController.class, AuthController.class, TaskController.class, DictController.class),
-                classes);
+                classes.subList(0, legacyContract.size()));
     }
 
     @Test

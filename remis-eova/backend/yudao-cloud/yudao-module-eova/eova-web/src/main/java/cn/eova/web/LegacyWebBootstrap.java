@@ -115,7 +115,55 @@ public class LegacyWebBootstrap {
      */
     @Bean
     public LegacyStaticAssets legacyStaticAssets() {
-        return new LegacyStaticAssets(resolveViewRoot());
+        return new LegacyStaticAssets(resolveViewRoot(), resolveSpaDistRoot());
+    }
+
+    /**
+     * 解析**前端打包产物根**（含 {@code index.html}），供"页面入口退役"后的 SPA 壳供给使用。
+     *
+     * <p>解析顺序：配置 {@code eova.ui.dist} → 从工作目录向上最多 6 层找
+     * {@code remis-eova/front/remis-eova-ui/dist}。找不到时**只告警不抛**（dev 期前端由 Vite 供给，
+     * 后端不需要产物），但壳渲染一旦真被调用会**响亮报错**（见 {@code LegacySpaShellRender}）。</p>
+     *
+     * @return 产物根目录；不存在时 null
+     */
+    @Bean
+    public java.io.File spaDistRoot() {
+        java.io.File root = resolveSpaDistRoot();
+        if (root == null) {
+            log.warn("Eova Web 层：未找到前端打包产物（remis-eova-ui/dist）⇒ 页面入口退役后 SPA 壳无法供给。"
+                    + "dev 期由 Vite 供给，生产期请先 pnpm build 并设置 eova.ui.dist");
+        } else {
+            log.info("Eova Web 层：SPA 壳产物根 = {}", root.getAbsolutePath());
+        }
+        return root;
+    }
+
+    /**
+     * 解析前端打包产物根（不产生副作用；供 Bean 与判据复用）
+     *
+     * @return 目录；不存在返回 null
+     */
+    private java.io.File resolveSpaDistRoot() {
+        String configured = System.getProperty("eova.ui.dist", "");
+        if (!configured.isEmpty()) {
+            java.io.File f = new java.io.File(configured);
+            return f.isDirectory() ? f : null;
+        }
+        java.util.List<java.io.File> candidates = new java.util.ArrayList<>();
+        java.io.File dir = new java.io.File("").getAbsoluteFile();
+        for (int i = 0; i < 8 && dir != null; i++) {
+            candidates.add(new java.io.File(dir, "remis-eova/front/remis-eova-ui/dist"));
+            candidates.add(new java.io.File(dir, "front/remis-eova-ui/dist"));
+            dir = dir.getParentFile();
+        }
+        for (java.io.File c : candidates) {
+            if (new java.io.File(c, "index.html").isFile()) {
+                cn.eova.compat.render.LegacySpaShellRender.setDistRoot(c);
+                return c;
+            }
+        }
+        return null;
     }
 
     /**

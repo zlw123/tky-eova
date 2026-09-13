@@ -134,6 +134,39 @@ class LegacyHttpContractTest {
     }
 
     @Test
+    @DisplayName("★ r305 U1：actionKey 退化**只剥一层** —— 单段未知落根路由，多段未知 404（旧栈边界）")
+    void actionKeyDegradationIsExactlyOneLevel() {
+        // 旧栈带会话实测（curl 9090）：`/zzz_unknown` 200（根路由 index + urlPara）、
+        // `/app/meta_product` 200（前缀 `/app` 是注册路由）、`/a/b` 与 `/definitely/not/a/route` 404。
+        // ★ 这条判据的由来：首版把退化实现成「**逐段剥离直到命中**」⇒ 多段未知路径统统落首页（200），
+        //   而既有 `unknownPathIsNotFound` 抓到了 ⇒ 修实现（不是改判据）。
+        //   两个方向都要锁，否则「全部 404」与「全部 200」都能蒙过其中一半。
+        String sid = login();
+        HttpHeaders h = new HttpHeaders();
+        h.add(HttpHeaders.COOKIE, sid);
+
+        // ① 单段未知 ⇒ 根路由 index + urlPara（旧栈 200）
+        assertEquals(200, get(sid, "/zzz_unknown").getStatusCode().value(),
+                "★ 单段未知路径必须落根路由（旧栈 200）");
+        // ② 前缀是已注册路由 ⇒ 该控制器 index + urlPara（旧栈 200）
+        ResponseEntity<String> app = get(sid, "/app/meta_product");
+        assertEquals(200, app.getStatusCode().value(), "★ /app/meta_product 必须落 AppController#index");
+        // ③ 多段未知、且前缀**不是**注册路由 ⇒ 404（旧栈行为，不得继续剥离到根）
+        assertEquals(404, get(sid, "/a/b").getStatusCode().value(),
+                "★ 多段未知路径必须 404（只剥一层，不得继续剥到根路由）");
+        assertEquals(404, rest.exchange("/a/b/c", HttpMethod.GET, new HttpEntity<>(h), String.class)
+                        .getStatusCode().value(),
+                "★ 三段未知路径同样 404");
+    }
+
+    /** 带会话 GET */
+    private ResponseEntity<String> get(String sid, String path) {
+        HttpHeaders h = new HttpHeaders();
+        h.add(HttpHeaders.COOKIE, sid);
+        return rest.exchange(path, HttpMethod.GET, new HttpEntity<>(h), String.class);
+    }
+
+    @Test
     @DisplayName("★ S2b-6：GET / ⇒ 200 + text/html（空 actionKey ⇒ index 的 jfinal 约定；旧栈带会话实测 200）")
     void rootMapsToIndexAction() {
         String sid = login();
@@ -147,20 +180,41 @@ class LegacyHttpContractTest {
     }
 
     @Test
-    @DisplayName("★ S2b-5：GET /user/login ⇒ 200 + text/html + 旧登录页正文（证明模板源映射对了）")
-    void loginPageRendersFromLegacyViewRoot() {
+    @DisplayName("★ S2b-5：GET /user/login ⇒ 200 + text/html + **SPA 壳**（U1 页面入口退役）")
+    void loginPageIsSpaShellAfterU1Takeover() {
         ResponseEntity<String> resp = rest.getForEntity("/user/login", String.class);
-        // 旧栈实测（curl 9090）：200 / Content-Type: text/html;charset=UTF-8 / 正文以 <!DOCTYPE html> 开头
-        // 且含 <title>EOVA低代码开发平台</title>。
+        // 旧栈实测（curl 9090）：200 / text/html / 正文含 <title>EOVA低代码开发平台</title>。
+        // r305 U1【契约变更·已声明】：`/user/login` 是**页面入口**，已退役为 SPA 壳 ⇒ 正文不再来自旧模板。
+        //   原判据的后半句（标题必须来自旧登录页模板）**换锚点**到仍走旧模板的 `/auth`
+        //   —— 见 `stillLegacyPageRendersFromLegacyViewRoot`，那里继续钉【模板源映射】。
         assertEquals(200, resp.getStatusCode().value(), "登录页必须 200，实际=" + resp.getStatusCode());
+        String ct = String.valueOf(resp.getHeaders().getFirst(HttpHeaders.CONTENT_TYPE));
+        assertTrue(ct.contains("text/html"), "★ 必须是 HTML，实际=" + ct);
+        String body = resp.getBody();
+        assertNotNull(body, "必须有正文");
+        assertTrue(body.startsWith("<!DOCTYPE html>"), "壳正文以 <!DOCTYPE html> 开头，实际="
+                + body.substring(0, Math.min(60, body.length())));
+        assertTrue(body.contains("eova-assets/"), "★ U1 后登录页正文必须是 SPA 壳（引用打包产物），实际不含 eova-assets/");
+        assertFalse(body.contains("EOVA低代码开发平台"),
+                "★ U1 后不得再出现旧登录页模板正文（说明退役被回退）");
+    }
+
+    @Test
+    @DisplayName("★ S2b-5b：GET /auth ⇒ 200 + 旧模板正文（**模板源映射**判据的新锚点）")
+    void stillLegacyPageRendersFromLegacyViewRoot() {
+        String sid = login();
+        ResponseEntity<String> resp = get(sid, "/auth");
+        // 旧栈实测（带会话 curl 9090）：200 / text/html / <title>功能权限分配</title>。
+        // ★ 这条专门钉住【模板源映射】：`/eova/role/auth/app.html` ⇒ `<视图根>/webapp/eova/...`。
+        //   映射写错（少了 webapp 一层）时本页会 500，而其它判据照样全绿。
+        //   为什么换锚点到 `/auth`：U1 把 `/user/login` 退役成壳后，旧锚点已不再走模板渲染
+        //   ⇒ 若仍留在原判据上，这条【模板源映射】判据会**空洞化**（断言壳里永远不含旧标题）。
+        assertEquals(200, resp.getStatusCode().value(), "/auth 必须 200，实际=" + resp.getStatusCode());
         String ct = String.valueOf(resp.getHeaders().getFirst(HttpHeaders.CONTENT_TYPE));
         assertTrue(ct.contains("text/html"), "★ 必须是 HTML（旧契约），实际=" + ct);
         String body = resp.getBody();
         assertNotNull(body, "必须有正文");
-        assertTrue(body.startsWith("<!DOCTYPE html>"), "旧登录页正文以 <!DOCTYPE html> 开头，实际="
-                + body.substring(0, Math.min(60, body.length())));
-        // ★ 这一条专门钉住【模板源映射】：/eova/x ⇒ <视图根>/webapp/eova/x。
-        //   映射写错（少了 webapp 一层）时本页会 500，而前 4 条照样全绿。
-        assertTrue(body.contains("EOVA低代码开发平台"), "★ 正文必须来自旧登录页模板（标题缺失说明模板源映射错了）");
+        assertTrue(body.contains("功能权限分配"), "★ 正文必须来自旧模板（标题缺失说明模板源映射错了）");
+        assertFalse(body.contains("eova-assets/"), "★ /auth 仍是旧模板页，不得被壳接管（顺序/范围都会被这条抓到）");
     }
 }

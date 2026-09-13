@@ -23,6 +23,7 @@ import cn.eova.compat.jfinal.kit.LegacyJsonKit;
 import cn.eova.compat.jfinal.kit.LegacyRet;
 import cn.eova.db.EovaModel;
 import cn.eova.db.EovaRecord;
+import cn.eova.compat.render.LegacySpaShellRender;
 import cn.eova.compat.render.LegacyTemplateRender;
 
 /**
@@ -345,6 +346,21 @@ public class BaseController extends LegacyController {
     public void NO(String msg) {
         // renderJson(LegacyRet.fail("msg", msg));
         renderJson(LegacyRet.fail(msg));
+    }
+
+    /**
+     * **渲染 SPA 壳**（第 305 轮 U1：页面入口退役）。
+     *
+     * <p>阶段 2 的终局是"服务端不再渲染页面"：页面 URL 交给 SPA，服务端只供给打包产物。
+     * 凡是由 SPA 接管的页面入口（`/`、`/user/login`、`/app/**`、`/meta/edit|field|reorder|imports`、
+     * `/menu/toAdd`、`/menu/auth/**`、`/button/add/**`、`/user/password`、`/eova/admin/su`）
+     * 都改调本方法 —— 仍在**同一个拦截器链**下（登录/权限判定不变），只是响应体换成壳。</p>
+     *
+     * <p>产物缺失时 {@link LegacySpaShellRender} 会**响亮报 500**（不静默白屏）。</p>
+     */
+    @LegacyNotAction
+    public void renderSpaShell() {
+        render(new cn.eova.compat.render.LegacySpaShellRender());
     }
 
     @LegacyNotAction

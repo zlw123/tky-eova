@@ -177,6 +177,42 @@ public class LegacyDispatcher {
         }
 
         Method method = findAction(hit.controllerClass, actionKey);
+        // ★ 兜底**只对页面请求生效**：末段含 `.` 的"文件型"路径不走退化，直接 404。
+        //   实测旧栈：`/demo/test/nope.js`、`/nope/x.css`、`/zzz_unknown.js` 全 **404**，
+        //   而 `/zzz_unknown`（无扩展名）落首页 —— 静态层与动作层是分开的。
+        //   ⚠️ 不设这条会出真事故：`/demo/test/btn.js`（demo 静态资产，旧栈 200 application/javascript）
+        //   在新栈会退化到 `/` 兜底 ⇒ 返回 **HTML** ⇒ 浏览器执行 HTML 当脚本 ⇒
+        //   `SyntaxError: Unexpected token '<'`（本轮 S5 ⑨ 就是被这个打红的）。
+        boolean fileLike = false;
+        String lastSegment = path.substring(path.lastIndexOf('/') + 1);
+        if (lastSegment.indexOf('.') >= 0) {
+            fileLike = true;
+        }
+        if (method == null && !fileLike && !"index".equals(actionKey)) {
+            // ★★ r305（U1 · 生产态才暴露的移植缺口）：**JFinal 的 actionKey 退化规则只有一层**。
+            //   旧 `ActionMapping#getAction`：① 按**完整 url** 查动作键；② 查不到 ⇒ **只剥掉最后一段**
+            //   当 urlPara，再用**剩下的前缀**查一次；③ 仍查不到 ⇒ 404（**不再继续剥离**）。
+            //   旧栈实测（带会话直连 9090）：
+            //     `/zzz_unknown`          **200**（前缀为空 ⇒ 命中根路由 `IndexController#index` + urlPara）
+            //     `/app/meta_product`     **200**（前缀 `/app` 是已注册路由 ⇒ index + urlPara=meta_product）
+            //     `/a/b`、`/definitely/not/a/route`  **404**（前缀 `/a`、`/definitely/not/a` 都不是动作键）
+            //   ★ 首版实现写成"**逐段剥离直到命中**"⇒ 多段未知路径统统落首页 ⇒ 与旧栈**不等价**；
+            //     这是本轮闸门（`LegacyHttpContractTest.unknownPathIsNotFound`）抓出来的：
+            //     该判据锁的"未知路径 ⇒ 404，不得回落"是**对的**，错的是实现。
+            int lastSlash = path.lastIndexOf('/');
+            String prefix = lastSlash > 0 ? path.substring(0, lastSlash) : "";
+            String tail = path.substring(lastSlash + 1);
+            Entry byIndex = findRouteByPath(prefix);
+            if (byIndex != null) {
+                Method index = findAction(byIndex.controllerClass, "index");
+                if (index != null) {
+                    method = index;
+                    urlPara = tail;
+                    // 命中控制器可能是**另一条路由**（空前缀 = 根路由兜底）⇒ 必须换掉 hit
+                    hit = byIndex;
+                }
+            }
+        }
         if (method == null) {
             log.info("404 Action Not Found: {}", path);
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
@@ -296,6 +332,26 @@ public class LegacyDispatcher {
         }
         String contentType = request.getContentType();
         return contentType != null && contentType.indexOf("json") != -1;
+    }
+
+    /**
+     * 按【已注册路由路径】精确查条目（JFinal 退化规则第 ② 步用：前缀必须是**真实存在**的动作键）。
+     *
+     * <p>为什么必须精确匹配、而不是像首版那样"就地继续剥段"：旧栈实测多段未知路径是 **404**
+     * （`/a/b`、`/definitely/not/a/route`），只有前缀**恰好是某条已注册路由**时才落该控制器的
+     * `index()` + urlPara（`/app/meta_product` ⇒ `/app`；`/zzz_unknown` ⇒ 空前缀 = 根路由 `/`）。</p>
+     *
+     * @param prefix 待查前缀；空串代表根路由（旧 jfinal 把 {@code me.add("/", X.class)} 的 index 键规范成根）
+     * @return 命中的路由条目；无则 null（⇒ 调用方 404）
+     */
+    private Entry findRouteByPath(String prefix) {
+        String key = prefix.isEmpty() ? "/" : prefix;
+        for (Entry e : entries) {
+            if (key.equals(e.controllerPath)) {
+                return e;
+            }
+        }
+        return null;
     }
 
     /**

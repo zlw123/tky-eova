@@ -39,7 +39,7 @@ public class IndexController extends BaseController {
             set("app_logo", x.conf.get("app.logo", null));
             set("app_name", x.conf.get("app.name", null));
 
-            render("/eova/index/index.html");
+            renderSpaShell(); // r305 U1：首页由 SPA 接管（/）
             return;
         }
 
