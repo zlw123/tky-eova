@@ -181,6 +181,14 @@ public class PageBootstrapAssembler {
         // table ← getTable()（底层列是 table_name）
         kv.set("table", object.getTable());
         kv.set("data_source", object.getDs());
+        // ★ r312（D7 根因）：`is_celledit` 必须下发 —— 旧 `_view/template/table/index.html:48` 是
+        //   `:is-edit="#(object.is_celledit??false)"`（enjoy 经 Model 列取值），SPA 侧
+        //   `TemplateTable.vue` 也照抄了这个开关，但**载荷从来没给过它** ⇒ 恒为 false ⇒
+        //   单元格内联编辑（`eova.table.js#formatColumn` 的 `object.is_celledit && f.is_edit` 分支）
+        //   在 SPA 里整条不成立：实测 `eova_config` 的「默认值/测试值」两列（type=文本域）
+        //   旧栈渲染成输入控件、新栈渲染成纯文本/空。
+        //   ★ 与第 299 轮补 `id` 同族：**旧载荷里本来就有它**（模板插值），属 port 缺口，不是新需求。
+        kv.set("is_celledit", object.get("is_celledit"));
         return kv;
     }
 

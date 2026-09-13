@@ -53,6 +53,8 @@ class PageBootstrapAssemblerGoldenTest {
         attrs.put("pk_name", "hotel_id");
         attrs.put("table_name", "meta_hotel");
         attrs.put("data_source", "eova");
+        // ★ r312：`is_celledit` 是 `eova_object` 的列（旧模板 `:is-edit="#(object.is_celledit??false)"`）
+        attrs.put("is_celledit", true);
         o._setAttrs(attrs);
         return o;
     }
@@ -146,10 +148,14 @@ class PageBootstrapAssemblerGoldenTest {
         // 反面：不得出现驼峰笔误
         assertNull(obj.get("pkName"));
         assertFalse(obj.containsKey("table_name"), "载荷键应是 table（不是列名 table_name）");
-        // 键集**精确**：§3.1 的 5 键 + 第 299 轮补的 id（多一个都不行 —— 反空断言之外的另一道闸）
-        assertEquals(6, obj.size(), "object = §3.1 的 5 键 + id（DES-004-R2 §1.2），不得夹带别的键");
+        // ★ r312：`is_celledit` 也必须下发（旧 `_view/template/table/index.html:48` 的
+        //   `:is-edit="#(object.is_celledit??false)"`）—— 缺它的实测后果：`eova_config` 的
+        //   「默认值/测试值」两列（type=文本域）在 SPA 里退化成纯文本/空（旧栈是输入控件）。
+        assertEquals(Boolean.TRUE, obj.get("is_celledit"), "is_celledit 必须原样映射（object.get 列取值）");
+        // 键集**精确**：§3.1 的 5 键 + 第 299 轮补的 id + r312 补的 is_celledit
+        assertEquals(7, obj.size(), "object = §3.1 的 5 键 + id（r299）+ is_celledit（r312），不得夹带别的键");
         assertEquals(
-                java.util.Set.of("id", "code", "name", "pk_name", "table", "data_source"),
+                java.util.Set.of("id", "code", "name", "pk_name", "table", "data_source", "is_celledit"),
                 new java.util.HashSet<>(obj.keySet()),
                 "object 的键集合必须精确");
     }

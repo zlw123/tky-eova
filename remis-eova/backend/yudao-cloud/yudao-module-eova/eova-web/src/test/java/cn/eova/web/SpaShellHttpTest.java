@@ -160,4 +160,28 @@ class SpaShellHttpTest {
         ResponseEntity<String> resp = get(js);
         assertEquals(200, resp.getStatusCode().value(), js + " 必须可被后端供给（否则生产态白屏）");
     }
+
+    @Test
+    @DisplayName("★ r312：两处**已声明差异**必须被钉住（/test 与 /sso 的行为变了就要显式改表）")
+    void declaredDifferencesForTestAndSso() {
+        // 这两条路径旧栈与新栈**行为不同**，是**已登记的决定**（不是漏迁）。本判据把它们钉住：
+        // 一旦有人改动（例如让 /sso 复现 500、让 /test 变回纯文本），这里立刻红 ⇒ 必须显式改表。
+        //
+        // 【差异 1】`/test`：旧栈是 **demo 模块**的 `cn.eova.meta.ctrl.TestController#index()`
+        //   → `renderText("test index...")`（200 text/plain）；而 demo 应用按**口径④**不迁移
+        //   ⇒ 该路径现由 SPA 拥有（`router/index.ts` 的 Placeholder 路由）。
+        //   同前缀的**活页面** `/test/sse` 仍由 SPA 渲染并与旧栈等价（S5 面判据覆盖）。
+        // 【差异 2】`/sso`：旧栈本来就 **500**（模板缺失的死页，实测 18821 字节错误页）
+        //   ⇒ r307 把 `/main`、`/theme`、`/ip`、`/sso` **交回后端**，不做"假装它是一页"。
+        //   新栈返回 200 壳（SPA 的 Placeholder）——**已知差异**，理由见上；无调用方依赖旧 500。
+        String sid = login();
+        for (String path : new String[]{"/test", "/sso"}) {
+            ResponseEntity<String> resp = get(sid, path);
+            assertEquals(200, resp.getStatusCode().value(), path + " 必须 200（当前已声明口径）");
+            assertTrue(String.valueOf(resp.getHeaders().getContentType()).contains("text/html"),
+                    path + " 必须返回 SPA 壳（text/html），实际=" + resp.getHeaders().getContentType());
+            assertTrue(resp.getBody() != null && resp.getBody().contains("<div id=\"app\""),
+                    path + " 必须返回 SPA 壳（含 #app 挂载点）");
+        }
+    }
 }

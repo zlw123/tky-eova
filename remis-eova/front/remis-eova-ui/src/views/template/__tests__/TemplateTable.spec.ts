@@ -533,6 +533,16 @@ describe('TemplateTable.vue（旧 template/table 的行为等价）', () => {
     expect(w2.findComponent(stubs.EvTable).props('isEdit')).toBe(false)
   })
 
+  it('⑯b ★ r312：载荷 object.is_celledit=true ⇒ ev-table 收到 is-edit=true（单元格编辑分支必须成立）', () => {
+    // 背景（实测）：`PageBootstrapAssembler.objectKv()` 原先只下发 6 个键、**从不含 is_celledit**
+    // ⇒ 本组件算出的 `isEdit` 恒 false ⇒ `eova.table.js#formatColumn` 里
+    // `object.is_celledit && f.is_edit` 那条分支在 SPA 里整条不成立：
+    // `eova_config` 的「默认值/测试值」（type=文本域）旧栈渲染成输入控件、新栈渲染成纯文本/空。
+    // 本判据钉住"载荷 → 属性"这条链（后端下发端由 PageBootstrapAssemblerGoldenTest 钉）。
+    const w = mountPage({ object: { code: 'eova_config', is_celledit: true } as never })
+    expect(w.findComponent(stubs.EvTable).props('isEdit')).toBe(true)
+  })
+
   it('⑰ 缺 object.code ⇒ 告警 + 仍渲染（不编造 object code）', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const w = mountPage({ object: undefined, url: {} })
