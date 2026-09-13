@@ -80,6 +80,31 @@ class LegacyStaticPageByteGoldenTest {
     }
 
     @Test
+    @DisplayName("★ T04-31：活页渲染**不再需要 Enjoy 引擎**（引擎兜底计数必须为 0）")
+    void livePagesDoNotNeedTheEngine() {
+        long before = cn.eova.compat.render.LegacyTemplateRender.getEngineFallbackCount();
+        long miniBefore = cn.eova.compat.render.LegacyTemplateRender.getMiniRenderCount();
+        HttpHeaders h = session();
+        // 两个活页各请求一次（有指令的那个才是关键：它本会走引擎）
+        assertEquals(200, get(h, "/main").getStatusCode().value());
+        assertEquals(200, get(h, "/excel/imports/sys_hotel").getStatusCode().value());
+        long miniAfter = cn.eova.compat.render.LegacyTemplateRender.getMiniRenderCount();
+        long after = cn.eova.compat.render.LegacyTemplateRender.getEngineFallbackCount();
+        // ★ 同时证明"接缝真的切过去了"：极简渲染计数必须增加（只证明"没兜底"是不够的 ——
+        //   把整段极简渲染关掉也满足"兜底为 0"）
+        assertTrue(miniAfter > miniBefore,
+                "★ 极简渲染计数必须增加（before=" + miniBefore + " after=" + miniAfter + "）");
+        assertEquals(before, after,
+                "★ 引擎兜底计数必须为 0（before=" + before + " after=" + after + "）—— "
+                        + "计数大于 0 说明有活页用到了极简渲染器不支持的指令，必须扩规格或修实现");
+    }
+
+    private org.springframework.http.ResponseEntity<String> get(HttpHeaders h, String path) {
+        return rest.exchange(path, org.springframework.http.HttpMethod.GET,
+                new org.springframework.http.HttpEntity<>(h), String.class);
+    }
+
+    @Test
     @DisplayName("★ T04-26：请求 `/main` 必须**真的走直出快路径**（字节相等证明不了机制生效 —— 只能数它）")
     void mainPageActuallyTakesFastPath() {
         long before = cn.eova.compat.render.LegacyTemplateRender.getDirectRenderCount();

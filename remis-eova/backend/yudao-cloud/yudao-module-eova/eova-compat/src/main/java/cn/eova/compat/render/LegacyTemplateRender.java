@@ -49,6 +49,10 @@ import jakarta.servlet.ServletOutputStream;
  */
 public class LegacyTemplateRender extends LegacyRender {
 
+    /** 日志（回退引擎等关键路径必须留痕） */
+    private static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(LegacyTemplateRender.class);
+
     /** contentType 前缀（后缀拼当前编码） */
     protected static final String CONTENT_TYPE = "text/html; charset=";
 
@@ -69,6 +73,25 @@ public class LegacyTemplateRender extends LegacyRender {
      * （那正是等价性的内容）。要证明"这条快路径真的在用"，只能数它。故判据断言"请求 `/main` 后计数增加"。</p>
      */
     private static final java.util.concurrent.atomic.AtomicLong DIRECT_RENDER_COUNT =
+            new java.util.concurrent.atomic.AtomicLong();
+
+    /**
+     * 极简页面渲染器（宿主注入）。非 null 时：**有指令的模板也先走它**，
+     * 只有它明确"不支持"（`UnsupportedOperationException`）才回退引擎。
+     */
+    private static cn.eova.compat.template.LegacyPageRenderer pageRenderer;
+
+    /**
+     * 引擎兜底计数（"有指令模板仍需帮助引擎"的次数）。
+     *
+     * <p>判据用它证明**活页已不再需要引擎**：请求活页后该计数必须仍为 0
+     * （若某页悄悄用到了极简渲染器不支持的指令，计数会 >0 ⇒ 判据红 ⇒ 必须扩规格或修实现）。</p>
+     */
+    private static final java.util.concurrent.atomic.AtomicLong ENGINE_FALLBACK_COUNT =
+            new java.util.concurrent.atomic.AtomicLong();
+
+    /** 极简渲染器实际渲染次数（判据用它证明"接缝真的切过去了"，而不只是"装了但没用"） */
+    private static final java.util.concurrent.atomic.AtomicLong MINI_RENDER_COUNT =
             new java.util.concurrent.atomic.AtomicLong();
 
     /** 指令 token：`#(`（输出指令）或 `#name(`（块/扩展指令） */
@@ -103,6 +126,33 @@ public class LegacyTemplateRender extends LegacyRender {
      */
     public static void initSourceReader(java.util.function.Function<String, String> reader) {
         sourceReader = reader;
+    }
+
+    /**
+     * 注入极简页面渲染器（宿主启动时调用）。
+     *
+     * @param renderer 渲染器；null ⇒ 关闭（全部走引擎）
+     */
+    public static void initPageRenderer(cn.eova.compat.template.LegacyPageRenderer renderer) {
+        pageRenderer = renderer;
+    }
+
+    /**
+     * 取极简渲染器渲染次数（判据用：活页请求后必须增加）。
+     *
+     * @return 累计次数
+     */
+    public static long getMiniRenderCount() {
+        return MINI_RENDER_COUNT.get();
+    }
+
+    /**
+     * 取引擎兜底计数（判据用：活页应为 0）。
+     *
+     * @return 累计兜底次数
+     */
+    public static long getEngineFallbackCount() {
+        return ENGINE_FALLBACK_COUNT.get();
     }
 
     /**
@@ -179,6 +229,20 @@ public class LegacyTemplateRender extends LegacyRender {
                     os.write(text.getBytes(getEncoding()));
                     os.flush();
                     return;
+                }
+            }
+            // ★ r309 第 1 轮：**有指令的模板也先走极简渲染器**（与 Enjoy 逐字节等价，差分判据钉住）。
+            //   只有它明确报"不支持"才回退引擎（并计数 + 响亮告警）——
+            //   这样"退役 enjoy"推进的同时**不冒行为风险**，而计数 >0 就说明规格面变了。
+            if (pageRenderer != null) {
+                try {
+                    MINI_RENDER_COUNT.incrementAndGet();
+                    os.write(pageRenderer.render(view, data).getBytes(getEncoding()));
+                    os.flush();
+                    return;
+                } catch (UnsupportedOperationException e) {
+                    ENGINE_FALLBACK_COUNT.incrementAndGet();
+                    log.warn("Eova Web 层：极简渲染器不支持该模板，回退 enjoy 引擎 —— {}", e.getMessage());
                 }
             }
             engine.getTemplate(view).render(data, os);

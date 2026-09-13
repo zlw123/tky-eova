@@ -6,6 +6,8 @@
 package cn.eova.compat.template;
 
 import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.List;
 import java.lang.reflect.Method;
 import java.util.Map;
 
@@ -44,10 +46,22 @@ public final class LegacyExprEvaluator {
      * @return 渲染结果
      */
     public static String render(String template, Object data) {
+        return render(template, data, null);
+    }
+
+    /**
+     * 渲染模板（EXPR 腿子集，可带**共享方法注册表**）。
+     *
+     * @param template 模板串
+     * @param data     数据根
+     * @param shared   共享方法注册表（方法名 → 承载对象）；null ⇒ 无共享方法
+     * @return 渲染结果
+     */
+    public static String render(String template, Object data, Map<String, Object> shared) {
         if (template == null) {
             return null;
         }
-        Cursor c = new Cursor(template, data);
+        Cursor c = new Cursor(template, data, shared);
         StringBuilder out = new StringBuilder();
         String term = c.renderInto(out);
         if (term != null) {
@@ -64,7 +78,19 @@ public final class LegacyExprEvaluator {
      * @return 求值结果
      */
     public static Object eval(String expr, Object data) {
-        return new ExprParser(expr, data).parse();
+        return eval(expr, data, null);
+    }
+
+    /**
+     * 求值单个表达式（可带共享方法注册表）。
+     *
+     * @param expr   表达式
+     * @param data   数据根
+     * @param shared 共享方法注册表；null ⇒ 无共享方法
+     * @return 求值结果
+     */
+    public static Object eval(String expr, Object data, Map<String, Object> shared) {
+        return new ExprParser(expr, data, shared).parse();
     }
 
     // ------------------------------------------------------------------ 模板层
@@ -73,11 +99,13 @@ public final class LegacyExprEvaluator {
     private static final class Cursor {
         private final String src;
         private final Object data;
+        private final Map<String, Object> shared;
         private int pos;
 
-        Cursor(String src, Object data) {
+        Cursor(String src, Object data, Map<String, Object> shared) {
             this.src = src;
             this.data = data;
+            this.shared = shared;
         }
 
         /**
@@ -115,7 +143,7 @@ public final class LegacyExprEvaluator {
                     pos += 3;   // 留在 '(' 上，由 readParen 处理
                     String cond = readParen();
                     skipAllWhitespace();   // ★ 实测：`#if(c)\nbody` 的输出**不含**那个换行
-                    Object v = eval(cond, data);
+                    Object v = eval(cond, data, shared);
                     StringBuilder body = new StringBuilder();
                     String term = renderInto(body);
                     if ("else".equals(term)) {
@@ -137,7 +165,7 @@ public final class LegacyExprEvaluator {
                 if (src.startsWith("#(", pos)) {
                     pos += 1;   // ★ 必须把游标移到 '(' 上（首版漏了这步 ⇒ 每个 #(...) 都抛错，差分判据当场抓到）
                     String expr = readParen();
-                    out.append(format(eval(expr, data)));
+                    out.append(format(eval(expr, data, shared)));
                     continue;
                 }
                 // 其它指令（#for/#include/#define/#set 等）属页面渲染腿 —— 响亮抛错，绝不静默
@@ -214,11 +242,13 @@ public final class LegacyExprEvaluator {
     private static final class ExprParser {
         private final String s;
         private final Object data;
+        private final Map<String, Object> shared;
         private int p;
 
-        ExprParser(String s, Object data) {
+        ExprParser(String s, Object data, Map<String, Object> shared) {
             this.s = s;
             this.data = data;
+            this.shared = shared;
         }
 
         Object parse() {
@@ -371,9 +401,58 @@ public final class LegacyExprEvaluator {
                 if ("null".equals(word) || "nil".equals(word)) {
                     return null;
                 }
+                // ★ 函数调用：`name(arg1, arg2, …)`（页面模板里用到的共享方法，如 `conf('ui.include')`）
+                skipWs();
+                if (p < s.length() && s.charAt(p) == '(') {
+                    return callShared(word);
+                }
                 return resolveChain(word);
             }
             throw new IllegalStateException("无法解析的表达式片段：" + s.substring(p));
+        }
+
+        /**
+         * 调用**共享方法**（`name(args…)`）。
+         *
+         * <p>与 Enjoy 的共享方法语义对齐的部分：按名字在注册表里找承载对象，再按**参数个数**匹配公开方法调用。
+         * 找不到方法/调用失败一律抛错（不静默给 null）—— 与"取不到的属性"不同，方法名写错属配置错误。</p>
+         *
+         * @param name 方法名
+         * @return 调用结果
+         */
+        private Object callShared(String name) {
+            expect('(');
+            List<Object> args = new ArrayList<>();
+            skipWs();
+            if (p < s.length() && s.charAt(p) == ')') {
+                p++;
+            } else {
+                while (true) {
+                    args.add(or());
+                    skipWs();
+                    if (p < s.length() && s.charAt(p) == ',') {
+                        p++;
+                        continue;
+                    }
+                    expect(')');
+                    break;
+                }
+            }
+            if (shared == null || !shared.containsKey(name)) {
+                throw new IllegalStateException("共享方法未注册：" + name);
+            }
+            Object holder = shared.get(name);
+            for (Method m : holder.getClass().getMethods()) {
+                if (!m.getName().equals(name) || m.getParameterCount() != args.size()) {
+                    continue;
+                }
+                try {
+                    return m.invoke(holder, args.toArray());
+                } catch (ReflectiveOperationException e) {
+                    throw new IllegalStateException("共享方法调用失败：" + name, e);
+                }
+            }
+            throw new IllegalStateException("共享方法签名不匹配：" + name + "/" + args.size());
         }
 
         private Object resolveChain(String root) {

@@ -293,6 +293,12 @@ public class LegacyWebBootstrap {
             engine.addSharedObject(e.getKey(), e.getValue());
         }
         LegacyTemplateRender.init(engine);
+        // ★ r309 第 1 轮：注入**极简页面渲染器**（有指令模板先走它，与 enjoy 逐字节等价）。
+        //   共享方法取引擎已注册的那批（`BaseSharedMethod` 的 `conf('…')`/`getUIConf()` 就在其中）。
+        if (viewRoot != null) {
+            LegacyTemplateRender.initPageRenderer(
+                    cn.eova.compat.template.LegacyPageRenderer.of(viewRoot, collected.getSharedMethods()));
+        }
         // ★ r308 第 8 轮：注入**模板源读取器**（供"无指令模板直出"快路径用）。
         //   视图名口径与引擎一致（相对视图根，形如 `/eova/_view/...` 或 `/_view/theme/index.html`）。
         if (viewRoot != null) {
