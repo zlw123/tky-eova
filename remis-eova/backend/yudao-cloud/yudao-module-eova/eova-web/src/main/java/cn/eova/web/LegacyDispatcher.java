@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import cn.eova.compat.jfinal.aop.LegacyInterceptor;
+import cn.eova.compat.jfinal.aop.LegacyInterceptorManager;
 import cn.eova.compat.jfinal.aop.LegacyInvocation;
 import cn.eova.compat.jfinal.config.LegacyJFinalBoot;
 import cn.eova.compat.jfinal.config.LegacyRoutes;
@@ -204,13 +205,10 @@ public class LegacyDispatcher {
                     new LegacyJsonRequest(controller.getRawData(), controller.getRequest()));
         }
 
-        // 拦截器链：全局在前，路由级在后（旧 jfinal 同口径）
-        List<LegacyInterceptor> chain = new ArrayList<>(boot.getInterceptors().getInterceptors());
-        for (LegacyInterceptor i : hit.routeInters) {
-            chain.add(i);
-        }
+        LegacyInterceptor[] chain = buildActionChain(
+                boot.getInterceptors().getInterceptors(), hit.routeInters, hit.controllerClass, method);
         LegacyAction action = new LegacyAction(actionKey, hit.controllerPath, hit.controllerClass,
-                method, method.getName(), chain.toArray(new LegacyInterceptor[0]), null);
+                method, method.getName(), chain, null);
 
         try {
             new LegacyInvocation(action, controller).invoke();
@@ -318,5 +316,37 @@ public class LegacyDispatcher {
                 .filter(m -> !m.getDeclaringClass().equals(Object.class))
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * 构建一个 action 的完整拦截器链：**全局 → 路由级 → 类级 `@Before` → 方法级 `@Before`**（含 `@Clear`）。
+     *
+     * <p>★ r305 修（真缺陷 P1）：此前这里（内联写法）只拼"全局 + 路由级"，**从未读注解** ⇒
+     * 方法级 {@code @LegacyBefore(LegacyTx.class)}（全仓 24 处）与类级
+     * {@code @LegacyBefore(AdminInterceptor/OpsInterceptor.class)} 全部惰性：
+     * 事务不开启 ⇒ 回滚标记 {@code LegacyNestedTransactionHelpException} 无处被吞 ⇒
+     * {@code GET /menu/add} 由旧栈的 fail JSON 变成 500；运维/超管守卫也未执行。</p>
+     *
+     * <p><b>为什么抽成方法</b>（与 {@code EovaDataSource.registerOne} 同一教训）：
+     * 内联写法下"接线是否正确"只能靠读代码，而**变异证明不了**它 —— 实测 M3（把接线退回
+     * "只拼全局+路由级"）在装配器自身的判据下**未被捕获**。抽出来后判据可直接驱动本方法，
+     * 断言"真实控制器的注解确实进链"，接线一旦退回立刻红。</p>
+     *
+     * @param globalInters    全局拦截器（旧 jfinal {@code globalActionInters}）
+     * @param routeInters     路由级拦截器
+     * @param controllerClass action 所在控制器类
+     * @param method          action 方法
+     * @return 合并后的链（顺序即执行顺序）
+     */
+    static LegacyInterceptor[] buildActionChain(java.util.List<LegacyInterceptor> globalInters,
+                                               LegacyInterceptor[] routeInters,
+                                               Class<? extends cn.eova.compat.jfinal.core.LegacyController> controllerClass,
+                                               java.lang.reflect.Method method) {
+        return LegacyInterceptorManager.buildControllerActionInterceptor(
+                globalInters == null ? null : globalInters.toArray(new LegacyInterceptor[0]),
+                routeInters,
+                LegacyInterceptorManager.createControllerInterceptor(controllerClass),
+                controllerClass,
+                method);
     }
 }
