@@ -28,7 +28,7 @@
 
   ★ 两个服务端插值的来源（第 106 轮取证：**都不是查库**，故本页不需要引导端点）
   · `#(menuCode)` = `set("menuCode", get(0))` —— jfinal 的 **URL 第 0 段**（`ButtonController:36`）
-    ⇒ 前端从**路由参数**取（`/eova/button/add/:menuCode`）。
+    ⇒ 前端从**路由参数**取（`/button/add/:menuCode`，旧栈原路径）。
   · `#(role)` = `set("role", EovaConst.ADMIN_RID)` —— **常量**（`ButtonController:37`），
     其值为 `1`（`EovaConst:50` 默认 1；`EovaConfigPlugin:76` 用 `x.conf.getInt("admin_rid", 1)` 覆盖，
     而库里 `admin_rid` 就是 `1`）。

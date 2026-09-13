@@ -38,16 +38,22 @@ export const SPA_OWNED_PATHS: readonly string[] = [
   '/user/login',
   '/user/password',
   '/eova/admin/su',
-  // 带参数的入口页写**所有权前缀**（`/eova/button/add/<menuCode>` 的 `<menuCode>` 是路径段，
-  // 对应旧栈 ButtonController:36 的 `get(0)`）—— 见 ownedPrefixOf()
-  '/eova/button/add',
+  // 带参数的入口页写**所有权前缀**（`/button/add/<menuCode>` 的 `<menuCode>` 是路径段）—— 见 ownedPrefixOf()
+  // ★ r305 纠正（旧栈实测）：这四个路径**此前写成 `/eova/...` 或 `/meta/import`，都是加错前缀/写错段** ——
+  //   旧栈实测：`/menu/add` 302（存在）而 `/eova/menu/add` **404**；`/menu/auth/2` 302 而 `/eova/menu/auth/2` **404**；
+  //   `/button/add/meta_product` 302 而 `/eova/button/add/...` **404**；`/meta/imports` 302 而 `/meta/import` **404**。
+  //   口径②是"接管旧 URL、不得加前缀" ⇒ 必须改成旧原路径（`/eova/admin/su` 那种确实是 `/eova` 开头的除外）。
+  '/button/add',
   // ★ `/meta` 也是 dev 代理前缀之一 ⇒ 不登记就会被代理去后端（见本文件顶部说明）
   '/meta/reorder',
-  '/eova/menu/auth',
+  '/menu/auth',
   '/meta/field',
-  '/eova/menu/add',
+  // ⚠️ 是 `/menu/toAdd`（**页面**），不是 `/menu/add`（**提交动作**，旧 `MenuController#add()` 带 @Before(Tx)）
+  //    —— 旧页 js 实测：打开用 `menu/toAdd?parent_id=`，`'/menu/add'` 是提交 URL。
+  //    写错会把保存动作的 POST 也吞进 SPA（dev 代理按所有者放行，不分方法）。
+  '/menu/toAdd',
   '/meta/edit',
-  '/meta/import',
+  '/meta/imports',
   '/eova/role/auth',
   // EovaUI 组件演示页：旧路径 /widget（demo `AppController#widget()` 渲染 `_view/widget/index.html`）
   '/widget',
@@ -59,7 +65,10 @@ export const SPA_OWNED_PATHS: readonly string[] = [
 /**
  * 把路由 path 归一化为**所有权前缀**：去掉动态段（`:xxx`）与其后的内容。
  *
- * 例：`/eova/button/add/:menuCode` → `/eova/button/add`（与 `SPA_OWNED_PATHS` 里的写法一致）。
+ * ★ r305：`SPA_OWNED_PATHS` 里的入口页路径一律是**旧栈原路径**（`/menu/add`、`/button/add`、
+ * `/meta/imports`…），不是 `/eova/...` 前缀版本 —— 后者在旧栈是 404（实测）。
+ *
+ * 例：`/button/add/:menuCode` → `/button/add`（与 `SPA_OWNED_PATHS` 里的写法一致）。
  *
  * @param path 路由 path
  * @returns 所有权前缀

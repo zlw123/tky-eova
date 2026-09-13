@@ -66,8 +66,8 @@ export const routes: RouteRecordRaw[] = [
     component: Su
   },
   {
-    // 快速添加按钮：旧路径 /eova/button/add/<menuCode>（ButtonController#add() 的 `get(0)` 就是它）
-    path: '/eova/button/add/:menuCode',
+    // 快速添加按钮：旧路径 **/button/add/<menuCode>**（旧栈实测 302；`/eova/button/add/...` 是 404 —— r305 纠正）
+    path: '/button/add/:menuCode',
     name: 'button-add',
     component: ButtonAdd
   },
@@ -79,7 +79,7 @@ export const routes: RouteRecordRaw[] = [
   },
   {
     // 功能授权：旧路径 /eova/menu/auth/<id>（MenuController#auth() 的 `getInt(0)` 就是那个 id）
-    path: '/eova/menu/auth/:id',
+    path: '/menu/auth/:id',
     name: 'menu-auth',
     component: MenuAuth
   },
@@ -91,7 +91,8 @@ export const routes: RouteRecordRaw[] = [
   },
   {
     // 创建菜单：旧路径 /eova/menu/add（MenuController#add() 渲染，父页菜单树以弹层 iframe 打开它）
-    path: '/eova/menu/add',
+    // ⚠️ 旧**页面**路径是 `/menu/toAdd`（`MenuController#toAdd()`）；`/menu/add` 是提交动作
+    path: '/menu/toAdd',
     name: 'menu-add',
     component: MenuAdd
   },
@@ -103,7 +104,7 @@ export const routes: RouteRecordRaw[] = [
   },
   {
     // 导入元数据：旧路径 /meta/import（无查询参数；数据源列表由服务端 `#for(t : dataSources)` 注入）
-    path: '/meta/import',
+    path: '/meta/imports',
     name: 'meta-import',
     component: MetaImport
   },

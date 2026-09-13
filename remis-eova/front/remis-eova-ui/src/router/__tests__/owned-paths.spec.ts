@@ -31,15 +31,15 @@ describe('router · SPA 拥有的路径', () => {
   })
 
   it('ownedPrefixOf：去掉动态段及其后的内容（带参数路由与所有权前缀对齐）', () => {
-    expect(ownedPrefixOf('/eova/button/add/:menuCode')).toBe('/eova/button/add')
+    expect(ownedPrefixOf('/button/add/:menuCode')).toBe('/button/add')
     expect(ownedPrefixOf('/a/:b/c')).toBe('/a')
     expect(ownedPrefixOf('/user/login')).toBe('/user/login')
     expect(ownedPrefixOf('/')).toBe('/')
   })
 
   it('带参数的入口页：具体 URL 归 SPA，且**同前缀的后端路径仍归后端**', () => {
-    expect(isSpaOwnedPath('/eova/button/add/menu_x')).toBe(true)
-    // 反例：不能因为 /eova/button/add 归 SPA 就把整个 /eova/button 吞掉
+    expect(isSpaOwnedPath('/button/add/menu_x')).toBe(true)
+    // 反例：不能因为 /button/add 归 SPA 就把整个 /button 吞掉
     expect(isSpaOwnedPath('/eova/button/quick/menu_x')).toBe(false)
     expect(isSpaOwnedPath('/button/doAdd')).toBe(false)
   })
@@ -61,6 +61,33 @@ describe('router · isSpaOwnedPath（dev 代理放行规则）', () => {
 
   it('子路径也归 SPA（`path + "/"` 前缀）', () => {
     expect(isSpaOwnedPath('/eova/admin/su/detail')).toBe(true)
+  })
+
+  it('★ r305 契约：动作页入口一律走**旧栈原路径**，加错前缀的路径不得再被 SPA 认领', () => {
+    // 旧栈真浏览器/HTTP 实测（未登录时 302=存在，404=不存在）：
+    //   /menu/add 302 · /eova/menu/add 404 ｜ /menu/auth/2 302 · /eova/menu/auth/2 404
+    //   /button/add/meta_product 302 · /eova/button/add/... 404 ｜ /meta/imports 302 · /meta/import 404
+    // 口径②是"接管旧 URL、不得加前缀" ⇒ SPA 必须认领**左侧**那组。
+    expect(isSpaOwnedPath('/menu/toAdd')).toBe(true)
+    // ⚠️ 反面：`/menu/add` 是**提交动作**（旧 MenuController#add() 带 @Before(Tx)）⇒ 必须留给后端；
+    //    把它当成页面路径会让保存的 POST 也被 SPA 吞掉（实测纠正：旧页打开用的是 menu/toAdd?parent_id=）
+    expect(isSpaOwnedPath('/menu/add')).toBe(false)
+    expect(isSpaOwnedPath('/menu/auth/1248')).toBe(true)
+    expect(isSpaOwnedPath('/button/add/meta_product')).toBe(true)
+    expect(isSpaOwnedPath('/meta/imports')).toBe(true)
+
+    // 反例（加了前缀的那组 = 旧栈 404）不得被认领，否则是把"我们的错路径"当成契约
+    expect(isSpaOwnedPath('/eova/menu/add')).toBe(false)
+    expect(isSpaOwnedPath('/eova/menu/auth/1248')).toBe(false)
+    expect(isSpaOwnedPath('/eova/button/add/meta_product')).toBe(false)
+    expect(isSpaOwnedPath('/meta/import')).toBe(false)
+
+    // 同前缀的**后端**动作仍归后端（判据是段边界，不是模糊前缀）
+    expect(isSpaOwnedPath('/menu/authData')).toBe(false)
+    expect(isSpaOwnedPath('/menu/icon')).toBe(false)
+    expect(isSpaOwnedPath('/meta/reorder_data')).toBe(false)
+    // 反向：/meta/reorder 归 SPA（页面），/meta/reorder_data 归后端（动作）—— 二者只差一个下划线
+    expect(isSpaOwnedPath('/meta/reorder')).toBe(true)
   })
 
   it('★ 不做前缀模糊匹配：同前缀的**后端**路径仍归后端', () => {
