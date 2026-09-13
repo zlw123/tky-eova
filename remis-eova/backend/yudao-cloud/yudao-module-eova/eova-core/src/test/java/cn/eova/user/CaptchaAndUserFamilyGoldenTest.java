@@ -598,9 +598,10 @@ class CaptchaAndUserFamilyGoldenTest {
         assertEquals(legacyContract, paths.subList(0, legacyContract.size()), "18 条路由的顺序与路径属契约");
         assertEquals(List.of(
                 "/su", "/placeholder", "/main", "/theme", "/test", "/test/sse",
-                "/ip", "/sso", "/widget", "/eova/role/auth"),
+                "/ip", "/sso", "/widget"),
                 paths.subList(legacyContract.size(), paths.size()),
-                "r305 U1：SPA 壳路由的顺序/路径锁死（新增须同步 SPA_OWNED_PATHS 与壳判据）");
+                "r305 U1：SPA 壳路由的顺序/路径锁死（新增须同步 SPA_OWNED_PATHS 与壳判据）；"
+                        + "r306 U2：删去基于错误前提的 /eova/role/auth（旧页面 URL 是 /auth/<rid>）");
         for (int i = legacyContract.size(); i < classes.size(); i++) {
             assertEquals(SpaShellController.class, classes.get(i), "壳路由必须指向 SpaShellController");
         }

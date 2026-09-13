@@ -87,10 +87,12 @@ public class EovaWebRoutes extends WebRoutes {
         // `/widget` 是 EovaUI 组件演示页：旧栈由 demo 的 AppController#widget() 渲染，
         // 新栈后端无对应路由（SPA 侧已登记 `/widget`）⇒ 同样由壳接管。
         add("/widget", SpaShellController.class);
-        // 角色授权页：SPA 路由是 `/eova/role/auth/:rid`，而后端侧**旧页面 URL 是 `/auth`**（实测 `/auth` 200、
-        // `/role/auth/1` 404）⇒ 两处不一致属**待取证**的 URL 契约问题（登记在案）。这里先让 SPA 自己的
-        // URL 有响应，`/auth` 仍由 AuthController#index 渲染旧页（未退役，等取证后一并处理）。
-        add("/eova/role/auth", SpaShellController.class);
+        // ★ r306（U2 取证）**删掉**了 U1 在这里登记的 `/eova/role/auth` 壳路由 —— 它基于错误前提：
+        //   旧页面 URL 是 **`/auth/<rid>`**（带会话实测 `/auth`、`/auth/1248` 都是 200「功能权限分配」；
+        //   而 `/eova/role/auth/1`、`/role/auth/1` 都是 **404**）。那条前缀是照着**模板路径**
+        //   （`/eova/role/auth/app.html`）抄出来的，不是 URL。
+        //   现在 `/auth` 的页面入口已在 `AuthController#index()` 里退役为壳，而该控制器的路由本来就已注册
+        //   ⇒ 无需再造壳路由；`/auth/<rid>` 则由「方法名匹配失败 ⇒ 退化到 index()」落壳。
 
         // LoginInterceptor.excludes.add(String.format("%s/**/**", ApiRouterHandler.ROUTER));
 

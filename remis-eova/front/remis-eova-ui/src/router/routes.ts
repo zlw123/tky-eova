@@ -54,12 +54,44 @@ export const SPA_OWNED_PATHS: readonly string[] = [
   '/menu/toAdd',
   '/meta/edit',
   '/meta/imports',
-  '/eova/role/auth',
+  // ★ r306（U2 取证）：**移除了** `/eova/role/auth` —— 旧页面 URL 是 `/auth/<rid>`（实测 `/auth`、
+  //   `/auth/1248` = 200「功能权限分配」；`/eova/role/auth/1` = **404**），旧条目是照着模板路径抄的。
+  //   而 `/auth` 本身**不能**登记所有权：同前缀下还有动作 `/auth/data`、`/auth/doAuth`、`/auth/update`，
+  //   而 dev 代理按**前缀**放行、不分方法 ⇒ 登记会把动作一起吞掉。
+  //   页面 URL 的壳由后端供给（`AuthController#index()` 已退役为壳）。
   // EovaUI 组件演示页：旧路径 /widget（demo `AppController#widget()` 渲染 `_view/widget/index.html`）
   '/widget',
   // SSE 演示页：旧路径 /test/sse（`TestController#sse()` 渲染 `_view/sse/index.html`）
   // ★ `/test` 是后端前缀（已配代理）⇒ 不登记就会被代理去后端（拿到后端 HTML）
-  '/test/sse'
+  '/test/sse',
+  // ★ r306（U2）：功能权限分配页。旧原路径是 `/auth/<rid>`（实测旧栈 `/auth`、`/auth/1248` = 200
+  //   「功能权限分配」；`/eova/role/auth/1` = **404** ⇒ SPA 此前那条路由是把**模板路径**当 URL）。
+  //   页面入口已在后端退役为壳（`AuthController#index()`）⇒ dev 归 SPA、生产由后端给壳，两边一致。
+  //   ⚠️ 同前缀的**动作**（`/auth/data` 等）由 `BACKEND_ACTION_PATHS` 显式留给后端 —— 见该常量的说明。
+  '/auth'
+]
+
+/**
+ * ★ r306（U2）：**与页面同前缀的后端动作**白名单（dev 代理层面必须继续代理给后端）。
+ *
+ * 为什么需要它：所有权判定按**路径前缀**、不分 HTTP 方法。`/auth` 前缀下既有页面（`/auth/<rid>`）
+ * 又有动作（下面这四条），若只做前缀判定，认领页面就会把动作一起喂给 SPA。
+ *
+ * 为什么不能反过来（不认领页面）：dev 下 `/auth/<rid>` 的**文档请求**会被代理到后端，
+ * 浏览器拿到的是后端供给的**生产 dist 产物** —— 实测症状是"dev 里该页渲染成上一个版本的 bundle"
+ * （真浏览器取证时红过一次：SPA 只渲染 168 字符，因为旧 bundle 里还没有 `/auth/:rid` 这条路由）。
+ *
+ * 维护口径：这里登记 `AuthController` 的**全部公开动作**（`index` 是页面、不属于此列）。
+ * `/auth/button` 当前在 SPA 与冻结旧资产里都**没有调用点**，但仍登记 —— 动作的可达性不该取决于
+ * "现在有没有人调"，少登记一条就是给它留了一个"dev 静默失效"的坑。
+ *
+ * @see isSpaOwnedPath
+ */
+export const BACKEND_ACTION_PATHS: readonly string[] = [
+  '/auth/data',
+  '/auth/doAuth',
+  '/auth/update',
+  '/auth/button'
 ]
 
 /**
@@ -107,5 +139,14 @@ export function isSpaOwnedPath(url: string): boolean {
     return true
   }
   const path = url.split('?')[0].split('#')[0]
+  // ★ r306（U2）：与页面**同前缀的后端动作**优先判给后端（在所有权匹配之前判）。
+  //   背景：`/auth/<rid>` 是页面（归 SPA），而 `/auth/data`、`/auth/doAuth`、`/auth/update`
+  //   是同前缀的**动作**；dev 代理的所有权判定按前缀、**不分方法**（见 `/menu/add` 的教训）
+  //   ⇒ 若不做这条例外，认领 `/auth` 会把这三个 POST 一起放给 SPA ⇒ 页面自己的请求拿到 HTML ⇒ 功能直接坏。
+  //   为什么不干脆不认领 `/auth`：那样 dev 下 `/auth/<rid>` 的**文档请求**会被代理到后端，
+  //   拿到后端供给的**生产 dist 产物**（实测症状：dev 里该页渲染成上一个版本的 bundle ⇒ 静默串版本）。
+  if (BACKEND_ACTION_PATHS.some((p) => path === p || path.startsWith(p + '/'))) {
+    return false
+  }
   return SPA_OWNED_PATHS.some((p) => path === p || (p !== '/' && path.startsWith(p + '/')))
 }

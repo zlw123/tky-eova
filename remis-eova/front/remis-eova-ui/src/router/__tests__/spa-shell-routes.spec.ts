@@ -78,8 +78,10 @@ describe('生产态页面供给 · 名单同步（U1）', () => {
 
   it('②b 壳路由名单冻结（删一条即红 —— 判据的灵敏度自证）', () => {
     const shells = routes.filter(([, c]) => c === 'SpaShellController').map(([p]) => p).sort()
+    // ★ r306（U2）：U1 登记的 `/eova/role/auth` 已删除 —— 它基于错误前提（旧页面 URL 是 `/auth/<rid>`，
+    //   `/eova/role/auth/1` 实测 404）。`/auth` 的页面入口改由 `AuthController#index()` 退役为壳，
+    //   该路由本来就已注册 ⇒ 不再需要壳路由条目。名单从 10 条降为 9 条。
     expect(shells).toEqual([
-      '/eova/role/auth',
       '/ip',
       '/main',
       '/placeholder',

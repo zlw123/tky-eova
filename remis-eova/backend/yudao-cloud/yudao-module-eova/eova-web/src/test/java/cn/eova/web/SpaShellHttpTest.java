@@ -102,6 +102,11 @@ class SpaShellHttpTest {
                 "/meta/imports",
                 "/app/meta_product",
                 "/app/add/meta_product",
+                // ★ r306（U2）：`/auth` 页面入口退役为壳（旧栈实测 200「功能权限分配」；
+                //   SPA 侧该页已迁移到**旧原路径** `/auth/:rid`）；`/auth/<rid>` 由「方法名匹配失败
+                //   ⇒ 退化到 index()」落壳 —— 两条都要有响应，否则 SPA 在生产态拿不到该页。
+                "/auth",
+                "/auth/1248",
                 "/su",
                 "/placeholder",
                 "/main",

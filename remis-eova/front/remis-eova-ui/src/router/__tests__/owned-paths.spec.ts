@@ -7,8 +7,23 @@
  */
 import { describe, expect, it } from 'vitest'
 import { routePathsOf } from './helpers'
-import { SPA_OWNED_PATHS, isSpaOwnedPath, ownedPrefixOf } from '../routes'
+import { BACKEND_ACTION_PATHS, SPA_OWNED_PATHS, isSpaOwnedPath, ownedPrefixOf } from '../routes'
 import { routes } from '../index'
+
+/**
+ * ★ r306（U2）：**与页面同前缀的后端动作白名单**（`BACKEND_ACTION_PATHS`）。
+ *
+ * 背景：所有权判定按**路径前缀、不分 HTTP 方法**。`/auth` 前缀下既有页面（`/auth/<rid>`，归 SPA）
+ * 又有动作（`/auth/data` 等，归后端）⇒ 白名单是"页面能被 SPA 供给、动作又不被吞"的唯一办法。
+ *
+ * 这些动作的来源是**后端 `AuthController` 的公开动作**（判据从 Java 源码解析核对，见 dev-proxy 判据）。
+ */
+const EXPECTED_BACKEND_ACTION_PATHS: readonly string[] = [
+  '/auth/data',
+  '/auth/doAuth',
+  '/auth/update',
+  '/auth/button'
+]
 
 describe('router · SPA 拥有的路径', () => {
   it('router 里**每一条**路由都被 SPA 所有权规则覆盖（漏登记/漏接线 ⇒ dev 代理会把它送去后端）', () => {
@@ -26,6 +41,22 @@ describe('router · SPA 拥有的路径', () => {
         `路由 ${p}（样例 URL ${sample}）未被 SPA 所有权规则覆盖 ⇒ 打开该页会拿到后端响应`
       ).toBe(true)
     }
+  })
+
+  it('★ r306：`/auth` 页面归 SPA，而同前缀**动作**仍归后端（两条都不能少）', () => {
+    // 页面：旧原路径 `/auth/<rid>`（实测旧栈 `/auth`、`/auth/1248` = 200「功能权限分配」；
+    //   `/eova/role/auth/1` = 404 ⇒ SPA 此前把**模板路径**当 URL，已纠正）
+    expect(isSpaOwnedPath('/auth/1248')).toBe(true)
+    expect(SPA_OWNED_PATHS).toContain('/auth')
+    expect(SPA_OWNED_PATHS).not.toContain('/eova/role/auth')
+    // 动作：一个都不能被 SPA 吞（否则页面自己的 `POST /auth/data` 会拿到 HTML）
+    for (const a of EXPECTED_BACKEND_ACTION_PATHS) {
+      expect(isSpaOwnedPath(a), `${a} 是后端动作，不得归 SPA`).toBe(false)
+      expect(isSpaOwnedPath(a + '/x'), `${a}/x 同样归后端`).toBe(false)
+    }
+    expect(BACKEND_ACTION_PATHS).toEqual(EXPECTED_BACKEND_ACTION_PATHS)
+    // 反空断言：白名单里每一条都真的在 `/auth` 之下（写错前缀的条目会让判据静默失效）
+    expect(EXPECTED_BACKEND_ACTION_PATHS.every((a) => a.startsWith('/auth/'))).toBe(true)
   })
 
   it('SPA_OWNED_PATHS 里**每一条**都有对应路由（多登记 ⇒ 该路径既不给 SPA 也不给后端）', () => {

@@ -200,21 +200,24 @@ class LegacyHttpContractTest {
     }
 
     @Test
-    @DisplayName("★ S2b-5b：GET /auth ⇒ 200 + 旧模板正文（**模板源映射**判据的新锚点）")
+    @DisplayName("★ S2b-5b：旧模板页 ⇒ 正文来自旧模板文件（**模板源映射**判据的锚点）")
     void stillLegacyPageRendersFromLegacyViewRoot() {
         String sid = login();
-        ResponseEntity<String> resp = get(sid, "/auth");
-        // 旧栈实测（带会话 curl 9090）：200 / text/html / <title>功能权限分配</title>。
-        // ★ 这条专门钉住【模板源映射】：`/eova/role/auth/app.html` ⇒ `<视图根>/webapp/eova/...`。
-        //   映射写错（少了 webapp 一层）时本页会 500，而其它判据照样全绿。
-        //   为什么换锚点到 `/auth`：U1 把 `/user/login` 退役成壳后，旧锚点已不再走模板渲染
-        //   ⇒ 若仍留在原判据上，这条【模板源映射】判据会**空洞化**（断言壳里永远不含旧标题）。
-        assertEquals(200, resp.getStatusCode().value(), "/auth 必须 200，实际=" + resp.getStatusCode());
+        ResponseEntity<String> resp = get(sid, "/excel/imports/sys_hotel");
+        // 旧栈带会话实测：200 / text/html / <title>导入酒店数据</title>；
+        //   模板落点 `<视图根>/excel/import/app.html`（**不以 /eova/ 开头 ⇒ 不经 _view 重写**）。
+        // ★ 这条专门钉住【模板源映射】：视图根解析错时本页会 500，而其它判据照样全绿。
+        //   锚点变迁史：r305（U1）锚在 `/user/login`；U1 把登录页退役为壳后换锚到 `/auth`；
+        //   r306（U2）把 `/auth` 也退役为壳（该页 SPA 侧早已迁移）⇒ 换锚到**唯一仍在渲染旧模板的页面**
+        //   `/excel/imports/<objectCode>`。
+        //   ★ `/eova/x ⇒ /eova/_view/x` 那条**重写**映射的守卫已下沉到单元层：
+        //   `LegacyViewRewriteGoldenTest`（因为已无活页面走该重写 —— 见 U2 台账）。
+        assertEquals(200, resp.getStatusCode().value(), "/excel/imports/<code> 必须 200，实际=" + resp.getStatusCode());
         String ct = String.valueOf(resp.getHeaders().getFirst(HttpHeaders.CONTENT_TYPE));
         assertTrue(ct.contains("text/html"), "★ 必须是 HTML（旧契约），实际=" + ct);
         String body = resp.getBody();
         assertNotNull(body, "必须有正文");
-        assertTrue(body.contains("功能权限分配"), "★ 正文必须来自旧模板（标题缺失说明模板源映射错了）");
-        assertFalse(body.contains("eova-assets/"), "★ /auth 仍是旧模板页，不得被壳接管（顺序/范围都会被这条抓到）");
+        assertTrue(body.contains("导入酒店数据"), "★ 正文必须来自旧模板（标题缺失说明模板源映射错了）");
+        assertFalse(body.contains("eova-assets/"), "★ 仍是旧模板页，不得被壳接管（顺序/范围都会被这条抓到）");
     }
 }

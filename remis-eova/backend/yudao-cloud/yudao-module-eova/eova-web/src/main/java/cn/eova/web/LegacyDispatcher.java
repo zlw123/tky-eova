@@ -176,7 +176,20 @@ public class LegacyDispatcher {
             actionKey = "index";
         }
 
-        Method method = findAction(hit.controllerClass, actionKey);
+        // ★★ r306（U2 · 实跑抓出的第二个移植缺口）：**urlPara 只有一段**。
+        //   旧 jfinal 的动作键空间 = {控制器路径} ∪ {控制器路径 + "/" + 方法名}，而 `ActionMapping#getAction`
+        //   最多只把**一个**尾段当 urlPara ⇒ 「方法名 + 2 段以上」的 URL **根本没有对应动作键** ⇒ 404。
+        //   （多值 urlPara 不是用 `/` 分隔，而是**同一段内用 `-` 分隔** —— 这正是旧
+        //    `MetaController#find` 的 `get(0)`/`get(1)` 配 `/meta/find/main-table` 的由来。）
+        //   实测：旧栈 `/meta/find/main-table/1` **404**，而新栈此前把 `main-table/1` 整段当 urlPara
+        //   ⇒ 真的去渲染模板 ⇒ **500** ⇒ 不等价。修法：多段时**跳过直接动作匹配**，交给下面的退化路径
+        //   （退化要求"前缀是已注册路由"，多段前缀必然不是 ⇒ 404，与旧栈一致）。
+        boolean multiSegmentPara = false;
+        if (slash >= 0) {
+            multiSegmentPara = rest.indexOf('/', slash + 1) >= 0;
+        }
+
+        Method method = multiSegmentPara ? null : findAction(hit.controllerClass, actionKey);
         // ★ 兜底**只对页面请求生效**：末段含 `.` 的"文件型"路径不走退化，直接 404。
         //   实测旧栈：`/demo/test/nope.js`、`/nope/x.css`、`/zzz_unknown.js` 全 **404**，
         //   而 `/zzz_unknown`（无扩展名）落首页 —— 静态层与动作层是分开的。

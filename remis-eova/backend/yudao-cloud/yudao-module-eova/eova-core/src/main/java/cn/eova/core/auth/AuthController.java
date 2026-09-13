@@ -50,7 +50,17 @@ import cn.eova.compat.jfinal.plugin.activerecord.LegacyTxConfig;
 public class AuthController extends BaseController {
 
     /**
-     * 功能权限分配
+     * 功能权限分配（**页面入口**）
+     *
+     * <p>r306（U2 取证后退役）：旧实现渲染 {@code /eova/role/auth/app.html}；旧栈带会话实测
+     * {@code /auth} 与 {@code /auth/1248} 都是 200「功能权限分配」（{@code get(0)} = rid）。
+     * SPA 侧该页已迁移（{@code views/role/RoleAuth.vue}，契约逐条对齐本页 + {@code data()}/{@code doAuth()}）
+     * ⇒ 页面入口退役为 SPA 壳，与 U1 的 15 处同口径。</p>
+     *
+     * <p><b>本控制器的动作一字不动</b>：{@code /auth/data}、{@code /auth/doAuth}、{@code /auth/update}
+     * 都是 {@code get("rid")} 型动作，与页面 URL 同前缀。它们能保持可达的原因：分发器先按
+     * <b>方法名</b>精确匹配（{@code data}/{@code doAuth}/{@code update} 都存在）⇒ 只有匹配不到方法时
+     * 才会退化到 {@code index()}（本方法）。</p>
      */
     public void index() {
         setAttr("rid", get(0));
@@ -64,7 +74,8 @@ public class AuthController extends BaseController {
         //getAuthMenu();
 
 //        render("/eova/auth/roleChoose.html");
-        render("/eova/role/auth/app.html");
+        // ★ r306（U2）：页面入口退役 ⇒ 返回 SPA 壳（`/auth` 与 `/auth/<rid>` 都落这里）
+        renderSpaShell();
     }
 
 

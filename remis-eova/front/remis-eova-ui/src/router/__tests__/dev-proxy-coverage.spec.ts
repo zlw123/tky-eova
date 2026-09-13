@@ -138,8 +138,9 @@ const SHELL_ROUTE_PATHS: readonly string[] = [
   '/test/sse',
   '/ip',
   '/sso',
-  '/widget',
-  '/eova/role/auth'
+  '/widget'
+  // ★ r306（U2）：`/eova/role/auth` 已从后端路由表删除（错误前提：旧页面 URL 是 `/auth/<rid>`）
+  //   ⇒ 本例外清单同步移除；`/auth` 由后端按**普通已注册路由**供给壳（首段 `/auth` 在代理表里 ✔）。
 ]
 
 describe('dev 代理覆盖', () => {

@@ -109,8 +109,16 @@ export const routes: RouteRecordRaw[] = [
     component: MetaImport
   },
   {
-    // 功能权限分配：旧路径 /eova/role/auth/<rid>（AuthController#index() 的 `get(0)` 就是那个 rid）
-    path: '/eova/role/auth/:rid',
+    // 功能权限分配：旧原路径 **/auth/<rid>**（`AuthController#index()` 的 `get(0)` 就是那个 rid）
+    //   ★ r306（U2 取证）**纠正**：此前写成 `/eova/role/auth/:rid` —— 那是把**模板路径**
+    //     （`/eova/role/auth/app.html`）当成了 URL。带会话实测真值：旧栈 `/auth`、`/auth/1248`
+    //     都是 200「功能权限分配」，而 `/eova/role/auth/1` 与 `/role/auth/1` 都是 **404**。
+    //   ★ 本路径**不得**登记进 `SPA_OWNED_PATHS`：`/auth` 前缀下还有**动作**
+    //     （`/auth/data`、`/auth/doAuth`、`/auth/update`），而 dev 代理的所有权判定**按前缀、不分方法**
+    //     ⇒ 登记所有权会把这三个动作一起吞进 SPA（U1 在 `/menu/add` 上记过同类教训）。
+    //     页面 URL 的壳由**后端**供给：`AuthController#index()` 已退役为壳，`/auth` 与 `/auth/<rid>`
+    //     都返回壳 ⇒ SPA 起来后由本路由渲染。
+    path: '/auth/:rid',
     name: 'role-auth',
     component: RoleAuth
   },
