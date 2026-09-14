@@ -252,29 +252,33 @@ public class LegacyWebBootstrap {
         //   金仓下 4 个列表页数据面对不上（r322 实测），而 `main` 库却是金仓
         //   ⇒ **同一进程连两个库**，属部署级缺陷（金仓环境里根本没有那个 MySQL）。
         //   规则：**配置里有就不覆盖**；Spring 属性只作"配置缺失时的宿主兜底"（本机单测/无配置文件场景）。
-        addConfigIfAbsent("eova.url", dbUrl);
-        addConfigIfAbsent("eova.user", dbUser);
-        addConfigIfAbsent("eova.pwd", dbPwd);
-        addConfigIfAbsent("eova.driver", dbDriver);
-
+        // ★★ r324（金仓收口 · 根因）：**这里不再往 `x.conf` 写任何 `eova.*`**。两层证据：
+        //   ① 本 bean 执行时 `x.conf` 里**还没有** `dev.txt` 的值（配置文件在 ④ `boot.init` 才装载），
+        //      所以"配置优先"的写法反而**由宿主默认值先落位**；而 `addConfig` **不覆盖**
+        //      （r323 变异实验已证）⇒ `dev.txt` 的坐标**永远赢不了**，元数据源被钉死在 MySQL；
+        //   ② 日志实测：③ 处读不到 `eova.url`、④b（`boot.init` 之后）能读到 ⇒ 顺序是根因。
+        //   修法见 ③：坐标**延迟到首次取连接时解析**（那时配置已装载），与 `main` 同源（`x.conf`）。
         // ③ 元数据源：真自省优先，缺则退化为占位并【显式声明】
         // ★ S2b：网关 + 真自省是 dao 可用的前提（旧栈由 configPlugin 的 ARP 承担）。
         //   没有容器 DataSource 时，按配置自建 DriverManager 版（驱动由运行时 classpath 提供，
         //   故 main 不引驱动依赖）——不再退化占位，否则 /user/doLogin 之类一查库就失败。
         DataSource ds = dataSourceProvider.getIfAvailable();
         if (ds == null) {
-            // ★★ r323 修（金仓收口 · 第一条真缺陷的真正修法）：
-            //   此前这里直接用宿主字段 `new DriverManagerDataSource(dbUrl, dbUser, dbPwd, dbDriver)`，
-            //   **从不读 `eova/dev.txt`** ⇒ 把 dev.txt 切到金仓后，元数据库仍连 Spring 默认值
-            //   （MySQL baseline）：启动日志实测 `自建 DriverManager DataSource → jdbc:mysql://127.0.0.1:13306/eova_meta`，
-            //   而 `main` 库走配置是金仓 ⇒ **同一进程连两个库**（r322 端到端实测，金仓下 4 页数据面对不上）。
-            //   规则与 `main` 一致：**配置优先，宿主属性只兜底**（无配置文件的本机单测场景仍可用）。
-            String cfgUrl = x.conf.get("eova.url");
-            String url = pick(cfgUrl, dbUrl);
-            ds = new DriverManagerDataSource(url, pick(x.conf.get("eova.user"), dbUser),
-                    pick(x.conf.get("eova.pwd"), dbPwd), pick(x.conf.get("eova.driver"), dbDriver));
-            log.info("Eova Web 层：自建 DriverManager DataSource → {}（来源={}）", url,
-                    x.isEmpty(cfgUrl) ? "宿主属性兜底（配置里没有 eova.url）" : "eova/dev.txt");
+            // ★★ r324（金仓收口 · 第一条真缺陷的真正修法）：**延迟解析坐标**。
+            //   为什么必须延迟：本处（③）在 `boot.init`（④）**之前**执行，此时 `eova/dev.txt` 尚未装载
+            //   ⇒ 无论怎么写都读不到配置里的坐标（实测 ③ 处 `x.conf.get("eova.url")` 为空、
+            //   ④b 处非空）。而 ③ 又必须早于 ④（④ 的 `onStart` 要读库）⇒ 不能把 ③ 挪后。
+            //   ⇒ 用**首次取连接时解析**的包装：那时配置已装载，坐标与 `main` 库同源（`x.conf`），
+            //     宿主属性只作兜底；日志在解析时打印，且**如实标注真实出处**（早先只按"值非空"就写
+            //     `eova/dev.txt`，掩盖了 r322 的缺陷）。
+            ds = new LazyEovaDataSource(() -> {
+                String cfgUrl = x.conf.get("eova.url");
+                String url = pick(cfgUrl, dbUrl);
+                log.info("Eova Web 层：自建 DriverManager DataSource → {}（来源={}）", url,
+                        x.isEmpty(cfgUrl) ? "宿主属性兜底（配置里没有 eova.url）" : "eova/dev.txt（首次连接时解析）");
+                return new DriverManagerDataSource(url, pick(x.conf.get("eova.user"), dbUser),
+                        pick(x.conf.get("eova.pwd"), dbPwd), pick(x.conf.get("eova.driver"), dbDriver));
+            });
         } else {
             log.info("Eova Web 层：使用容器 DataSource bean");
         }
@@ -400,6 +404,99 @@ public class LegacyWebBootstrap {
      * <p>为什么不引驱动依赖到 main：驱动属运行时提供物（部署时进 classpath）。
      * 本项目既有 live 判据也用同款直连实现。</p>
      */
+    /**
+     * **延迟解析坐标的数据源**（r324）：首次取连接时才解析并建真实数据源。
+     *
+     * <p>存在理由见 ③ 的注释：元数据源必须在 `boot.init`（配置装载）之前注册，
+     * 而它的坐标又只能来自配置 ⇒ 二者用"延迟解析"调和。解析一次后缓存（与连接池语义一致：
+     * 数据源在应用生命周期内只解析一次）。</p>
+     */
+    static final class LazyEovaDataSource implements DataSource {
+
+        /** 真实数据源的工厂（首次取连接时调用一次） */
+        private final java.util.function.Supplier<DataSource> factory;
+
+        /** 已解析的真实数据源（volatile + 双检：并发下只解析一次） */
+        private volatile DataSource delegate;
+
+        /**
+         * 构造。
+         *
+         * @param factory 真实数据源工厂
+         */
+        LazyEovaDataSource(java.util.function.Supplier<DataSource> factory) {
+            this.factory = factory;
+        }
+
+        /**
+         * 取真实数据源（首次调用时解析并缓存）。
+         *
+         * @return 真实数据源
+         */
+        private DataSource real() {
+            DataSource d = delegate;
+            if (d == null) {
+                synchronized (this) {
+                    if (delegate == null) {
+                        delegate = factory.get();
+                    }
+                    d = delegate;
+                }
+            }
+            return d;
+        }
+
+        /** 取已解析的数据源（判据用：未解析时为 null） */
+        DataSource resolved() {
+            return delegate;
+        }
+
+        @Override
+        public Connection getConnection() throws SQLException {
+            return real().getConnection();
+        }
+
+        @Override
+        public Connection getConnection(String username, String password) throws SQLException {
+            return real().getConnection(username, password);
+        }
+
+        @Override
+        public PrintWriter getLogWriter() throws SQLException {
+            return real().getLogWriter();
+        }
+
+        @Override
+        public void setLogWriter(PrintWriter out) throws SQLException {
+            real().setLogWriter(out);
+        }
+
+        @Override
+        public void setLoginTimeout(int seconds) throws SQLException {
+            real().setLoginTimeout(seconds);
+        }
+
+        @Override
+        public int getLoginTimeout() throws SQLException {
+            return real().getLoginTimeout();
+        }
+
+        @Override
+        public java.util.logging.Logger getParentLogger() throws SQLFeatureNotSupportedException {
+            return real().getParentLogger();
+        }
+
+        @Override
+        public <T> T unwrap(Class<T> iface) throws SQLException {
+            return real().unwrap(iface);
+        }
+
+        @Override
+        public boolean isWrapperFor(Class<?> iface) throws SQLException {
+            return real().isWrapperFor(iface);
+        }
+    }
+
     static final class DriverManagerDataSource implements DataSource {
         private final String url;
         private final String user;

@@ -48,4 +48,35 @@ class LegacyConfigSourcePrecedenceTest {
         assertEquals("   ", LegacyWebBootstrap.pick("   ", "host"), "★ x.isEmpty 不清洗空白 ⇒ 空白串照原样生效");
         assertEquals("host", LegacyWebBootstrap.pick("", "host"), "★ 空串按缺省处理");
     }
+
+    @Test
+    @DisplayName("★ r324：元数据 DS **延迟解析**（配置装载之前不解析；解析一次后缓存）")
+    void lazyDataSourceResolvesOnceOnFirstUse() throws Exception {
+        // 为什么必须有这条：元数据源在 ③ 注册、配置在 ④ 才装载（且 ③ 不能挪后 —— ④ 的 onStart 要读库）
+        // ⇒ 坐标**必须首次取连接时才解析**。两条语义都要钉：
+        //   ① 未使用前**不得**解析（否则又回到"配置还没装载就解析"的老缺陷）；
+        //   ② 解析**只做一次**（多次取连接不得重复解析/重复建源）。
+        java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+        LegacyWebBootstrap.LazyEovaDataSource lazy = new LegacyWebBootstrap.LazyEovaDataSource(() -> {
+            calls.incrementAndGet();
+            return new LegacyWebBootstrap.DriverManagerDataSource(
+                    "jdbc:mysql://127.0.0.1:13306/eova_meta", "root", "root", "com.mysql.cj.jdbc.Driver");
+        });
+        org.junit.jupiter.api.Assertions.assertNull(lazy.resolved(),
+                "★ 首次使用前不得解析（这正是 r322/r324 缺陷的判据面）");
+        assertEquals(0, calls.get(), "★ 构造时不得调用工厂");
+        try {
+            lazy.getConnection();
+        } catch (RuntimeException | java.sql.SQLException ignored) {
+            // 连不上无所谓：本判据只钉"解析次数与时机"，不依赖真库
+        }
+        assertEquals(1, calls.get(), "★ 首次取连接必须解析一次");
+        org.junit.jupiter.api.Assertions.assertNotNull(lazy.resolved(), "首次使用后必须已有真实数据源");
+        try {
+            lazy.getConnection();
+        } catch (RuntimeException | java.sql.SQLException ignored) {
+            // 同上
+        }
+        assertEquals(1, calls.get(), "★ 解析必须缓存：第二次取连接不得再解析");
+    }
 }
