@@ -40,16 +40,32 @@
             <artifactId>eova-db-adapter</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- ★ r328（阶段三 U8）：版本**不再硬编码**，交父 pom 的 `spring-boot-dependencies` BOM 管
+             （原写死 3.4.5 ⇒ 父 pom 升级后会静默漂移；平台全走 BOM）。 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
-            <version>3.4.5</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
-            <version>3.4.5</version>
             <scope>test</scope>
+        </dependency>
+        <!-- ★ r328（阶段三 U2/U5，DES-011 A 级）：与平台同构的**注册中心 + 配置中心 + 健康检查**。
+             版本由父 pom 的 SC / SCA BOM 管（2024.0.1 / 2023.0.3.2，与 platform 逐字同版本）。
+             口径（拿哥 r327 ①）：**独立 reactor + 边缘集成** —— 引这两个 starter 是为了"能被平台网关
+             发现 + 能接平台 Nacos 配置"，**不引**平台内部库（cn.iocoder.cloud:*）。 -->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
         <!-- 测试作用域：真自省/真库判据需要驱动；main 不加（驱动由运行时提供） -->
         <dependency>
@@ -59,4 +75,31 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <!-- ★ r328（阶段三 U6，DES-011 A 级）：**可执行 jar 形态**（`java -jar`）。
+             平台侧 k8s/Dockerfile 全部以可执行 jar 为单位（`Dockerfile:23` = `java -jar app.jar`，
+             `yudao-server/pom.xml:158-175` = repackage + `finalName=${project.artifactId}`）⇒ 新栈要有
+             同样的发布形态，否则进不了 k8s。
+             ⚠️ 已知边界（登记）：金仓驱动在 maven 里是 **test 作用域**（`eova-db-adapter/pom.xml`），
+             fat jar **不含**它 ⇒ 金仓档部署时须把驱动随包提供（见 ledger 的部署口径）。 -->
+        <finalName>${project.artifactId}</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!-- 只 repackage 本模块的可执行入口（eova-web 的 EovaWebApplication） -->
+                    <mainClass>cn.eova.web.EovaWebApplication</mainClass>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

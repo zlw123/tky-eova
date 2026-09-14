@@ -100,4 +100,29 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <!-- ★ r328（阶段三 U6）：**产出 test-jar**。
+                 `eova-db-adapter/pom.xml:45` 以 `eova-core:jar:tests` 依赖本模块的测试基建，
+                 而 `eova-core` 此前**没有**声明 `test-jar` goal ⇒ `mvn test` 靠 reactor 的
+                 `target/test-classes` 目录映射侥幸可用，但 **`mvn package` 直接解析失败**
+                 （实测：`Could not resolve dependencies … cn.eova:eova-core:jar:tests`）。
+                 阶段三要出可执行 jar（平台侧 k8s/Dockerfile 都是 `java -jar`）⇒ 必须补齐；
+                 写法与 `eova-compat/pom.xml:107-121` 同形。 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.1</version>
+                <executions>
+                    <execution>
+                        <id>test-jar</id>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

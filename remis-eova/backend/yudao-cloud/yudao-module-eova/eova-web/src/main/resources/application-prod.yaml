@@ -1,0 +1,23 @@
+# ★ r328（阶段三 U4）：**生产**档 —— 键路对照平台 `application-prod.yaml:1-22`。
+#
+# ★ 与 dev 档的差别（同平台）：地址/口令一律走 `${NACOS_*}` 环境变量，**无内网地址默认值**
+#   （平台该文件也是 `-Dspring.profiles.active=dev` 之类的部署注入口径）。
+spring:
+  cloud:
+    nacos:
+      config:
+        server-addr: ${NACOS_SERVER_ADDR}
+        namespace: ${NACOS_NAMESPACE}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:}
+        file-extension: yaml
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR}
+        namespace: ${NACOS_NAMESPACE}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:}
+  config:
+    import:
+      - optional:nacos:${spring.application.name}-${spring.profiles.active}.yaml

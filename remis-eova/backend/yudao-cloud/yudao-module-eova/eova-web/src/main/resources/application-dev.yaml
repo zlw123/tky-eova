@@ -1,0 +1,32 @@
+# ★ r328（阶段三 U4）：平台 **dev** 环境档 —— 键路逐字对照平台
+# `yudao-module-system-biz/src/main/resources/application-dev.yaml:1-24`。
+#
+# ⚠️⚠️ **本档会把本服务注册进共享 dev Nacos**（namespace `base_platform`）⇒ **未获授权前不得运行**：
+#   平台网关按 `grayLb://<service-name>` 拉实例列表 ⇒ 我们的实例一出现就会被网关路由到。
+#   本轮只做**静态对齐**，真实注册标 `not executed`（见 DES-011 §3）。
+#
+# ★ 已声明差异（安全）：平台把 Nacos 账号/口令**硬编码**在本文件里；本仓改为**环境变量占位**
+#   （口令无默认值 ⇒ 绝不把第三方凭据写进本仓库）。
+spring:
+  cloud:
+    nacos:
+      config:
+        server-addr: ${NACOS_SERVER_ADDR:base.platform:30020}
+        namespace: ${NACOS_NAMESPACE:base_platform}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:}
+        file-extension: yaml
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:base.platform:30020}
+        namespace: ${NACOS_NAMESPACE:base_platform}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:}
+        metadata:
+          location: local
+  config:
+    import:
+      # 只 import **本服务自己的** dataId（平台那边是 `base-platform-basic-config.yaml` +
+      # `<app>-<profile>.yaml` 两条；第一条是平台共享配置，本服务不引，见 application.yaml 的说明）
+      - optional:nacos:${spring.application.name}-${spring.profiles.active}.yaml

@@ -1,0 +1,15 @@
+# ★ r328（阶段三 U4）：**本地 / 扫描档** —— 显式**关掉 Nacos**。
+#
+# 为什么默认档就要关掉：21 项全量扫描、583 条后端判据、真浏览器验收都必须在**没有注册中心**的机器上
+# 可跑（否则"环境缺 Nacos"会被读成"迁移失败"）。平台的 `application-local.yaml` 也是"本地不连远端"的口径。
+#
+# "Nacos 注册 / 配置下发"的真实验证**不走本档**：用 CLI 覆盖指向一个**本地容器**
+# （`docs/.local/spikes/verify-phase3-nacos.sh`，镜像 `nacos-kingbase:3.2.4` 已在本机），
+# **不往共享 dev Nacos 注册**（会产生实例列表/网关路由副作用，需另行授权）。
+spring:
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+      config:
+        enabled: false

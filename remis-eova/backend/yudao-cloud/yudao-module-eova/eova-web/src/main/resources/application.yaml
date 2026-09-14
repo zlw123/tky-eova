@@ -1,0 +1,54 @@
+# ★ r328（阶段三 U3/U5，DES-011 A 级）：与平台**同构**的 Spring Boot 配置骨架。
+#
+# 对照（平台，只读取证）：`yudao-module-system-biz/src/main/resources/application.yaml`
+#   server.port / logging.file.name / spring.application.name / spring.profiles.active /
+#   spring.config.import / management.endpoints.* 六项键路逐条对照。
+#
+# 口径（拿哥 r327 ①：独立 reactor + 边缘集成）：只对齐**形态**，**不引**平台内部库（cn.iocoder.cloud:*）。
+#
+# ★ 事实源边界（U9，不得混淆）：本文件的 `spring.*` 是**宿主**配置；EOVA 自己的坐标/档位仍是
+#   `eova/*.txt`（`-Deova.prop` 选档，见 DES-010）。两者可共存，且**档值优先**（`x.conf` 是 Map.put、
+#   档在 ④ 后装载 ⇒ 档里出现的键一律胜出，见 `LegacyConfigSourcePrecedenceTest`）⇒
+#   Nacos 只应下发**档里没有的键**（例如平台侧的服务/日志开关），**不得**与 `eova/*.txt` 的键重名。
+server:
+  # 一服务一端口（平台约定：gateway 48080 · system 48082 · infra 48281）⇒ EOVA 取 **48090**（未被占用）。
+  # ★ 扫描与本地运行仍以 `--server.port=8080` 覆盖（命令行优先级 > 配置文件），故不影响既有 21 项扫描。
+  port: 48090
+
+logging:
+  file:
+    # 与平台逐字同形（`application.yaml:4-6`）：`${user.home}/logs/${spring.application.name}.log`
+    name: ${user.home}/logs/${spring.application.name}.log
+
+spring:
+  application:
+    # 服务名口径：旧计划 **LC-002 已登记**为 `base-platform-eova-server`（不再另起名字）。
+    # 它同时决定：Nacos 实例名、网关 `grayLb://<service-name>` 的目标、以及配置 dataId 前缀
+    # `${spring.application.name}-${profile}.yaml`。
+    name: base-platform-eova-server
+  profiles:
+    # 默认 local ⇒ **不连 Nacos**（保证扫描/单测在无注册中心时也可跑，见 application-local.yaml）
+    active: local
+  config:
+    import:
+      # 与平台同形：显式 import 当前 profile 的 classpath 配置。
+      # ★ 已声明差异（写在 DES-011）：**不** import 平台的 `base-platform-basic-config.yaml`
+      #   —— 那是平台自己的共享配置（含它的 datasource/redis 等键），混进本服务会引入无关覆盖；
+      #   本服务只 import 自己的 dataId（见 application-dev.yaml / application-prod.yaml）。
+      - optional:classpath:application-${spring.profiles.active}.yaml
+
+management:
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        # 平台只暴露 health（`application-dev.yaml:124-137`）
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      # 平台 k8s 三个探针都打 `/actuator/health/{liveness,readiness}`
+      # （`k8s/yudao-module-system.yaml:52-72`）⇒ **必须显式开 probes**
+      # （本地/非 k8s 环境不会自动开，实测：不开时这两个子路径 404）
+      probes:
+        enabled: true

@@ -20,6 +20,11 @@
         <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <spring-boot.version>3.4.5</spring-boot.version>
+        <!-- ★ r328（阶段三 U1，DES-011）：与平台**逐字同版本**的 Spring Cloud / Spring Cloud Alibaba。
+             取证：platform `yudao-dependencies/pom.xml:21`(2024.0.1) / `:22`(2023.0.3.2)，
+             platform revision=2.6.0-SNAPSHOT。两者的 jar 均已在本机 ~/.m2（离线可构建）。 -->
+        <spring-cloud.version>2024.0.1</spring-cloud.version>
+        <spring-cloud-alibaba.version>2023.0.3.2</spring-cloud-alibaba.version>
         <!-- 与 meta-eova/core 同源，避免 SQL 解析语义漂移 -->
         <druid.version>1.2.20</druid.version>
         <!-- EOVA 官方工具库：零 JFinal 耦合（实测 0 处 com/jfinal 引用），Java 17 下可直接使用（SP4 已验证） -->
@@ -45,6 +50,25 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
                 <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- ★ r328（阶段三 U1）：Spring Cloud / Spring Cloud Alibaba BOM（**与平台同版本**）。
+                 为什么必须引：平台的网关按 `grayLb://<service-name>` 做负载（Nacos 实例列表），
+                 而 nacos-discovery/config starter 的版本由这两个 BOM 管（不引 = 版本无管理）。
+                 为什么放在 `spring-boot-dependencies` **之后**：`import` 是"后 import 者优先"——
+                 平台 `yudao-cloud/pom.xml:44-54` 也是这个顺序（SB BOM 在前、SC/SCA 在后）。 -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba.cloud</groupId>
+                <artifactId>spring-cloud-alibaba-dependencies</artifactId>
+                <version>${spring-cloud-alibaba.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -107,6 +131,10 @@
                     <configuration>
                         <release>${java.version}</release>
                         <encoding>UTF-8</encoding>
+                        <!-- ★ r328（阶段三 U8）：与平台同构 —— `-parameters` 保留形参名，
+                             供 Spring Boot 3.2+ 的**参数名发现**使用（平台 `yudao-cloud/pom.xml:104-108`
+                             为此专门加过注释）。 -->
+                        <parameters>true</parameters>
                     </configuration>
                 </plugin>
                 <plugin>
