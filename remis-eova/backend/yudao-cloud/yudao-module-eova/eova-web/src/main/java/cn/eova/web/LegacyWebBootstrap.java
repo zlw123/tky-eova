@@ -203,16 +203,59 @@ public class LegacyWebBootstrap {
         }
     }
 
+    /**
+     * **取值优先级**：配置（`eova/dev.txt`）优先，宿主属性只作兜底（r323）。
+     *
+     * <p>抽成纯函数是为了**可判据、可变异** —— r322 那个部署级缺陷（元数据库连错库）
+     * 就发生在"哪一边优先"这一行上，而它此前没有任何判据。</p>
+     *
+     * @param fromConfig 配置里的值（可能为 null/空）
+     * @param fromHost   宿主（Spring）属性值
+     * @return 生效值
+     */
+    static String pick(String fromConfig, String fromHost) {
+        return x.isEmpty(fromConfig) ? fromHost : fromConfig;
+    }
+
+    /**
+     * **仅当配置里没有该键时**才写入宿主兜底值（r323）。
+     *
+     * <p>为什么需要它：EOVA 的配置事实源是 `eova/dev.txt`（旧栈 `x.conf` 的唯一来源）；
+     * 宿主（Spring）属性只能作**兜底**。无条件 `addConfig` 会把配置文件里的值**静默覆盖** ——
+     * r322 实测：切金仓后元数据库仍连 MySQL（`eova.url` 被 Spring 默认值覆盖），
+     * 而 `main.url` 走 dev.txt 是金仓 ⇒ 同一进程连两个库。</p>
+     *
+     * @param key   配置键
+     * @param value 兜底值（配置里已有则忽略）
+     */
+    private static void addConfigIfAbsent(String key, String value) {
+        if (x.isEmpty(x.conf.get(key))) {
+            x.conf.addConfig(key, value);
+        }
+    }
+
     @Bean
     public LegacyJFinalBoot legacyBoot(ObjectProvider<DataSource> dataSourceProvider) {
         // ① 旧实现的【必需配置】：file.dir.base 必须非空白
+        // ⚠️ 此处**保持**"宿主值优先"（未套用 addConfigIfAbsent）：`eova/dev.txt:10` 写的是旧 demo 的
+        //   Windows 路径 `G:/nas/eovameta`，套用"配置优先"会让本机/容器里的文件功能真的指向 `G:/`
+        //   （上传、导出、file.dir.base 相关面立刻坏）。⇒ 该键的取值口径属**部署口径**，单独登记待定；
+        //   本轮的修复只针对已验证过的缺陷（`eova.*` 被覆盖导致元数据库连错库，r322）。
         x.conf.addConfig("file.dir.base", fileDirBase);
         // ② 数据源坐标（旧 configPlugin 走 EovaDataSource.create 需要）
         x.conf.addConfig("db.datasource", dbDatasource);
-        x.conf.addConfig("eova.url", dbUrl);
-        x.conf.addConfig("eova.user", dbUser);
-        x.conf.addConfig("eova.pwd", dbPwd);
-        x.conf.addConfig("eova.driver", dbDriver);
+        // ★★ r323 修（金仓收口 · 第一条真缺陷）：`eova.*` 的**事实源必须是 `eova/dev.txt`**，
+        //   与 `main.*` 同源。原先这里**无条件** `addConfig("eova.url", dbUrl)` ⇒ 把 dev.txt 里的坐标
+        //   覆盖成 Spring 默认值（= 本机 MySQL baseline），实测后果：
+        //   把 `dev.txt` 切到金仓后，**元数据库仍然连 MySQL**
+        //   （启动日志：`自建 DriverManager DataSource → jdbc:mysql://127.0.0.1:13306/eova_meta`），
+        //   金仓下 4 个列表页数据面对不上（r322 实测），而 `main` 库却是金仓
+        //   ⇒ **同一进程连两个库**，属部署级缺陷（金仓环境里根本没有那个 MySQL）。
+        //   规则：**配置里有就不覆盖**；Spring 属性只作"配置缺失时的宿主兜底"（本机单测/无配置文件场景）。
+        addConfigIfAbsent("eova.url", dbUrl);
+        addConfigIfAbsent("eova.user", dbUser);
+        addConfigIfAbsent("eova.pwd", dbPwd);
+        addConfigIfAbsent("eova.driver", dbDriver);
 
         // ③ 元数据源：真自省优先，缺则退化为占位并【显式声明】
         // ★ S2b：网关 + 真自省是 dao 可用的前提（旧栈由 configPlugin 的 ARP 承担）。
@@ -220,8 +263,18 @@ public class LegacyWebBootstrap {
         //   故 main 不引驱动依赖）——不再退化占位，否则 /user/doLogin 之类一查库就失败。
         DataSource ds = dataSourceProvider.getIfAvailable();
         if (ds == null) {
-            ds = new DriverManagerDataSource(dbUrl, dbUser, dbPwd, dbDriver);
-            log.info("Eova Web 层：自建 DriverManager DataSource → {}", dbUrl);
+            // ★★ r323 修（金仓收口 · 第一条真缺陷的真正修法）：
+            //   此前这里直接用宿主字段 `new DriverManagerDataSource(dbUrl, dbUser, dbPwd, dbDriver)`，
+            //   **从不读 `eova/dev.txt`** ⇒ 把 dev.txt 切到金仓后，元数据库仍连 Spring 默认值
+            //   （MySQL baseline）：启动日志实测 `自建 DriverManager DataSource → jdbc:mysql://127.0.0.1:13306/eova_meta`，
+            //   而 `main` 库走配置是金仓 ⇒ **同一进程连两个库**（r322 端到端实测，金仓下 4 页数据面对不上）。
+            //   规则与 `main` 一致：**配置优先，宿主属性只兜底**（无配置文件的本机单测场景仍可用）。
+            String cfgUrl = x.conf.get("eova.url");
+            String url = pick(cfgUrl, dbUrl);
+            ds = new DriverManagerDataSource(url, pick(x.conf.get("eova.user"), dbUser),
+                    pick(x.conf.get("eova.pwd"), dbPwd), pick(x.conf.get("eova.driver"), dbDriver));
+            log.info("Eova Web 层：自建 DriverManager DataSource → {}（来源={}）", url,
+                    x.isEmpty(cfgUrl) ? "宿主属性兜底（配置里没有 eova.url）" : "eova/dev.txt");
         } else {
             log.info("Eova Web 层：使用容器 DataSource bean");
         }
