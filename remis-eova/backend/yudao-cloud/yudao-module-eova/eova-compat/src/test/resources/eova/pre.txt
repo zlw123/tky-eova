@@ -1,0 +1,4 @@
+# 判据夹具（LegacyConfigProfileTest）：档位顺序用 —— 故意只提供 pre/prd 两档，
+# 以便断言"首存在者胜"不是字典序（prd < pre 字典序在前，但 pre 优先）。
+env=PRE
+probe.fixture=pre

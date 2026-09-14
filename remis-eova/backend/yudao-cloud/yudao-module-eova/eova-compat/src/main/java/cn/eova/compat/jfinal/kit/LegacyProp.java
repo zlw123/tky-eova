@@ -36,6 +36,17 @@ public class LegacyProp {
     protected Properties properties;
 
     /**
+     * 资源名（**新增，非 port**，r326）：供宿主**如实**打印"生效档"。
+     *
+     * <p>旧实现没有这个成员（外部只用到 {@code get/getProperties}），所以是**纯增量**：
+     * 五个取值的语义与 {@code useFirstFound} 行为全部不变。</p>
+     *
+     * <p>为什么必须有：r323 那次日志**只按"值非空"就写 `eova/dev.txt`**（真实来源是宿主兜底），
+     * 把真根因掩盖了整整一轮。⇒ "出处"必须来自**真实装载的那个文件**，不能来自推断。</p>
+     */
+    private final String fileName;
+
+    /**
      * 从 classpath 加载（UTF-8）。
      *
      * @param fileName classpath 资源名
@@ -61,6 +72,7 @@ public class LegacyProp {
             throw new RuntimeException(e);
         }
         this.properties = p;
+        this.fileName = fileName;
     }
 
     /**
@@ -68,6 +80,16 @@ public class LegacyProp {
      */
     public LegacyProp() {
         this.properties = new Properties();
+        this.fileName = null;
+    }
+
+    /**
+     * 取资源名（**新增，非 port**，r326；空表构造返回 {@code null}）。
+     *
+     * @return 装载时用的 classpath 资源名
+     */
+    public String getFileName() {
+        return fileName;
     }
 
     /**

@@ -13,8 +13,10 @@ import java.util.stream.Collectors;
 
 import cn.eova.common.Ds;
 import cn.eova.compat.db.LegacyDataSourceWiring;
+import cn.eova.compat.jfinal.config.LegacyConfigProfile;
 import cn.eova.db.EovaGateways;
 import cn.eova.db.EovaRecord;
+import cn.eova.tools.x;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -182,5 +184,25 @@ class MultiDatasourceGatewayHttpTest {
         assertEquals(401, resp.getStatusCode().value(), "未登录必须 401，实际=" + resp.getStatusCode());
         assertTrue(!String.valueOf(resp.getBody()).contains("field_txt"),
                 "★ 未登录不得下发查询结果，实际=" + resp.getBody());
+    }
+
+    @Test
+    @DisplayName("★ DS-7（r326）：配置档**赢**过宿主兜底（`db.datasource`=eova,main；`file.dir.base` 取档值）")
+    void profileOverridesHostFallbacks() {
+        // 为什么必须钉：`LegacyWebBootstrap` 的旧注释断言"addConfig 不覆盖 ⇒ 宿主兜底会赢"，
+        // 与 `eova-tools 1.1.5` 的字节码相反（`ConfigTool` = Map.put，**后写者胜**）。
+        // 真实次序是"宿主 ② 先写兜底 → 档 ④ 后装载" ⇒ **档值一律胜出**。
+        // 这条断言能抓到的产品级变异：把 `addConfig("db.datasource"…)` 挪到 `boot.init` **之后**
+        // （那正是旧注释描述的错误模型）——`db.datasource` 会变成宿主默认 `eova`，本判据立刻红。
+        assertEquals("eova,main", x.conf.get("db.datasource"),
+                "★ 档里的 `db.datasource=eova,main` 必须胜出（宿主默认只有 `eova`）");
+        assertEquals("eova/dev.txt", LegacyConfigProfile.active(),
+                "★ 本 JVM 未指定 -Deova.prop ⇒ 生效档是 dev.txt（出处可追溯）");
+        assertTrue(x.conf.get("eova.url").contains("/eova_meta"),
+                "★ 元数据坐标来自档：" + x.conf.get("eova.url"));
+        // file.dir.base：档值 `G:/nas/eovameta`（dev.txt:10）——**当前口径**；
+        // 该键在生产/容器该填什么是**部署待裁项**（DES-010 §4），届时改口径就要改这里（决策点）。
+        assertEquals("G:/nas/eovameta", x.conf.get("file.dir.base"),
+                "★ 档里的 file.dir.base 必须胜出（宿主兜底是 ${java.io.tmpdir}/eova-web）");
     }
 }

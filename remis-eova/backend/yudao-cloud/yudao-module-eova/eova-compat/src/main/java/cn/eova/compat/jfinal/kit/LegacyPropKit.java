@@ -23,8 +23,10 @@ import java.util.concurrent.ConcurrentHashMap;
  *       （消息逐字，含旧实现的拼写错误 {@code propties}）。</li>
  * </ul>
  *
- * <p>EOVA 只用 {@code useFirstFound}（{@code EovaConfig:201} 加载 eova/dev|test|pre|pro|prd.txt），
- * 故 {@code append}/{@code appendIfExists}/{@code setEnvKey} 一族<b>未包含</b>。</p>
+ * <p>EOVA 的用面：{@code EovaConfig:202} 的 {@code useFirstFound}（五档原序），
+ * 以及 r326 起的**档位选择器** {@code LegacyConfigProfile}（未指定档时仍走 {@code useFirstFound}，
+ * 指定档时直接 {@code use(档名)}）⇒ 本类两个入口都真的在用。
+ * {@code append}/{@code appendIfExists}/{@code setEnvKey} 一族<b>未包含</b>。</p>
  */
 public class LegacyPropKit {
 

@@ -61,6 +61,7 @@ import cn.eova.sql.dql.dialect.QueryDialect;
 import cn.eova.tools.x;
 import com.alibaba.druid.DbType;
 import cn.eova.compat.jfinal.config.LegacyConstants;
+import cn.eova.compat.jfinal.config.LegacyConfigProfile;
 import cn.eova.compat.jfinal.config.LegacyHandlers;
 import cn.eova.compat.jfinal.config.LegacyInterceptors;
 import cn.eova.compat.jfinal.config.LegacyJFinalConfig;
@@ -70,7 +71,6 @@ import cn.eova.compat.jfinal.core.LegacyActionReporter;
 import cn.eova.compat.jfinal.json.LegacyMixedJsonFactory;
 import cn.eova.compat.jfinal.kit.LegacyLogKit;
 import cn.eova.compat.jfinal.kit.LegacyProp;
-import cn.eova.compat.jfinal.kit.LegacyPropKit;
 import cn.eova.compat.jfinal.plugin.activerecord.LegacyActiveRecordPlugin;
 import cn.eova.compat.jfinal.plugin.druid.LegacyDruidStatViewHandler;
 import cn.eova.compat.jfinal.plugin.druid.LegacyDruidStatViewAuth;
@@ -217,7 +217,12 @@ public class EovaConfig extends LegacyJFinalConfig {
 
 
         // 多环境配置加载(优先级 开发<测试<预生产<灰度<生产)
-        LegacyProp prop = LegacyPropKit.useFirstFound("eova/dev.txt", "eova/test.txt", "eova/pre.txt", "eova/pro.txt", "eova/prd.txt");
+        // ★ r326（DES-010）：装载点改为 `LegacyConfigProfile.load()` ——
+        //   未指定档时**与旧实现逐字等价**（`PropKit.useFirstFound` 五档原序，常量 LEGACY_PROFILES 有判据钉住）；
+        //   宿主指定档（`-Deova.prop=` / `EOVA_PROP=`）时**只用该档**，不存在即抛（不静默回落）。
+        //   为什么需要它：五档同处一个 classpath 时"首存在者胜"会退化成"dev.txt 永远胜"，
+        //   新增的 prd/金仓档**永远选不上**（实测）。详见 docs/DES-010-R1-eova-deploy-profile-selection.md。
+        LegacyProp prop = LegacyConfigProfile.load();
         // EovaTools配置加载
         x.conf.addProp(prop.getProperties());
 
