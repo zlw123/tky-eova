@@ -157,7 +157,7 @@ import { useRoute } from 'vue-router'
 import axios from 'axios'
 import EovaToolbar from '@/components/EovaToolbar.vue'
 import EovaAdminPanel from '@/components/EovaAdminPanel.vue'
-import { customAppComponent } from '@/views/custom/registry'
+import { customAppComponent, installCustomAppHooks } from '@/views/custom/registry'
 import { listCustomAppKey } from '@/compat/custom-apps'
 import { getEovaMe, getEovaTools } from '@/compat/eova-runtime'
 import { callUzooHook, getUzooPage, setUzooApp, setUzooPage } from '@/compat/eova-ext'
@@ -238,10 +238,14 @@ const queryHeight = ref(0)
 /** 表格高度（旧 `let tableHeight = ref(600)`） */
 const tableHeight = ref(600)
 
-/** 本页命中的自定义 app 组件（旧 `me.vue.mount(app, `table_${menuCode}`)`；未实现 ⇒ undefined） */
-const customApp = computed(() =>
-  customAppComponent(listCustomAppKey(String(props.bootstrap.menu?.template ?? ''), menuCode))
+/** 本页命中的自定义 app **键**（旧 `` `${uzoo.page.template}_${uzoo.page.code}` ``） */
+const customAppKey = computed(() =>
+  listCustomAppKey(String(props.bootstrap.menu?.template ?? ''), menuCode)
 )
+
+/** 本页命中的自定义 app 组件（旧 `me.vue.mount(app, `table_${menuCode}`)`；未实现 ⇒ undefined） */
+const customApp = computed(() => customAppComponent(customAppKey.value))
+
 
 /** 当前选中行（旧 `currentRow = ref({})`） */
 const currentRow = ref<Record<string, unknown>>({})
@@ -277,6 +281,10 @@ function doResize(height: number): void {
  * @param fieldInstances 字段实例集合
  */
 function onReady(fieldInstances: unknown): void {
+  // ★ r327（切片 B）：旧栈里自定义脚本（`/hotel/app.js`）在页面脚本之前加载并**自己**给
+  //   `uzoo.vue.setup/onReady` 赋值 ⇒ 页面调用时钩子一定就位。SPA 没有"每页重新加载脚本"这回事
+  //   ⇒ 由宿主在**派发点**安装。键来自**异步**的 `bootstrap.menu.template`，故不能提前到 setup 期。
+  installCustomAppHooks(customAppKey.value)
   callUzooHook('onReady', [fieldInstances])
 }
 
@@ -465,6 +473,8 @@ setUzooPage('form', 'query')
 
 /** `uzoo.vue.setup()` 的返回值（旧 `data_`；未注册钩子时为空对象） */
 const hookData = ((): Record<string, unknown> => {
+  // ★ r327（切片 B）：同上 —— 派发前先安装本页键的钩子（`uzoo.vue.setup` 由它提供）
+  installCustomAppHooks(customAppKey.value)
   const v = callUzooHook('setup')
   return v != null && typeof v === 'object' ? (v as Record<string, unknown>) : {}
 })()

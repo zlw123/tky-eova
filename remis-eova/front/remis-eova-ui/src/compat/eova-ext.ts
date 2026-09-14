@@ -31,10 +31,19 @@
  * `component(name, url)` 注册异步组件；`mount(app, code, el)` 在有自定义定义时并发加载
  * script/components/template 后再挂载，**没有定义时直接 `app.mount(el)`**（这就是普通页面照常工作的原因）。
  *
- * ⚠️ **待决（不在本模块解决）**：`me.vue.app(code, …)` 这套"自定义 app"机制是**围绕
- * `createApp` + `mount`** 设计的，而 SPA 的路由页不做 `createApp`。
- * 因此"自定义表单(元对象编码)干预新增/修改/查看"（`eova.vue.config.js` 里的 `vue.app('meta_hotel', …)`）
- * **在 SPA 下的等价形态需要显式口径** —— 登记为待决项，不擅自发明。
+ * ## ★ 已定口径（r327，拿哥）：自定义 app 在 SPA 下的等价形态 = **叠加挂载 + 钩子安装**
+ *
+ * 历史（r126/r300）：`me.vue.app(code, …)` 这套机制是**围绕 `createApp` + `mount`** 设计的，
+ * 而 SPA 的路由页不做 `createApp`，故当时把它登记为"待用户口径、不擅自发明"。
+ * r318 用 CDP 实测把机制查清（**叠加挂载**，不是整页替换），r319 落地列表页那一半（切片 A），
+ * **r327 拿哥裁定：切片 B 开工**（表单页那一半）⇒ 等价形态确定为：
+ *
+ *  1. **模板**：把自定义 `.vue` 逐字 port 成**构建期 SFC**，由宿主页面按注册键**叠加挂载**
+ *     （`src/views/custom/registry.ts`；不改冻结资产、不引 Vue 运行时编译器）；
+ *  2. **脚本钩子**：把自定义 `.js` 的 `uzoo.vue.setup`/`onReady` 逐字 port 成模块，
+ *     在页面 setup 期用 {@link setUzooHooks} **整体安装**（旧栈由脚本自己赋值，SPA 由宿主安装）。
+ *
+ * ⇒ 本模块只提供**写入口**（`setUzooHooks`）与调用口（`callUzooHook`），不掺业务逻辑。
  */
 
 /** `uzoo.vue` 上已取证的钩子名（页面在固定时点回调） */
@@ -124,6 +133,42 @@ export function callUzooHook(
     return undefined
   }
   return hook(...args)
+}
+
+/**
+ * **安装**一组 `uzoo.vue.*` 钩子（旧自定义脚本 `uzoo.vue.setup = …` 的等价写入口；r327 切片 B）。
+ *
+ * <p>为什么必须能"撤掉自己装过的那几个"：`uzoo.vue` 是**全局**对象，而 SPA 是**单页常驻上下文** ——
+ * 旧栈每页重新加载脚本、天然换掉钩子；SPA 若不撤，上一个页面的钩子会**残留**到下一个页面
+ * （旧栈不会有这种行为），例如 `meta_product` 的钩子跑到别的对象表单上。</p>
+ *
+ * <p>★ 撤的范围**只限调用方自己装过的那几个名字**（`options.remove`）—— **不碰**任何外部注册的钩子
+ * （真实部署里别的脚本、以及判据里手工注册的钩子都靠这条保住）。
+ * 历史：r327 首版写成"清空所有已知钩子名"，实测把判据手工注册的 `uzoo.vue.onReady` 一起清掉了
+ * （`TemplateTable.spec` ③/⑭ 双红）⇒ 改为"精确回退"。</p>
+ *
+ * @param hooks 要安装的钩子（键 = `uzoo.vue` 上的钩子名；值为 `undefined` 即删除该名）
+ * @param options.remove 上一次由调用方安装的钩子名（本次未提供者将被删除）
+ * @param target 目标全局对象
+ */
+export function setUzooHooks(
+  hooks: Partial<Record<UzooVueHook, unknown>>,
+  options: { remove?: readonly UzooVueHook[] } = {},
+  target: Record<string, unknown> = globalThis as never
+): void {
+  const vue = getUzoo(target).vue
+  for (const name of options.remove ?? []) {
+    if (!(name in hooks)) {
+      delete vue[name]
+    }
+  }
+  for (const [name, fn] of Object.entries(hooks)) {
+    if (fn === undefined) {
+      delete vue[name]
+    } else {
+      vue[name] = fn
+    }
+  }
 }
 
 /**

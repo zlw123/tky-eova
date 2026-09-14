@@ -65,6 +65,14 @@
           v-model="data"
           @ready="onReady"
         ></ev-form>
+        <!--
+          ★ r327（切片 B）：**自定义 app 模版**的叠加挂载点
+          （旧 `template/form/{add,update,detail}/index.js` 结尾的 `me.vue.mount(app, uzoo.page.code)`；
+          旧栈实测为**叠加**而非替换 —— 标准表单仍在，自定义模版只是多挂一个组件）。
+          键 = **元对象编码**（`compat/custom-apps.ts` 的 `formCustomAppKey`）；
+          未命中的对象 ⇒ `formCustomApp` 为 undefined ⇒ 不挂载（反向用例见 registry.spec.ts）。
+        -->
+        <component :is="formCustomApp" v-if="formCustomApp" :data="data" />
       </div>
       <EovaAdminForm :is-admin="isAdmin" mode="update" />
     </template>
@@ -78,6 +86,8 @@ import axios from 'axios'
 import EovaAdminForm from '@/components/EovaAdminForm.vue'
 import { getEovaMe } from '@/compat/eova-runtime'
 import { callUzooHook, getUzooPage, setUzooApp } from '@/compat/eova-ext'
+import { formCustomAppKey } from '@/compat/custom-apps'
+import { customAppComponent, installCustomAppHooks } from '@/views/custom/registry'
 import { resolveFormPageParams, writeFormPageObjectMeta, writeFormPageUzooPage } from '@/compat/form-page'
 import { loadPageBootstrap, type PageBootstrap } from '@/compat/page-bootstrap'
 import { createBootstrapFetcher } from '@/compat/page-bootstrap-fetcher'
@@ -179,11 +189,19 @@ async function onSubmit(layerId?: unknown): Promise<void> {
  * @param fieldInstances 字段实例集合（制品传的是 `Map`）
  */
 function onReady(fieldInstances: unknown): void {
+  // 钩子已在 setup 期装好（见下方 `callUzooHook('setup')` 之前那一处；旧栈由脚本自赋值、
+  // 且脚本先于页面 setup 加载 ⇒ 这里是同一个时点）⇒ 本函数只负责派发。
   callUzooHook('onReady', [fieldInstances])
 }
 
+/** 本页命中的自定义 app **模版**（键 = 元对象编码；未实现 ⇒ undefined ⇒ 不挂载） */
+const formCustomApp = computed(() => customAppComponent(formCustomAppKey(objectCode)))
+
+
 // ---- `uzoo.vue.setup()` 的返回值（旧 `data_`；未注册钩子时为空对象）----
 const hookData = ((): Record<string, unknown> => {
+  // ★ r327（切片 B）：同上（同一键，幂等）—— `uzoo.vue.setup` 由它提供
+  installCustomAppHooks(objectCode)
   const v = callUzooHook('setup')
   return v != null && typeof v === 'object' ? (v as Record<string, unknown>) : {}
 })()

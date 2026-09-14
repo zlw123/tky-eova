@@ -1,12 +1,12 @@
 /**
  * `me.vue.app` / `me.vue.component` 的**登记**（第 126 轮）—— 旧"自定义模版/自定义组件"机制
  *
- * ## ⚠️ 本模块只**登记**，尚未实现加载（原因见下）
+ * ## 本模块的职责：**只登记**旧配置（键名与定义的事实源）
  *
  * 旧栈的页面末尾都调 `me.vue.mount(app, code)`（如 `template/table/index.js:318`
  * 的 `` `${uzoo.page.template}_${uzoo.page.code}` ``）；`me.vue.mount` 会按该 code 查
- * **自定义 app 定义**，命中则加载定义里的 `template`（一个 `.vue` 文件）+ `script` + `components`，
- * **用自定义模版替换页面的 in-DOM 模版**后再挂载。定义由**冻结资产**
+ * **自定义 app 定义**，命中则加载定义里的 `template`（一个 `.vue` 文件）+ `script` + `components`
+ * 并**叠加挂载**（r318 CDP 实测：标准页面照常渲染，不是替换）。定义由**冻结资产**
  * `_eova/assets/eova.vue.config.js`（每页经 `_eova/include.html` 加载）注册：
  *
  * ```js
@@ -16,66 +16,29 @@
  * vue.app('meta_product',     { template: '/product/app.vue', script: '/product/app.js', components: [...] })
  * ```
  *
- * ⇒ 对菜单 `meta_hotel`（种子数据里 `template='table'`，码 `table_meta_hotel` **命中**），
- * 旧栈渲染的**整页模版**其实是 `hotel/app.vue` —— 内容只有一行
- * `<sword-coming ref="link" v-model="currentRow" v-model:show="showLinking"></sword-coming>`
- * （绑定的 `currentRow`/`showLinking` 正是页面 setup 暴露的那两个 ref）。
+ * ★ **本模块不含任何实现**：实现落在 `src/views/custom/registry.ts`（构建期 SFC + 钩子模块）。
+ * 本文件仍是**键名与定义的事实源**，并由 `__tests__/custom-apps.spec.ts` 与冻结配置**双向核对**。
  *
- * ## ★ 为什么 SPA 侧不能"顺手实现"
+ * ## 实现状态（r327 起：三项全部实现）
  *
- * `_component/*.js` 是 **ES 模块 + 字符串模版**：
- *
- * ```js
- * const {defineComponent, computed, ref} = Vue     // ← 用的是**全局 Vue**
- * export default defineComponent({ template: `<div>…{{ modelValue }}…</div>`, … })
- * ```
- *
- * 字符串模版需要 **Vue 运行时编译器**；而本工程为了避开"两个 Vue 实例"（R66）用的是
- * **runtime-only 的打包版 `vue`** ⇒ 直接加载这些组件会**渲染为空**（且不报错）。
- * 两个选项各有代价：
- *
- * | 选项 | 做法 | 代价 |
+ * | 命中项 | 影响的页面 | 状态 |
  * |---|---|---|
- * | **A** | 把 `vue` 别名指向 `vue/dist/vue.esm-bundler.js`（runtime+compiler，**仍是同一个实例**） | 全应用包体 +≈40KB；运行时编译模板（CSP/eval 相关约束） |
- * | **B** | 把 6 个组件与 3 个 `.vue` 模版改写成构建期 SFC | **必须改冻结资产**（`src/legacy/**` 只可 import，不得修改）⇒ 违反冻结纪律 |
+ * | `table_meta_hotel` | 列表页（`template=table` + 菜单码 `meta_hotel`） | ✅ r319 切片 A：`SwordComing.vue` + `registry.ts` + `TemplateTable.vue` 叠加挂载 |
+ * | `meta_hotel` | **表单页**（键是**元对象编码**） | ✅ r327 切片 B：`MetaHotelFormApp.vue`（恒隐藏的 `/hotel/app.vue`）+ `metaHotelApp.ts`（省→市→区联动 + 四支通知）+ 三个表单页的叠加挂载与钩子安装 |
+ * | `meta_product` | **表单页** | ✅ r327 切片 B：`ProductApp.vue`（旧模版的活代码只有 `<br>{{ data }}`）+ `metaProductApp.ts`（`setup` 返回值，**无** `onReady` —— 旧文件事实） |
  *
- * ⇒ 这是一条**待用户口径**（要动全应用的 Vue 入口），故本轮**只登记不实现**，
- * 并用判据把"登记是否完整"钉住：`__tests__/custom-apps.spec.ts` 会**解析冻结配置**
- * 与**扫描冻结资产**，双向核对下表。
+ * ## ★★ 口径沿革（改动本模块前必读）
  *
- * ## 影响面（按 code 归属，判据可推）
- *
- * | 命中项 | 影响的页面 | 当前状态 |
+ * | 轮次 | 口径 | 现状 |
  * |---|---|---|
- * | `table_meta_hotel` | 列表页（`template=table` + 菜单码 `meta_hotel`） | ★ **已实现（r319 · U4 切片 A）**：`src/views/custom/SwordComing.vue`（构建期 SFC）+ `registry.ts` + `TemplateTable.vue` 的叠加挂载；接口调用面判据实测该页 9 次调用与旧栈逐项一致（原缺口 2 次调用已闭合） |
- * | `meta_hotel` / `meta_product` | **表单页**（自定义表单，键是**元对象编码**） | **未实现**（按下方口径）⇒ 对这两个元对象，SPA 渲染的是**标准表单**，与旧栈**不等价**（旧栈换成 `/product/app.vue` 的省→市→区联动等） |
+ * | r126 | 只登记不实现（要动全应用 Vue 入口或改冻结资产，代价高） | 历史 |
+ * | r300（拿哥） | 「暂不实现，登记为已知不等价」（迁移完成后单独处理） | **已被 r327 取代** |
+ * | **r327（拿哥）** | **切片 B 开工**：把表单页自定义 app 按构建期 SFC + 钩子模块补齐 | ★ **当前有效** |
  *
- * ## ★★ 口径裁定（拿哥，第 300 轮）—— **改动本模块前必读**
- *
- * > 「暂不实现，登记为已知不等价」（迁移工作全部完成后再单独处理。）
- *
- * ⇒ 本模块**继续只登记、不实现**；`meta_hotel`/`meta_product` 的表单页渲染**标准表单**，
- *   这处与旧栈的**不等价是既定状态，不是缺陷**。
- * ⇒ **不要**为了"补齐等价"去顺手做下面任一件事（两者都超出本条口径，且各有硬代价）：
- *   ① 把 `vue` 别名指向 `vue/dist/vue.esm-bundler.js`（runtime+compiler）—— 属**动全应用 Vue 入口**，
- *      全应用包体 +≈40KB，且引入运行时编译（CSP/eval 相关约束）；
- *   ② 把 3 个 `.vue` 模版（`/hotel/app.vue`、`/product/app.vue`）改写成构建期 SFC ——
- *      那是**修改冻结资产**（`src/legacy/**` 只可引用、不得修改），违反冻结纪律。
- * ⇒ 该口径写在此处（而非只写治理文档）是因为**治理文档按项目规则不提交**，
- *   只有代码能把"这处不等价是有意为之"留在仓库里。
- *
- * ## ★★ r319 追记（口径与实施的冲突，**留档待裁**）
- *
- * 实施 U4 切片 A（列表页叠加）时，**未读到本条口径**（它是本文件后半段的注释）；
- * 事后核对：切片 A **未触碰上面被点名的两条成本** ——
- *   ① 没有动 `vue` 别名/Vue 入口（仍是 runtime-only）；
- *   ② 没有改 `src/legacy/**` 任何一个字节（新建 `src/views/custom/**` 的构建期 SFC
- *      是对冻结模板的**逐字移植**，冻结资产闸门 `verify-frontend-legacy-assets.py` 仍全绿）。
- * 判读：口径的原话是"**暂不实现**…（迁移工作全部完成后再**单独处理**）"，而本次是把 U4 作为
- *   **独立单元**（有验收标准、有证据、单独提交 `e59d26f`）处理，不是"顺手补等价"。
- * ⚠️ 但**字面**上"暂不实现"仍适用于整个自定义 app 机制 ⇒ 若按字面口径，回退点是提交 `e59d26f`
- *   （单提交，`git revert e59d26f` 即可完全复原，缺口会重新出现在探针的 `DECLARED_PAGE_GAPS` 里）。
- * ⇒ **表单页（切片 B，`meta_hotel`/`meta_product` 的省→市→区联动）本轮不实现**，等口径明确。
+ * ⇒ 两条**成本约束**仍然有效（切片 A/B 都未触碰）：
+ *   ① **不许**把 `vue` 别名指向 `vue/dist/vue.esm-bundler.js`（引入运行时编译器 ⇒ 全应用 +≈40KB、
+ *      CSP/eval 约束）；
+ *   ② **不许**修改 `src/legacy/**` 任何一个字节（冻结纪律；只新建文件）。
  */
 
 /** 自定义组件登记（名字 → 冻结资产路径），逐字取自 `eova.vue.config.js:10-15` */

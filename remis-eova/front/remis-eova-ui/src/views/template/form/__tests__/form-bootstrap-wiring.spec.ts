@@ -55,6 +55,10 @@ function makeMe(): EovaMe {
   return {
     layer: { msg: vi.fn(), no: vi.fn(), wa: vi.fn(), open: vi.fn() },
     cross: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+    // ★ r327（切片 B）：`meta_product` 的自定义脚本（`legacy/product/app.js` 的 `me.conf.getAll()`）
+    //   现在**真的会被调用**（钩子由宿主安装）⇒ 替身必须与制品同形地提供 `conf`（制品确有 `getAll`，
+    //   已 grep `eovaui.js` 证实）。缺它 = 替身不完整，不是产品缺陷。
+    conf: { putAll: vi.fn(), get: vi.fn(), getAll: () => ({}) },
     urls: { url: vi.fn(() => '/api/form/add/meta_product') }
   } as unknown as EovaMe
 }

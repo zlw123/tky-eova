@@ -60,7 +60,10 @@ function makeMe(): MeSpy {
       no: vi.fn(),
       wa: vi.fn(),
       open: vi.fn(),
-      confirm: vi.fn((_m: string, cb: () => void) => cb())
+      confirm: vi.fn((_m: string, cb: () => void) => cb()),
+      // ★ r327（切片 B）：`meta_hotel` 的自定义脚本会 `me.layer.notify(...)`
+      //   （制品确有该方法，已 grep `eovaui.js` 证实）⇒ 替身必须与制品同形地提供它。
+      notify: vi.fn()
     },
     cross: { on: vi.fn(), off: vi.fn(), emit: vi.fn() }
   }
@@ -581,4 +584,36 @@ describe('TemplateTable.vue（旧 template/table 的行为等价）', () => {
     await btn.trigger('click')
     expect(stubs.tableApi.query).toHaveBeenCalledTimes(1)
   })
+  it('⑯d ★ r327（切片 B）：列表页派发 `onReady` 前**装上本页键的脚本钩子**（键是异步到达的）', async () => {
+    // 旧栈：`vue.app('table_meta_hotel', {…, script:'/hotel/app.js'})` ⇒ 该页查询表单 ready 时
+    // `uzoo.vue.onReady(fields)` 会把 `hotel/app.js` 的钩子跑起来（`uzoo.page.form='query'` ⇒
+    // 弹 `form:query` 通知，然后取 city/region 做初始禁用）。
+    // ★ SPA 的键来自**异步**的 `bootstrap.menu.template` ⇒ setup 期还不知道、**只能在派发点安装**
+    //   —— 本用例先把 bootstrap 的 menu 拿掉（key = `table_`），再 setProps 补上（模拟真实到达顺序），
+    //   这样"只在 setup 期装"的实现会红。
+    routeState.params = { menuCode: 'meta_hotel' }
+    makeUzoo() // 钩子起步为空（与冻结资产 eova.meta.js 一致）
+    const w = mountPage({ menu: undefined, object: { code: 'meta_hotel', fields: [] } as never })
+    // 键此时还不可知（menu 未到）⇒ 钩子不该被装
+    expect((globalThis as never as { uzoo: Uzoo }).uzoo.vue.onReady).toBeUndefined()
+
+    await w.setProps({
+      bootstrap: makeBootstrap({
+        menu: { code: 'meta_hotel', template: 'table', conf: {} } as never,
+        object: { code: 'meta_hotel', fields: [] } as never
+      })
+    })
+    await nextTick()
+
+    const city = { setDisabled: vi.fn(), setOption: vi.fn() }
+    const region = { setDisabled: vi.fn(), setOption: vi.fn() }
+    w.findComponent(stubs.EvForm).vm.$emit('ready', {
+      get: (n: string) => (n === 'city' ? city : region)
+    })
+    await nextTick()
+    expect(me.layer.notify).toHaveBeenCalledWith('自定义逻辑', '/hotel/app.js form:query', 'ok')
+    expect(city.setDisabled).toHaveBeenCalledWith(true)
+    expect(region.setDisabled).toHaveBeenCalledWith(true)
+  })
+
 })
