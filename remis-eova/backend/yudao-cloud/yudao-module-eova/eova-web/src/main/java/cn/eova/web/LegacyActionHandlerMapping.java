@@ -20,6 +20,7 @@ import cn.eova.compat.jfinal.core.LegacyController;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.SmartLifecycle;
 import org.springframework.web.servlet.handler.AbstractHandlerMapping;
 
 /**
@@ -49,7 +50,7 @@ import org.springframework.web.servlet.handler.AbstractHandlerMapping;
  * @see LegacyActionHandler
  * @see RequestPath
  */
-public class LegacyActionHandlerMapping extends AbstractHandlerMapping {
+public class LegacyActionHandlerMapping extends AbstractHandlerMapping implements SmartLifecycle {
 
     private static final Logger log = LoggerFactory.getLogger(LegacyActionHandlerMapping.class);
 
@@ -61,8 +62,11 @@ public class LegacyActionHandlerMapping extends AbstractHandlerMapping {
     /** 执行侧处理器（Spring bean，被所有请求共享） */
     private final LegacyActionHandler handler;
 
-    /** 已解析的 (controllerPath, Routes) 对照表，按路径长度降序（最长前缀优先） */
+    /** 已解析的 (controllerPath, Routes) 对照表，按路径长度降序（最长前缀优先）；由 {@link #start()} 填充 */
     private final List<Entry> entries = new ArrayList<>();
+
+    /** 生命周期状态（{@link #start()}/{@link #stop()} 维护） */
+    private volatile boolean running;
 
     /**
      * 构造：**在构造期**建索引（与旧 {@code @PostConstruct} 同期）—— 此时 {@code boot} 已完成
@@ -76,7 +80,9 @@ public class LegacyActionHandlerMapping extends AbstractHandlerMapping {
         this.handler = handler;
         // ★ 必须晚于 RequestMappingHandlerMapping（= 0）：显式 Spring 端点优先，旧式分发兜底
         setOrder(1);
-        indexRoutes();
+        // ★ r332（DES-012 P2-U3）：索引**不在构造期**建 —— 启动副作用已搬进宿主 SmartLifecycle
+        //   （phase = 0），构造期 boot 尚未 init ⇒ 那时建表只会得到**空路由表**。
+        //   改由本类自己的 start()（phase = 1，晚于 boot、早于 web 容器）建表。
     }
 
     /** 一条路由所属的 Routes 对象（拦截器从它取） */
@@ -279,5 +285,40 @@ public class LegacyActionHandlerMapping extends AbstractHandlerMapping {
         }
         request.setAttribute(MATCH_ATTRIBUTE, match);
         return handler;
+    }
+
+    /**
+     * **建路由索引**（DES-012 P2-U3）：phase = 1 ⇒ 晚于宿主启动（0），早于 web 容器
+     * （{@code Integer.MAX_VALUE - 1}，实测"低 phase 先启动"）⇒ 请求到达前索引必然就绪。
+     */
+    @Override
+    public void start() {
+        if (running) {
+            return;
+        }
+        indexRoutes();
+        running = true;
+    }
+
+    /** 停机：清空索引并标记未运行（容器关闭期不再匹配） */
+    @Override
+    public void stop() {
+        entries.clear();
+        running = false;
+    }
+
+    @Override
+    public boolean isRunning() {
+        return running;
+    }
+
+    /**
+     * 启动相位：1 ⇒ 严格晚于宿主启动（0）。
+     *
+     * @return 相位值
+     */
+    @Override
+    public int getPhase() {
+        return 1;
     }
 }

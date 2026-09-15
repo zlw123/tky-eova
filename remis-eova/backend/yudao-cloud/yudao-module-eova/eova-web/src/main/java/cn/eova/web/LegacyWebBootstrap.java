@@ -36,10 +36,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.resource.ResourceHttpRequestHandler;
 
-import jakarta.annotation.PreDestroy;
 
 /**
  * **Eova 自有 Web 层的启动装配（切片 S1，第 245 轮起）** —— 复用已 port 的引导序列，
@@ -62,7 +62,7 @@ import jakarta.annotation.PreDestroy;
  * 不在这里顺手做掉。**S2 必须用真自省替换**（届时 dao 才可用）。</p>
  */
 @Configuration
-public class LegacyWebBootstrap {
+public class LegacyWebBootstrap implements SmartLifecycle {
 
     private static final Logger log = LoggerFactory.getLogger(LegacyWebBootstrap.class);
 
@@ -108,6 +108,9 @@ public class LegacyWebBootstrap {
 
     private LegacyJFinalBoot boot;
     private EovaConfig config;
+
+    /** 启动期需要的 DataSource 提供者（r332 U3：工厂只暂存，实际使用在 {@link #start()}） */
+    private ObjectProvider<DataSource> dataSourceProvider;
 
     /**
      * 启动装配：回调 {@link EovaConfig} 的旧生命周期，并暴露引导对象。
@@ -319,6 +322,27 @@ public class LegacyWebBootstrap {
     //   且它在 r324 之后**已无任何调用点**。留着就是留一个"基于错误前提的接缝"。
     @Bean
     public LegacyJFinalBoot legacyBoot(ObjectProvider<DataSource> dataSourceProvider) {
+        // ★ r332（DES-012 P2-U3）：工厂方法**不再产生启动副作用** —— 只创建实例；
+        //   旧写法把"档桥接 → x.conf 兜底 → 数据源/网关/元数据源 → boot.init → 多数据源 →
+        //   缓存/渲染注入"整段放在这里（@Bean 的副作用），现在搬进 SmartLifecycle#start()
+        //   （phase = 0，实测低 phase 先启动、web 容器 phase=MAX-1 最后启动 ⇒ 启动序列不变）。
+        this.dataSourceProvider = dataSourceProvider;
+        this.boot = new LegacyJFinalBoot();
+        return this.boot;
+    }
+
+    /**
+     * **Spring 生命周期驱动的启动**（DES-012 P2-U3）：等价旧 {@code JFinal.init()} 的宿主侧编排。
+     *
+     * <p>phase = 0 ⇒ 实测启动顺序为**低 phase 先启动**（Spring 6.2 实测：phase 1 → 100 → MAX-1），
+     * 而 web 容器（{@code WebServerStartStopLifecycle}）phase = {@code Integer.MAX_VALUE - 1}
+     * ⇒ 本启动序列与路由索引（phase = 1）都**早于**容器开始接受请求。</p>
+     */
+    @Override
+    public void start() {
+        if (boot != null && boot.isStarted()) {
+            return;
+        }
         // ★★ r326（DES-010）：宿主配置档 → JVM 系统属性的桥接。
         //   兼容层 `LegacyConfigProfile` 只认 `-Deova.prop` / `EOVA_PROP` 这两个**纯 JVM/OS 事实源**
         //   （档位在 ④ `configConstant` 里装载，此刻只有它们必然可读）；桥接后
@@ -390,7 +414,6 @@ public class LegacyWebBootstrap {
         //   为什么必须走这个子类：`EovaConfig` 的"根路由是否已注册"守卫只看**直接 add** 的条目，
         //   把 `/` 放进子 Routes（如 `EovaWebRoutes`）会让根路由**重复两条**（见 `WebAppConfig` 类注释）。
         this.config = new WebAppConfig();
-        this.boot = new LegacyJFinalBoot();
         this.boot.init(this.config);
 
         // ④b ★ 多数据源接线（第 298 轮，DES-008）：旧栈由 `configPlugin` 为 `db.datasource` 里的
@@ -457,7 +480,6 @@ public class LegacyWebBootstrap {
 
         LegacyRoutes routes = this.boot.getRoutes();
         log.info("Eova Web 层：引导完成，路由条目 {} 条", routes.getRouteItemList().size());
-        return this.boot;
     }
 
     /**
@@ -488,12 +510,36 @@ public class LegacyWebBootstrap {
     }
 
     /** 停机：按旧序列 beforeJFinalStop → 插件 stop → onStop */
-    @PreDestroy
-    public void shutdown() {
+    /**
+     * **Spring 生命周期驱动的停机**（DES-012 P2-U3）：与旧 {@code @PreDestroy shutdown()} 同一序列
+     * （{@code boot.stop(config)}：beforeJFinalStop → 插件 stop → onStop）。
+     */
+    @Override
+    public void stop() {
         if (boot != null && boot.isStarted()) {
             boot.stop(config);
             log.info("Eova Web 层：已按旧序列停机");
         }
+    }
+
+    /**
+     * 是否已按旧序列启动完成。
+     *
+     * @return 启动完成 true
+     */
+    @Override
+    public boolean isRunning() {
+        return boot != null && boot.isStarted();
+    }
+
+    /**
+     * 启动相位：0 ⇒ 早于路由索引（1）与 web 容器（{@code Integer.MAX_VALUE - 1}）。
+     *
+     * @return 相位值
+     */
+    @Override
+    public int getPhase() {
+        return 0;
     }
 
     /**
