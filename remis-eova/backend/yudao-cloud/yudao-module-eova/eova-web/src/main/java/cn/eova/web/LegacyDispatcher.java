@@ -234,6 +234,15 @@ public class LegacyDispatcher {
         controller.setHttpServletResponse(response);
         controller.setUrlPara(urlPara);
 
+        // ★ r332（DES-012 P1-U4）：**注入上传部件容器** —— 旧栈这一步由 jfinal 的
+        //   `Controller.getFiles()` **按需**把 request 包成 MultipartRequest（内部 COS 从原始体解析）；
+        //   新栈的解析由 Spring 完成（Boot 的 StandardServletMultipartResolver 已在 DispatcherServlet
+        //   前置把请求包成 MultipartHttpServletRequest），故宿主必须在 action 之前把部件交给控制器
+        //   —— 这正是 r77 声明、却一直**没有调用点**的 `LegacyController#setMultipartRequest`。
+        //   实测缺口：旧栈 `POST /upload/file`（合法文件）= 200 state:ok，新栈修前 = 500（未注入）。
+        //   ⚠️ 必须在下面的 JSON 包装**之前**调用：包装类型不再实现 MultipartHttpServletRequest。
+        LegacyMultipartInjector.inject(controller, request);
+
         // ★ JSON 请求包装 —— 旧 jfinal {@code ActionHandler} 逐行等价：
         //     if (resolveJson && controller.isJsonRequest())
         //         controller.setHttpServletRequest(jsonRequestFactory.apply(controller.getRawData(), controller.getRequest()));

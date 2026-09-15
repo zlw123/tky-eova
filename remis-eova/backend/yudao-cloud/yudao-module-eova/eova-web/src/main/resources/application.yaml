@@ -29,6 +29,16 @@ spring:
   profiles:
     # 默认 local ⇒ **不连 Nacos**（保证扫描/单测在无注册中心时也可跑，见 application-local.yaml）
     active: local
+  servlet:
+    multipart:
+      # ★ DES-012 P1-U4（r332）：与旧栈 `maxPostSize` **对齐**。
+      #   旧栈（jfinal/COS）的上限来自 `LegacyConstants.maxPostSize`，默认 `10485760` = 10MB
+      #   （`LegacyUploadConfig.init` 由引导序列下发）；Spring Boot 默认只给 **1MB** ⇒
+      #   旧栈可接受的 1–10MB 文件会被 Spring **提前拒掉**（`MaxUploadSizeExceededException`），
+      #   属"解析层提前改变契约"。故在此显式对齐为 10MB（值 = 10×1024×1024，与旧常量逐字相等）。
+      #   判据：`UploadHttpTest`（合法文件必须 200 state:ok）+ 静态对齐断言（本文件键值 vs 旧常量）。
+      max-file-size: 10MB
+      max-request-size: 10MB
   config:
     import:
       # 与平台同形：显式 import 当前 profile 的 classpath 配置。
