@@ -1,0 +1,136 @@
+# ★ r330（阶段三 B 级 · 部署清单，`docs/DES-011-R1-phase3-stack-alignment.md`）
+#
+# ## 这是什么
+# 与平台 **同形**的 Deployment + Service 清单（对照平台 `k8s/yudao-module-system.yaml`：
+# hostNetwork / dnsPolicy / hostAliases / 三探针 / resources / imagePullSecrets / RollingUpdate）。
+#
+# ## ★ 为什么不写具体环境值（不伪造）
+# 下面四类值**只可能是环境相关**，一律用**平台自己的占位符约定**（平台 `k8s/yudao-module-ai.yaml:5` 就是这么写的）：
+#   · `{{NAMESPACE}}` —— 命名空间（平台用 `gd-project-dev` 等，按环境给）
+#   · `{{IMAGE_TAG}}` —— 镜像 tag（平台约定；镜像仓库前缀沿用平台 `harbor.node1/gd/`）
+#   · `{{IMAGE_PULL_SECRET}}` —— 拉取 Secret 名（平台用 `harbor-gd`）
+#   · `{{NODE_PORT}}` —— NodePort
+# 唯一例外是**我们自己的契约值**（端口 48090、探针路径、`server.port`），那些来自本仓的
+# `application.yaml` / `Dockerfile`，必须是具体值。
+#
+# ## ★ 与平台的**三处已声明差异**
+# 1. **不挂 SkyWalking agent**（平台挂 `/skywalking/skywalking-agent` hostPath）：本服务不引 SkyWalking
+#    （拿哥口径①：独立 reactor，不引平台/第三方融合物）⇒ 清单里没有该 volume 与 `-javaagent`。
+# 2. **不注入 `-Dremis.xss.enable`**：那是平台自己的开关，本服务没有对应实现。
+# 3. **页面资产**：本服务的后端要自供页面（旧视图树 + SPA 产物）。**若镜像里没烤进这两个目录**
+#    （见 `../Dockerfile` 的说明），必须挂载并把 `eova.webapp.root` / `eova.ui.dist` 指过去 ——
+#    下面留了一段**注释掉的示例**（用 hostPath；生产应换 PVC/镜像内置，见 DES-011 §5.4 待裁项）。
+#
+# ## ★ EOVA 自己的档位（与 Spring profile 是**两个**旋钮）
+# `-Dspring.profiles.active=dev` 选 Spring 配置档（`application-dev.yaml`：Nacos 地址等）；
+# `-Deova.prop={{EOVA_PROP}}` 选 **EOVA 业务档**（`eova/dev.txt`（MySQL 基线）· `eova/dev-kingbase.txt`（金仓）·
+# `eova/prd.txt`（生产）—— 见 DES-010）。二者**事实源不同、可共存**，且档值优先（DES-011 U9）。
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eova-web
+  namespace: "{{NAMESPACE}}"
+  labels:
+    app: eova-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eova-web
+  template:
+    metadata:
+      labels:
+        app: eova-web
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      # Nacos / 金仓等内网域名靠 hostAliases（与平台同法；IP 由环境给）
+      hostAliases:
+        - ip: "{{PLATFORM_HOST_IP}}"
+          hostnames:
+            - "base.platform"
+      containers:
+        - name: eova-web
+          image: harbor.node1/gd/eova-web:{{IMAGE_TAG}}
+          ports:
+            - name: http-0
+              containerPort: 48090
+              protocol: TCP
+          env:
+            # 端口 / Spring 档 / EOVA 业务档（见文件头说明）
+            - name: JAVA_OPTS
+              value: '-Xms1g -Xmx1g -XX:+HeapDumpOnOutOfMemoryError -Dserver.port=48090 -Dspring.profiles.active=dev -Deova.prop={{EOVA_PROP}}'
+          resources:
+            limits:
+              cpu: '1'
+              memory: 1Gi
+            requests:
+              cpu: '0.1'
+              memory: 128Mi
+          # 三探针与平台同形（都打 Actuator 的 health 分组；路径/端口是本服务的契约）
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http-0
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http-0
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http-0
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # ★ 页面资产（仅当镜像未烤入时需要）：挂到 Dockerfile 约定的两个路径
+          # volumeMounts:
+          #   - name: eova-webapp
+          #     mountPath: /app/webapp
+          #     readOnly: true
+          #   - name: eova-ui-dist
+          #     mountPath: /app/ui-dist
+          #     readOnly: true
+          imagePullPolicy: IfNotPresent
+      # volumes:
+      #   - name: eova-webapp
+      #     hostPath:
+      #       path: /data/eova/webapp
+      #       type: ''
+      #   - name: eova-ui-dist
+      #     hostPath:
+      #       path: /data/eova/ui-dist
+      #       type: ''
+      imagePullSecrets:
+        - name: '{{IMAGE_PULL_SECRET}}'
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: eova-web
+  namespace: "{{NAMESPACE}}"
+  labels:
+    app: eova-web
+spec:
+  ports:
+    - name: eova-web
+      protocol: TCP
+      port: 48090
+      targetPort: 48090
+      # ★ NodePort 由环境给（平台清单里是具体值，如 32313）——
+      #   本模板**不伪造**该值；需要对外暴露时取消注释并填环境给的具体端口。
+      # ⚠️ 不能写成 `nodePort: {{NODE_PORT}}`：`{{…}}` 在 YAML 里是**流式映射**语法 ⇒ 文件直接解析失败
+      #   （实测：`found unhashable key`）。占位符一旦落在"需要裸标量"的位置，就必须靠注释 + 具体值。
+      # nodePort: 32090

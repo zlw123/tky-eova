@@ -216,6 +216,116 @@ class Phase3StackAlignmentTest {
         assertTrue(d.contains("EXPOSE 48090"), "端口与 application.yaml 的 server.port 一致");
     }
 
+    @Test
+    @DisplayName("★ B 级：k8s 清单与平台同形（三探针/端口/发布策略），且**不伪造环境值**")
+    void k8sManifestShape() throws Exception {
+        String text = readRepoFile(
+                "remis-eova/backend/yudao-cloud/yudao-module-eova/eova-web/k8s/eova-web.yaml");
+        // 真解析（不是子串匹配）：snakeyaml 由 spring-boot-starter-web 传递引入
+        java.util.List<Object> docs = new java.util.ArrayList<>();
+        for (Object d : new org.yaml.snakeyaml.Yaml().loadAll(text)) {
+            docs.add(d);
+        }
+        assertEquals(2, docs.size(), "清单应是 Deployment + Service 两份");
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> dep = (java.util.Map<String, Object>) docs.get(0);
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> svc = (java.util.Map<String, Object>) docs.get(1);
+        assertEquals("Deployment", dep.get("kind"));
+        assertEquals("Service", svc.get("kind"));
+
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> podSpec = at(dep, "spec", "template", "spec");
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> container =
+                (java.util.Map<String, Object>) ((java.util.List<?>) podSpec.get("containers")).get(0);
+
+        // 端口契约（来自 application.yaml）
+        @SuppressWarnings("unchecked")
+        java.util.List<java.util.Map<String, Object>> ports =
+                (java.util.List<java.util.Map<String, Object>>) container.get("ports");
+        assertTrue(ports != null && !ports.isEmpty(), "container 必须声明 ports");
+        assertEquals(48090, ports.get(0).get("containerPort"), "containerPort 必须是 48090");
+        // 三探针必须打 Actuator 的 health 分组（平台 k8s 口径；路径是本服务的契约）
+        // ★ 探针路径必须**逐个精确**（不能只断言前缀）：readiness 指到 `/actuator/health/ready`
+        //   这种"少一个后缀"的写法也满足前缀断言，但 k8s 会永远判不 ready（r330 变异 M14 实测的假绿）。
+        java.util.Map<String, String> expectProbe = new java.util.LinkedHashMap<>();
+        expectProbe.put("startupProbe", "/actuator/health/liveness");
+        expectProbe.put("readinessProbe", "/actuator/health/readiness");
+        expectProbe.put("livenessProbe", "/actuator/health/liveness");
+        for (java.util.Map.Entry<String, String> e : expectProbe.entrySet()) {
+            java.util.Map<?, ?> p = (java.util.Map<?, ?>) container.get(e.getKey());
+            assertTrue(p != null, "缺探针：" + e.getKey());
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> httpGet = (java.util.Map<String, Object>) p.get("httpGet");
+            assertEquals(e.getValue(), String.valueOf(httpGet.get("path")),
+                    e.getKey() + " 必须打平台口径的探针分组（k8s 就靠这两个分组判活/判就绪）");
+            assertEquals("http-0", String.valueOf(httpGet.get("port")),
+                    e.getKey() + " 的端口名要与 ports[].name 一致");
+        }
+        // JAVA_OPTS 必须显式给端口（平台 k8s 就是这么覆盖 server.port 的）
+        @SuppressWarnings("unchecked")
+        java.util.List<java.util.Map<String, Object>> env =
+                (java.util.List<java.util.Map<String, Object>>) container.get("env");
+        String javaOpts = String.valueOf(env.get(0).get("value"));
+        assertTrue(javaOpts.contains("-Dserver.port=48090"),
+                "JAVA_OPTS 必须带 -Dserver.port=48090（与容器端口一致）");
+        // hostAliases 必须含 base.platform（Nacos/金仓都靠它）
+        assertTrue(String.valueOf(podSpec.get("hostAliases")).contains("base.platform"),
+                "hostAliases 必须含 base.platform（Nacos 与金仓都用这个域名）");
+        // 发布策略与平台同形
+        assertEquals(0, ((Number) scalar(dep, "spec", "strategy", "rollingUpdate", "maxSurge")).intValue(),
+                "maxSurge 必须 0（平台口径）");
+        // ★ 字符串类断言一律在**剥掉 `#` 注释**的文本上做：本清单的文件头把"为何不挂 SkyWalking"写成了注释，
+        //   不剥注释时 `text.contains("skywalking")` 会**假红**（本轮第 4 次同类坑）。
+        String bare = readRepoFileSansHashComments(
+                "remis-eova/backend/yudao-cloud/yudao-module-eova/eova-web/k8s/eova-web.yaml");
+        assertFalse(bare.toLowerCase().contains("skywalking"),
+                "本服务不引 SkyWalking ⇒ 清单里不得有它的 agent volume");
+        // ★ 不伪造环境值：命名空间/镜像 tag 必须是平台自己的占位符约定（`{{…}}`）
+        // 占位符必须**两份文档都在**（Deployment + Service 各有 namespace）—— 只数一次会让
+        // "把其中一处写实"漏过去（r330 变异 M16 正是为钉这一点而设计）。
+        assertEquals(2, countOf(bare, "{{NAMESPACE}}"),
+                "★ 命名空间占位符必须出现 2 次（Deployment + Service 各一），不得编造具体值");
+        assertTrue(bare.contains("{{IMAGE_TAG}}"), "★ 镜像 tag 必须留占位符（平台清单的既有约定）");
+    }
+
+    /** 数某个子串在文本里出现几次（占位符审计用） */
+    private static int countOf(String text, String needle) {
+        int n = 0;
+        int i = text.indexOf(needle);
+        while (i >= 0) {
+            n++;
+            i = text.indexOf(needle, i + needle.length());
+        }
+        return n;
+    }
+
+    /** 逐层取标量值（供 Integer/Boolean 这类叶子用） */
+    @SuppressWarnings("unchecked")
+    private static Object scalar(java.util.Map<String, Object> root, String... keys) {
+        Object cur = root;
+        for (String k : keys) {
+            assertTrue(cur instanceof java.util.Map, "配置层级缺键：" + String.join("/", keys));
+            cur = ((java.util.Map<String, Object>) cur).get(k);
+        }
+        return cur;
+    }
+
+    /** 逐层取 map 里的键（缺键即断言失败，避免 NPE 掩盖问题） */
+    @SuppressWarnings("unchecked")
+    private static java.util.Map<String, Object> at(java.util.Map<String, Object> root, String... keys) {
+        Object cur = root;
+        for (String k : keys) {
+            if (cur == null) {
+                break;
+            }
+            cur = ((java.util.Map<String, Object>) cur).get(k);
+        }
+        assertTrue(cur instanceof java.util.Map, "配置层级缺键：" + String.join("/", keys));
+        return (java.util.Map<String, Object>) cur;
+    }
+
     // ---------- 工具 ----------
 
     /** 读本模块 classpath 资源（构建产物里的那一份） */

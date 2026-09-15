@@ -23,7 +23,13 @@ package cn.eova.compat.jfinal.server;
  * <p><b>已声明的适配：</b>旧栈是 Undertow 嵌入式容器（{@code UndertowServer.restart()} 走
  * Undertow 的容器重启）；新栈是 Spring Boot（等价能力由 spring-boot-devtools 的
  * restart 机制提供）。实现类属<b>宿主编排</b>，不在本次代码级 port 范围内；
- * 阶段 1 的验收需核对"开发期重启"这一开发工作流在新栈确有对应物（见 R4 §验收）。</p>
+ * 阶段 1 的验收需核对"开发期重启"这一开发工作流在新栈确有对应物（见 R4 §验收）。
+ *
+ * <p>★ <b>r330 结项（见 {@code docs/DES-011-R1-phase3-stack-alignment.md} §6.2）</b>：该"对应物"**不需要** ——
+ * <b>旧栈也没有任何调用方</b>（{@code grep -rn "UndertowUtil" meta-eova/eova --include=*.java} 除自身 0 命中），
+ * 新栈同样只有判据在调 ⇒ 这份开发期热重启能力在<b>两栈都不可达</b>，新宿主不注入实现**不构成功能缺失**。
+ * Spring Boot 侧若要开发期热重启，用 {@code spring-boot-devtools}（登记为**可选加固，不引**：
+ * 它会改变 classpath 与运行期行为，与"生产零多余依赖"的纪律冲突）。</p>
  */
 public interface LegacyServerHandle {
 
