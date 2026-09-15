@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ★ r329（阶段三 B 级 U7，`docs/DES-011-R1-phase3-stack-alignment.md`）：**与平台同形**的 logback 骨架。
+
+  对照（平台，只读取证）：`yudao-server/src/main/resources/logback-spring.xml`（76 行）
+  —— defaults.xml include · `springProperty` 基础包 · `PATTERN_DEFAULT` · STDOUT/FILE/ASYNC appender ·
+  `springProfile local` 与 `springProfile dev,test,stage,prod,default` 两组 root。
+
+  ## ★ 三处**已声明差异**（不复制平台的这三样，逐条给理由）
+
+  1. **去掉 `%tid` 与 `TraceIdPatternLogbackLayout`**：平台那份的 STDOUT/FILE/GRPC 三个 appender 都用
+     `org.apache.skywalking.apm.toolkit.log.logback.v1.x.TraceIdPatternLogbackLayout` 包一层 ——
+     本服务**不引 SkyWalking**（拿哥口径①：独立 reactor，只对齐形态、不引第三方融合物）⇒ 直接复制会
+     `ClassNotFoundException` 让 logback 配置整体失效；而只留 `%tid` 而没有对应 converter 时，
+     logback 会打 "no conversion class registered for conversion word [tid]" 并把 `%tid` 原样输出。
+  2. **去掉 `GRPC` appender**（SkyWalking 日志收集，`...log.GRPCLogClientAppender`）：同上。
+  3. **`springProperty` 换成本服务自己的键**：`yudao.info.base-package` → `eova.info.base-package`
+     （默认值 `cn.eova`）。平台那个键在本服务里没有来源，照抄只会得到一个空值。
+
+  ## 保留（与平台逐字同形）
+
+  · `defaults.xml` include（`LOG_LEVEL_PATTERN`/`LOG_EXCEPTION_CONVERSION_WORD` 等变量由它定义）；
+  · `PATTERN_DEFAULT` 的**骨架**（`%d | %highlight(level pid) | %boldYellow(thread) %boldGreen(logger) | msg`）；
+  · 控制台 `STDOUT` + 滚动文件 `FILE`（`${LOG_FILE}` ← `logging.file.name`，见 `application.yaml`）
+    + `ASYNC`（`discardingThreshold=0`：不丢日志）；
+  · 两组 `springProfile`（local / 其它环境）。
+
+  ## 验收
+
+  实跑（`docs/.local/spikes/verify-phase3-alignment.sh` 的第 ①′ 项）：启动后
+  ① stdout 出现该 pattern（`日期 | level pid | 线程 logger | 消息`）；
+  ② `~/logs/base-platform-eova-server.log` 落盘且非空；
+  ③ **不出现** logback 自身的配置告警（`no conversion class registered` / `ERROR in ch.qos.logback`）。
+  静态判据见 `Phase3StackAlignmentTest#logbackSkeleton`（含"不得出现 skywalking/%tid"的反向断言）。
+-->
+<configuration>
+    <!-- 引用 Spring Boot 的 logback 基础配置 -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <!-- 变量 eova.info.base-package：本服务的基础业务包（缺省 cn.eova） -->
+    <springProperty scope="context" name="eova.info.base-package" source="eova.info.base-package" defaultValue="cn.eova"/>
+    <!--
+      格式化输出：%d 日期 · %highlight(level pid) · %boldYellow(线程) %boldGreen(logger) · %m 消息 · %n 换行。
+      ★ 与平台的差别只有一处：**没有 `[%tid]`**（见文件头差异 1）。
+    -->
+    <property name="PATTERN_DEFAULT"
+              value="%d{${LOG_DATEFORMAT_PATTERN:-yyyy-MM-dd HH:mm:ss.SSS}} | %highlight(${LOG_LEVEL_PATTERN:-%5p} ${PID:- }) | %boldYellow(%thread) %boldGreen(%-40.40logger{39}) | %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"/>
+
+    <!-- 控制台 Appender -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="ch.qos.logback.classic.PatternLayout">
+                <pattern>${PATTERN_DEFAULT}</pattern>
+            </layout>
+        </encoder>
+    </appender>
+
+    <!-- 文件 Appender（参考 Spring Boot 的 file-appender.xml 编写；文件名来自 logging.file.name ⇒ ${LOG_FILE}） -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="ch.qos.logback.classic.PatternLayout">
+                <pattern>${PATTERN_DEFAULT}</pattern>
+            </layout>
+        </encoder>
+        <file>${LOG_FILE}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOGBACK_ROLLINGPOLICY_FILE_NAME_PATTERN:-${LOG_FILE}.%d{yyyy-MM-dd}.%i.gz}</fileNamePattern>
+            <cleanHistoryOnStart>${LOGBACK_ROLLINGPOLICY_CLEAN_HISTORY_ON_START:-false}</cleanHistoryOnStart>
+            <maxFileSize>${LOGBACK_ROLLINGPOLICY_MAX_FILE_SIZE:-10MB}</maxFileSize>
+            <totalSizeCap>${LOGBACK_ROLLINGPOLICY_TOTAL_SIZE_CAP:-0}</totalSizeCap>
+            <maxHistory>${LOGBACK_ROLLINGPOLICY_MAX_HISTORY:-30}</maxHistory>
+        </rollingPolicy>
+    </appender>
+
+    <!-- 异步写入日志，提升性能 -->
+    <appender name="ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+        <!-- 不丢失日志。默认的，如果队列的 80% 已满,则会丢弃 TRACE、DEBUG、INFO 级别的日志 -->
+        <discardingThreshold>0</discardingThreshold>
+        <queueSize>256</queueSize>
+        <appender-ref ref="FILE"/>
+    </appender>
+
+    <!-- 本地环境 -->
+    <springProfile name="local">
+        <root level="INFO">
+            <appender-ref ref="STDOUT"/>
+            <appender-ref ref="ASYNC"/>
+        </root>
+    </springProfile>
+    <!-- 其它环境 -->
+    <springProfile name="dev,test,stage,prod,default">
+        <root level="INFO">
+            <appender-ref ref="STDOUT"/>
+            <appender-ref ref="ASYNC"/>
+        </root>
+    </springProfile>
+</configuration>

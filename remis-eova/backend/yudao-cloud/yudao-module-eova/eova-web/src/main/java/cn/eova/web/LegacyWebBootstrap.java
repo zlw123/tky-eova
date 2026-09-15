@@ -148,19 +148,38 @@ public class LegacyWebBootstrap {
         return root;
     }
 
+    /** 解析前端打包产物根（实例侧：配置的系统属性 + 当前工作目录） */
+    private java.io.File resolveSpaDistRoot() {
+        return resolveSpaDistRootOf(System.getProperty("eova.ui.dist", ""), new java.io.File("").getAbsoluteFile());
+    }
+
     /**
-     * 解析前端打包产物根（不产生副作用；供 Bean 与判据复用）
+     * 解析前端打包产物根（纯函数 + **注入外壳渲染器**；供 Bean 与判据复用）。
      *
+     * <p>解析顺序：配置（{@code -Deova.ui.dist=/path/to/dist}）优先；否则从工作目录向上找
+     * {@code remis-eova/front/remis-eova-ui/dist}。找不到返回 {@code null}（调用方告警）。</p>
+     *
+     * <p>★ **命中即注入** {@link cn.eova.compat.render.LegacySpaShellRender#setDistRoot}：
+     * 该静态持有者是 SPA 壳读取产物根的唯一入口。r329 实测（容器里跑镜像时抓到）：
+     * 配置分支**忘了注入** ⇒ `spaDistRoot()` 那个 bean 照样打印"SPA 壳产物根 = /ui-dist"，
+     * 而请求 `/user/login` 时外壳渲染拿到的仍是 {@code null} ⇒ **500 + "SPA 壳缺失…（dist=未配置）"**。
+     * 也就是说：**任何按文档设置 `eova.ui.dist` 的部署都会踩到**（宿主机上因为走的是"向上找"分支才没暴露）。</p>
+     *
+     * @param configured 配置值（可为空串）
+     * @param cwd        工作目录（向上找的起点）
      * @return 目录；不存在返回 null
      */
-    private java.io.File resolveSpaDistRoot() {
-        String configured = System.getProperty("eova.ui.dist", "");
-        if (!configured.isEmpty()) {
+    static java.io.File resolveSpaDistRootOf(String configured, java.io.File cwd) {
+        if (configured != null && !configured.isEmpty()) {
             java.io.File f = new java.io.File(configured);
-            return f.isDirectory() ? f : null;
+            if (f.isDirectory()) {
+                cn.eova.compat.render.LegacySpaShellRender.setDistRoot(f);
+                return f;
+            }
+            return null;
         }
         java.util.List<java.io.File> candidates = new java.util.ArrayList<>();
-        java.io.File dir = new java.io.File("").getAbsoluteFile();
+        java.io.File dir = cwd;
         for (int i = 0; i < 8 && dir != null; i++) {
             candidates.add(new java.io.File(dir, "remis-eova/front/remis-eova-ui/dist"));
             candidates.add(new java.io.File(dir, "front/remis-eova-ui/dist"));

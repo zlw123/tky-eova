@@ -1,0 +1,9 @@
+# 占位：本目录用于放**运行时提供的 JDBC 驱动**（maven 里是 test 作用域，不进 fat jar）。
+#
+# 部署流水线应把驱动 jar 复制到这里（例）：
+#   mysql-connector-java-8.0.30.jar   （MySQL 档）
+#   kingbase8-8.6.0.jar               （金仓档）
+# 本地复现（从 ~/.m2 取）：
+#   cp ~/.m2/repository/mysql/mysql-connector-java/8.0.30/mysql-connector-java-8.0.30.jar docker/lib/
+#   cp ~/.m2/repository/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar docker/lib/
+# 放好后再 `docker build -t eova-web:dev docker/`（Dockerfile 会 `COPY lib/ /app/lib/`）。

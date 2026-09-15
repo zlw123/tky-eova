@@ -150,6 +150,72 @@ class Phase3StackAlignmentTest {
                         + "`mvn package` 直接解析失败（实测）——阶段三要出可执行 jar，必须补齐");
     }
 
+    @Test
+    @DisplayName("★ r329（容器实跑抓到）：配置了 `eova.ui.dist` 时必须**注入** SPA 壳渲染器")
+    void configuredSpaDistIsInjected() throws Exception {
+        // 缺陷形态（r329 容器里实测）：配置分支只 `return f` 而**没有** setDistRoot ⇒ bean 日志照打
+        // "SPA 壳产物根 = /ui-dist"，但请求 /user/login 时外壳渲染拿到 null ⇒ 500
+        // "SPA 壳缺失…（dist=未配置）"。⇒ 任何按文档设置 eova.ui.dist 的部署都会踩到。
+        java.nio.file.Path tmp = Files.createTempDirectory("eova-dist-");
+        Files.writeString(tmp.resolve("index.html"), "<html>probe</html>");
+        // ★ 必须**还原现场**（而不是一律 setDistRoot(null)）：该静态是全局的，而 Spring 上下文启动时
+        //   会由 `spaDistRoot()` bean 写进去（走"向上找"分支）⇒ 本用例的 finally 若清成 null，
+        //   后面的 `SpaShellHttpTest`/`LegacyTemplateFaceHttpTest` 就会 500
+        //   —— 实测（r329 扫描第 1 步）：7 条 HTTP 判据因"SPA 壳缺失…dist=未配置"红。
+        java.io.File before = cn.eova.compat.render.LegacySpaShellRender.getDistRoot();
+        try {
+            java.io.File resolved = LegacyWebBootstrap.resolveSpaDistRootOf(
+                    tmp.toAbsolutePath().toString(), new java.io.File("").getAbsoluteFile());
+            assertEquals(tmp.toFile().getAbsolutePath(), resolved.getAbsolutePath(),
+                    "配置了 dist 就该解析出它");
+            assertEquals(tmp.toFile().getAbsolutePath(),
+                    cn.eova.compat.render.LegacySpaShellRender.getDistRoot().getAbsolutePath(),
+                    "★ 命中后**必须注入** LegacySpaShellRender（否则渲染 500）");
+
+            // 反向：配置指向不存在的目录 ⇒ 返回 null（不静默退回"向上找"，避免"以为生效了"）
+            cn.eova.compat.render.LegacySpaShellRender.setDistRoot(null);
+            assertEquals(null, LegacyWebBootstrap.resolveSpaDistRootOf("/definitely/not/here", new java.io.File("/")),
+                    "配置指错时必须是 null（响亮失败，不猜）");
+        } finally {
+            cn.eova.compat.render.LegacySpaShellRender.setDistRoot(before);
+        }
+    }
+
+    @Test
+    @DisplayName("★ B 级：logback 骨架存在且**不带** SkyWalking/`%tid`（不引 SW ⇒ 带上就 ClassNotFound）")
+    void logbackSkeleton() throws Exception {
+        // ★ 必须先剥 XML 注释：本文件头把"为何去掉 skywalking/%tid"写成了注释，不去注释就会**假红**
+        //   （同一类坑本轮已踩第二次：pom 判据也曾命中注释里的 cn.iocoder.cloud）。
+        String y = stripXmlComments(readResource("logback-spring.xml"));
+        assertTrue(y.contains("org/springframework/boot/logging/logback/defaults.xml"),
+                "必须 include Spring Boot 的 defaults.xml（平台同形）");
+        assertTrue(y.contains("${LOG_FILE}"), "文件 appender 必须落在 ${LOG_FILE}（= logging.file.name）");
+        assertTrue(y.contains("ASYNC"), "平台同形：同步写盘外包一层 AsyncAppender");
+        // ★ 反向：不引 SkyWalking ⇒ 这两样必须不在（否则 logback 配置整体失效）
+        assertFalse(y.contains("skywalking"), "★ 不得出现 skywalking（本服务不引 SW：class 不存在 ⇒ 配置失效）");
+        assertFalse(y.contains("%tid"), "★ 不得出现 %tid（没有对应 converter 时会原样输出并告警）");
+        assertTrue(y.contains("eova.info.base-package"), "springProperty 必须换成本服务自己的键");
+    }
+
+    @Test
+    @DisplayName("★ B 级：Dockerfile 与平台同基础镜像 + 驱动外挂的启动形态")
+    void dockerfileShape() throws Exception {
+        // ★ 必须剥掉 `#` 注释行：本 Dockerfile 的文件头把"启动用 -cp 「app.jar:/app/lib/*」"写成了注释，
+        //   不剥注释时把 CMD 改成 `-jar app.jar` 判据照样通过（r329 变异 M13 实测的**第二次**假绿）。
+        String d = readRepoFileSansHashComments(
+                "remis-eova/backend/yudao-cloud/yudao-module-eova/eova-web/Dockerfile");
+        assertTrue(d.contains("FROM eclipse-temurin:17-jre"),
+                "与平台 `yudao-module-infra/.../Dockerfile:3` 同基础镜像（平台根那份用 21-jre，与它自己 java.version=17 不一致 ⇒ 不照抄）");
+        assertTrue(d.contains("COPY target/eova-web.jar"),
+                "拷贝 `spring-boot-maven-plugin` 产出的可执行 jar");
+        // ★ 必须断言**启动命令行本身**（`-cp "app.jar:/app/lib/*"`），不能只查 `/app/lib/*`：
+        //   后者在 `COPY docker/lib/ /app/lib/` 那一行里也有 ⇒ 把 CMD 改成 `-jar app.jar`（驱动就丢了）
+        //   判据照样通过（r329 变异 M13 实测的假绿）。
+        assertTrue(d.contains("-cp \"app.jar:/app/lib/*\""),
+                "★ 启动命令行必须是 `-cp 「app.jar:/app/lib/*」`（驱动是 test 作用域、不进 fat jar —— 既有口径；改回 -jar 就连不上库）");
+        assertTrue(d.contains("EXPOSE 48090"), "端口与 application.yaml 的 server.port 一致");
+    }
+
     // ---------- 工具 ----------
 
     /** 读本模块 classpath 资源（构建产物里的那一份） */
@@ -179,7 +245,23 @@ class Phase3StackAlignmentTest {
      * @return 去掉 XML 注释后的内容
      */
     private static String readRepoFileNoComments(String rel) throws IOException {
-        return readRepoFile(rel).replaceAll("(?s)<!--.*?-->", "");
+        return stripXmlComments(readRepoFile(rel));
+    }
+
+    /** 读仓库内文件并剥掉以 `#` 开头的注释行（Dockerfile / shell 等） */
+    private static String readRepoFileSansHashComments(String rel) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        for (String line : readRepoFile(rel).split("\n")) {
+            if (!line.trim().startsWith("#")) {
+                sb.append(line).append('\n');
+            }
+        }
+        return sb.toString();
+    }
+
+    /** 剥掉 XML 注释（判据查的必须是**声明本身**，不是解释它的文字） */
+    private static String stripXmlComments(String xml) {
+        return xml.replaceAll("(?s)<!--.*?-->", "");
     }
 
     private static String readRepoFile(String rel) throws IOException {
