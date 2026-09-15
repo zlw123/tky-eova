@@ -290,6 +290,23 @@ class Phase3StackAlignmentTest {
         assertTrue(bare.contains("{{IMAGE_TAG}}"), "★ 镜像 tag 必须留占位符（平台清单的既有约定）");
     }
 
+    @Test
+    @DisplayName("★ r331：独立应用一键跑（拿哥口径：先不接平台网关、不进 k8s）")
+    void standaloneRunScript() throws Exception {
+        // ★ 剥 `#` 注释：脚本头把各开关写成注释说明，不剥的话"把开关从命令行删掉"也能过（本会话第 5 次同类坑）
+        String s = readRepoFileSansHashComments(
+                "remis-eova/backend/yudao-cloud/yudao-module-eova/eova-web/scripts/run-standalone.sh");
+        assertTrue(s.contains("org.springframework.boot.loader.launch.JarLauncher"),
+                "独立跑用可执行 jar 的 launcher（与 Dockerfile 同一姿势）");
+        assertTrue(s.contains("lib/*"),
+                "★ 驱动外挂在 classpath 里（驱动是 test 作用域、不进 fat jar —— 既有口径）");
+        assertTrue(s.contains("-Deova.webapp.root") && s.contains("-Deova.ui.dist"),
+                "★ 页面资产靠这两个**系统属性**指路（r329 修的「配置分支必须注入」那条路径）");
+        assertTrue(s.contains("-Dspring.profiles.active=local"),
+                "★ 默认档必须 local：独立应用**不连 Nacos**（拿哥 r331 口径）");
+        assertTrue(s.contains("--stop"), "必须有停止入口（否则一键跑的进程没人收）");
+    }
+
     /** 数某个子串在文本里出现几次（占位符审计用） */
     private static int countOf(String text, String needle) {
         int n = 0;
