@@ -58,8 +58,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
  *       落在 Routes 上）。顺序：全局在前、路由在后（旧 jfinal 同口径）。</li>
  * </ol>
  *
- * <p><b>本切片不做（如实登记）</b>：模板渲染（默认视图）、静态资源、上传（multipart 注入）、
+ * <p><b>本切片不做（如实登记）</b>：模板渲染（默认视图）、上传（multipart 注入）、
  * 以及"动作只写了一半就抛"的容器级收尾语义 —— 属 S3/S4 及后续；S2 的判据只覆盖 JSON 端点。</p>
+ *
+ * <p><b>★ r332（DES-012 P1-U1）职责变更</b>：**静态资源已从本类移出** —— 旧写法是在这里
+ * 内联调用 {@code LegacyStaticAssets.serve(path, response)}（自研字节写出）；现在"静态优先"
+ * 由 {@link StaticResourceHandlerMapping}（Spring {@code HandlerMapping} 扩展点，order 早于请求映射）
+ * 承载，未命中才落到本类。所以本类的入口**只剩动作分发**这一件事。</p>
  */
 // ★ 必须是 @RestController 而不是 @Component：Spring MVC 只把 @Controller/@RestController
 //   里的 @RequestMapping 注册为处理器方法（实测：用 @Component 时所有请求都被 Spring 判 404）。
@@ -72,12 +77,8 @@ public class LegacyDispatcher {
     /** 已解析的 (controllerPath, Routes) 对照表，按路径长度降序（最长前缀优先） */
     private final List<Entry> entries = new ArrayList<>();
 
-    /** 旧静态空间 {@code /eova/**} 的供给组件（切片 S3） */
-    private final LegacyStaticAssets staticAssets;
-
-    public LegacyDispatcher(LegacyJFinalBoot boot, LegacyStaticAssets staticAssets) {
+    public LegacyDispatcher(LegacyJFinalBoot boot) {
         this.boot = boot;
-        this.staticAssets = staticAssets;
     }
 
     /** 一条路由所属的 Routes 对象（拦截器从它取） */
@@ -118,27 +119,17 @@ public class LegacyDispatcher {
      */
     @RequestMapping("/**")
     public void dispatch(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        String path = request.getRequestURI();
-        String ctx = request.getContextPath();
-        if (ctx != null && !ctx.isEmpty() && path.startsWith(ctx)) {
-            path = path.substring(ctx.length());
-        }
-        if (path == null || path.isEmpty()) {
-            path = "/";
-        }
-        // 去掉尾部 "/"（根路径除外）
-        while (path.length() > 1 && path.endsWith("/")) {
-            path = path.substring(0, path.length() - 1);
-        }
+        // ★ r332（U1）：路径口径与静态层共用同一份事实源（{@link RequestPath}）——
+        //   两处各写一份会出现"静态层看到 A、路由层看到 B"的漂移。
+        String path = RequestPath.of(request);
 
-        // ★ 静态空间优先（切片 S3）—— 旧栈顺序是"资源处理器先于 jfinal 动作"：
-        //   ① 静态空间**只有** `/eova/**`（旧 demo 实测：`/eova/lib/**`、`/eova/ui/**` 200，
-        //      而 `/ui/**`、`/_eova/**` 404 ⇒ 来源是 classpath 的 `webapp/eova/**`）；
-        //   ② **文件真实存在**才直出，否则继续走动作路由（旧栈 resource handler miss 后交给动作层）
-        //      ⇒ 动作 URL（`/eova/admin` 等）不受影响。
-        if (staticAssets.serve(path, response)) {
-            return;
-        }
+        // ★★ 静态空间已不在本类处理（r332 · DES-012 P1-U1）：
+        //   旧写法在此内联 `staticAssets.serve(path, response)`（自研供给，静态优先）；
+        //   现在由 StaticResourceHandlerMapping 承担（Spring HandlerMapping + ResourceHttpRequestHandler，
+        //   order 早于请求映射）—— 它**文件不存在时返回 null 放行**，于是本类的动作路由、
+        //   退化规则与 404 语义完全不变。判据：LegacyStaticAssetContractTest（字节金标/404）、
+        //   LegacySubResourceHttpTest（/excel/imports 动作 URL 不被吞）、
+        //   StaticResourceHandlerMappingTest（未命中 ⇒ 放行），反向判据见 StaticResourceHandlerMappingWiringTest。
 
         Entry hit = null;
         for (Entry e : entries) {

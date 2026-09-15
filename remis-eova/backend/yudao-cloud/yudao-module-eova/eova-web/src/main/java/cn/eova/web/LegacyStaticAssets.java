@@ -238,6 +238,19 @@ public class LegacyStaticAssets {
     }
 
     /**
+     * 静态空间前缀集合（顺序即匹配顺序）。
+     *
+     * <p>★ 供给层（{@link StaticResourceHandlerMapping}）必须用**同一份**前缀表注册 URL 模式：
+     * "判定前缀"与"注册前缀"若各写一份，就会产生路径别名（`/xxxxx/lib/x.css` 被当成 `lib/x.css`
+     * 命中静态文件）—— r247 的 M6 变异实测暴露过该风险。</p>
+     *
+     * @return 前缀集合（形如 {@code /eova/}）；调用方不得修改
+     */
+    public java.util.Set<String> spacePrefixes() {
+        return java.util.Collections.unmodifiableSet(spaces.keySet());
+    }
+
+    /**
      * 取该路径所属的静态空间前缀。
      *
      * @param path 请求路径
@@ -329,6 +342,14 @@ public class LegacyStaticAssets {
 
     /**
      * 供给静态资源：命中则写响应并返回 true；未命中返回 false（调用方继续走动作路由）。
+     *
+     * <p><b>★ r332（DES-012 P1-U1）起本方法【不在请求路径上】</b>：请求期的静态供给已改由
+     * {@link StaticResourceHandlerMapping} + Spring {@code ResourceHttpRequestHandler} 承担
+     * （响应头/条件请求/字节写出都是 Spring 的机制），{@code LegacyDispatcher} 不再调用本方法。</p>
+     *
+     * <p><b>为什么还留着</b>：既有单元判据 {@code LegacyStaticAssetsTest#servesExistingFileInsideStaticSpace}
+     * 直接钉它（红线 R1：既有判据一行不改仍全绿）⇒ 本方法当前是"判据用的参考实现"。
+     * 退役它需要改判据，属"重新设计"范畴 ⇒ 留待 P4 收口时由拿哥单独裁定，**不在此单元内动**。</p>
      *
      * @param path     请求路径
      * @param response 响应

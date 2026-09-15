@@ -37,6 +37,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.resource.ResourceHttpRequestHandler;
 
 import jakarta.annotation.PreDestroy;
 
@@ -125,6 +126,35 @@ public class LegacyWebBootstrap {
     @Bean
     public LegacyStaticAssets legacyStaticAssets() {
         return new LegacyStaticAssets(resolveViewRoot(), resolveSpaDistRoot());
+    }
+
+    /**
+     * **静态资源的 Spring 供给器**（DES-012 P1-U1，r332）。
+     *
+     * <p>本 bean 是 Spring 的 {@code ResourceHttpRequestHandler}：响应头、条件请求、字节写出都由
+     * Spring 完成；路径→文件的判定仍由 {@link LegacyStaticAssets}（既有判据冻结的语义）承担。
+     * 必须作为 bean 交给容器，容器才会调用其 {@code afterPropertiesSet()} 完成初始化。</p>
+     *
+     * @param legacyStaticAssets 静态空间解析器
+     * @return 资源供给器
+     */
+    @Bean
+    public ResourceHttpRequestHandler eovaStaticResourceHandler(LegacyStaticAssets legacyStaticAssets) {
+        return StaticResourceHandlerMapping.newResourceHandler(legacyStaticAssets);
+    }
+
+    /**
+     * **静态空间优先的 HandlerMapping**（DES-012 P1-U1，r332）：order 早于
+     * {@code RequestMappingHandlerMapping}（= 0）；命中真实文件才接管，未命中放行给动作路由。
+     *
+     * @param legacyStaticAssets         静态空间解析器
+     * @param eovaStaticResourceHandler  Spring 资源供给器
+     * @return 条件式静态资源映射
+     */
+    @Bean
+    public StaticResourceHandlerMapping staticResourceHandlerMapping(LegacyStaticAssets legacyStaticAssets,
+            ResourceHttpRequestHandler eovaStaticResourceHandler) {
+        return new StaticResourceHandlerMapping(legacyStaticAssets, eovaStaticResourceHandler);
     }
 
     /**
