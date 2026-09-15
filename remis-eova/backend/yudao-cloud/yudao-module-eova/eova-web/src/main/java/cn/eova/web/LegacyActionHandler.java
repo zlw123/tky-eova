@@ -10,12 +10,10 @@ import java.io.IOException;
 import cn.eova.compat.jfinal.aop.LegacyInterceptor;
 import cn.eova.compat.jfinal.config.LegacyJFinalBoot;
 import cn.eova.compat.jfinal.core.LegacyAction;
-import cn.eova.compat.jfinal.core.LegacyActionException;
 import cn.eova.compat.jfinal.core.LegacyController;
 import cn.eova.compat.jfinal.core.paragetter.LegacyJsonRequest;
 import cn.eova.compat.jfinal.aop.LegacyInvocation;
 import cn.eova.compat.render.LegacyRender;
-import cn.eova.compat.render.LegacyRenderManager;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
@@ -64,8 +62,6 @@ public class LegacyActionHandler implements HttpRequestHandler {
         String actionKey = match.actionKey;
         String urlPara = match.urlPara;
         java.lang.reflect.Method method = match.method;
-        String path = RequestPath.of(request);
-
         // 请求级控制器实例 + 上下文注入（旧栈每请求一实例）
         LegacyController controller;
         try {
@@ -102,16 +98,12 @@ public class LegacyActionHandler implements HttpRequestHandler {
         LegacyAction action = new LegacyAction(actionKey, hit.controllerPath, hit.controllerClass,
                 method, method.getName(), chain, null);
 
-        try {
-            new LegacyInvocation(action, controller).invoke();
-        } catch (LegacyActionException e) {
-            // ★ 错误渲染落在【宿主】这一层 —— 旧 jfinal 的等价物是 ActionHandler.handleActionException：
-            //   {@code renderError(code)} 在旧实现里就是"抛 ActionException，由框架渲染"，
-            //   而 ExceptionInterceptor（全局中间件）对非 500 的 ActionException 只做原样再抛
-            //   （逐行等价 port 里保留了这一行为），所以不在这里渲染，401/403 就会变成 500。
-            handleActionException(e, path, controller.getRequest(), response);
-            return;
-        }
+        // ★ r332（DES-012 P2-U10）：抛出的 LegacyActionException **不再在本类 catch** ——
+        //   错误渲染已交回 Spring 的异常解析链（{@link LegacyActionExceptionResolver}）。
+        //   行为等价：旧实现的"按错误码拼日志前缀 + 用异常自带 errorRender（缺则同码错误渲染）渲染"
+        //   整段已搬进该解析器；抛出方（{@code LegacyRender#renderError}）语义未动
+        //   （AuthInterceptor 那条"renderError(503) 之后仍 inv.invoke()"的既有缺陷也照旧不可达）。
+        new LegacyInvocation(action, controller).invoke();
 
         // 渲染：控制器内 render* 设立的渲染器负责写响应
         LegacyRender render = controller.getRender();
@@ -122,57 +114,6 @@ public class LegacyActionHandler implements HttpRequestHandler {
             return;
         }
         render.setContext(controller.getRequest(), response).render();
-    }
-
-    /**
-     * 等价旧 jfinal {@code ActionHandler.handleActionException}：按错误码拼日志前缀 → 记录 →
-     * 用 {@link LegacyActionException#getErrorRender()} 渲染（为 null 时由渲染工厂补一个）。
-     *
-     * <p>旧实现里警告/错误两条日志分支取决于"异常是否自带 errorRender"；此处保留该分支语义。</p>
-     *
-     * @param e       带错误码的动作异常
-     * @param target  目标路径（旧实现的 target）
-     * @param request  请求
-     * @param response 响应
-     */
-    private void handleActionException(LegacyActionException e, String target,
-            HttpServletRequest request, HttpServletResponse response) {
-        int errorCode = e.getErrorCode();
-        String prefix;
-        switch (errorCode) {
-            case 404:
-                prefix = "404 Not Found: ";
-                break;
-            case 400:
-                prefix = "400 Bad Request: ";
-                break;
-            case 401:
-                prefix = "401 Unauthorized: ";
-                break;
-            case 403:
-                prefix = "403 Forbidden: ";
-                break;
-            default:
-                prefix = errorCode + " Error: ";
-                break;
-        }
-        // 旧实现的 target 拼装：target + (queryString != null ? "?" + queryString : "")
-        String queryString = request.getQueryString();
-        String url = queryString == null ? target : target + "?" + queryString;
-        String msg = prefix + url;
-        if (e.getMessage() != null) {
-            msg = msg + "\n" + e.getMessage();
-        }
-
-        LegacyRender render = e.getErrorRender();
-        if (render != null) {
-            log.warn(msg);
-        } else {
-            // 旧实现：无自带 errorRender 时走 error 日志，并由渲染工厂补一个同码错误渲染
-            log.error(msg);
-            render = LegacyRenderManager.getRenderFactory().getErrorRender(errorCode);
-        }
-        render.setContext(request, response).render();
     }
 
     /**

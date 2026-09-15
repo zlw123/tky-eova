@@ -184,6 +184,17 @@ public class LegacyWebBootstrap {
     }
 
     /**
+     * **动作异常的错误渲染解析器**（DES-012 P2-U10，r332）：把 {@code LegacyActionException}
+     * 的日志与错误渲染从执行侧搬到 Spring 的 {@code HandlerExceptionResolver} 链。
+     *
+     * @return 异常解析器（order = 0 ⇒ 先于 Spring 默认解析器）
+     */
+    @Bean
+    public LegacyActionExceptionResolver legacyActionExceptionResolver() {
+        return new LegacyActionExceptionResolver();
+    }
+
+    /**
      * 解析**前端打包产物根**（含 {@code index.html}），供"页面入口退役"后的 SPA 壳供给使用。
      *
      * <p>解析顺序：配置 {@code eova.ui.dist} → 从工作目录向上最多 6 层找
