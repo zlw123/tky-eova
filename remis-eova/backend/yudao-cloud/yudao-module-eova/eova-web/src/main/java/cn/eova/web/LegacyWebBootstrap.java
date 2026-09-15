@@ -158,6 +158,32 @@ public class LegacyWebBootstrap {
     }
 
     /**
+     * **旧动作的执行侧处理器**（DES-012 P2-U11/U12，r332）：从 {@code LegacyDispatcher#dispatch} 搬出的动作段。
+     *
+     * @param legacyBoot 引导对象
+     * @return 动作处理器（Spring {@code HttpRequestHandler}，全请求共享）
+     */
+    @Bean
+    public LegacyActionHandler legacyActionHandler(LegacyJFinalBoot legacyBoot) {
+        return new LegacyActionHandler(legacyBoot);
+    }
+
+    /**
+     * **旧动作的匹配侧 HandlerMapping**（DES-012 P2-U11/U12，r332）：order = **1**，
+     * 晚于 {@code RequestMappingHandlerMapping}（= 0）⇒ 显式 Spring 端点优先，旧式分发兜底；
+     * 未命中返回 null ⇒ {@code DispatcherServlet} 原生 404（**不回落 SPA**）。
+     *
+     * @param legacyBoot         引导对象（构造期据此建路由索引，故它必须已 {@code init()}）
+     * @param legacyActionHandler 执行侧处理器
+     * @return 动作映射
+     */
+    @Bean
+    public LegacyActionHandlerMapping legacyActionHandlerMapping(LegacyJFinalBoot legacyBoot,
+            LegacyActionHandler legacyActionHandler) {
+        return new LegacyActionHandlerMapping(legacyBoot, legacyActionHandler);
+    }
+
+    /**
      * 解析**前端打包产物根**（含 {@code index.html}），供"页面入口退役"后的 SPA 壳供给使用。
      *
      * <p>解析顺序：配置 {@code eova.ui.dist} → 从工作目录向上最多 6 层找
