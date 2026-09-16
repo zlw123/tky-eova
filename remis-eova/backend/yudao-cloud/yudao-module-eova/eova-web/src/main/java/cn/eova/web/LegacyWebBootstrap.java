@@ -35,8 +35,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.SmartLifecycle;
+import org.springframework.core.Ordered;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.resource.ResourceHttpRequestHandler;
 
@@ -195,6 +197,26 @@ public class LegacyWebBootstrap implements SmartLifecycle {
     @Bean
     public LegacyActionExceptionResolver legacyActionExceptionResolver() {
         return new LegacyActionExceptionResolver();
+    }
+
+    /**
+     * **旧 Handler 链的 Spring 注册**（DES-012 P3-U19，r332）：把 {@code EovaConfig#configHandler}
+     * 注册的四个 handler（WAF → Druid 监控页 → UrlBan → ApiRouter）接回请求路径。
+     *
+     * <p>顺序 {@code HIGHEST_PRECEDENCE + 100}：早于 DispatcherServlet（filter 天然早于 servlet），
+     * 但晚于 Boot 自己的字符编码/表单过滤器 —— 与旧栈"handler 在动作派发之前、且参数已可用"一致。</p>
+     *
+     * @param legacyBoot 引导对象（handler 容器来源）
+     * @return 过滤器注册
+     */
+    @Bean
+    public FilterRegistrationBean<LegacyHandlerFilter> legacyHandlerFilter(LegacyJFinalBoot legacyBoot) {
+        FilterRegistrationBean<LegacyHandlerFilter> registration =
+                new FilterRegistrationBean<>(new LegacyHandlerFilter(legacyBoot));
+        registration.addUrlPatterns("/*");
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 100);
+        registration.setName("legacyHandlerFilter");
+        return registration;
     }
 
     /**
