@@ -23,7 +23,7 @@ import cn.eova.tools.x;
 import cn.eova.widget.MetaConst;
 import cn.eova.widget.WidgetManager;
 import cn.eova.compat.jfinal.kit.LegacyJsonKit;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import cn.eova.compat.jfinal.kit.LegacyRet;
 import cn.eova.db.EovaGateways;
 import cn.eova.db.EovaPage;
@@ -117,7 +117,7 @@ public class WidgetController extends BaseController {
 
         } catch (Exception e) {
             String msg = "EovaOption数据获取异常:" + e.getMessage();
-            LegacyLogKit.error(msg, e);
+            LoggerFactory.getLogger(WidgetController.class).error(msg, e);
 
             NO(msg);
         }
@@ -223,7 +223,7 @@ public class WidgetController extends BaseController {
             renderJson(String.format(ui, page.getTotalRow(), LegacyJsonKit.toJson(page.getList())));
         } catch (Exception e) {
             String msg = "查找框查询数据异常:" + e.getMessage();
-            LegacyLogKit.error(msg, e);
+            LoggerFactory.getLogger(WidgetController.class).error(msg, e);
             renderJson(Easy.fail(msg));
         }
     }

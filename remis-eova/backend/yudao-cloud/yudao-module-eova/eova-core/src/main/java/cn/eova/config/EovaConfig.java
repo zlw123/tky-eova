@@ -69,7 +69,7 @@ import cn.eova.compat.jfinal.config.LegacyPlugins;
 import cn.eova.compat.jfinal.config.LegacyRoutes;
 import cn.eova.compat.jfinal.core.LegacyActionReporter;
 import cn.eova.compat.jfinal.json.LegacyMixedJsonFactory;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import cn.eova.compat.jfinal.kit.LegacyProp;
 import cn.eova.compat.jfinal.plugin.activerecord.LegacyActiveRecordPlugin;
 import cn.eova.compat.jfinal.plugin.druid.LegacyDruidStatViewHandler;
@@ -183,7 +183,7 @@ public class EovaConfig extends LegacyJFinalConfig {
 //				}
 //			}
 //		} catch (Exception e) {
-//			LegacyLogKit.error(String.format("eova mod start error:%s", e.getMessage()));
+//			LoggerFactory.getLogger(EovaConfig.class).error(String.format("eova mod start error:%s", e.getMessage()));
 //		}
 
         EovaConst.START_TIME = x.time.formatNowTimes();
@@ -201,7 +201,7 @@ public class EovaConfig extends LegacyJFinalConfig {
 //				}
 //			}
 //		} catch (Exception e) {
-//			LegacyLogKit.error(String.format("eova mod stop error:%s", e.getMessage()));
+//			LoggerFactory.getLogger(EovaConfig.class).error(String.format("eova mod stop error:%s", e.getMessage()));
 //		}
     }
 
@@ -233,8 +233,8 @@ public class EovaConfig extends LegacyJFinalConfig {
         isDevMode = x.conf.getBool("devMode", true);
         me.setDevMode(isDevMode);
         if (isDevMode && "PRD".equals(x.conf.get("env"))) {
-            LegacyLogKit.warn("当前环境为生产环境, 并且开启了开发者模式, 如无必要请立即关闭, 避免对线上造成不可逆的后果!");
-            LegacyLogKit.info("当前环境为生产环境, 并且开启了开发者模式, 如无必要请立即关闭, 避免对线上造成不可逆的后果!");
+            LoggerFactory.getLogger(EovaConfig.class).warn("当前环境为生产环境, 并且开启了开发者模式, 如无必要请立即关闭, 避免对线上造成不可逆的后果!");
+            LoggerFactory.getLogger(EovaConfig.class).info("当前环境为生产环境, 并且开启了开发者模式, 如无必要请立即关闭, 避免对线上造成不可逆的后果!");
         }
 
         // POST内容最大500M(安装包上传)
@@ -324,7 +324,7 @@ public class EovaConfig extends LegacyJFinalConfig {
                 }
             }
         } catch (Exception e) {
-            LegacyLogKit.error(String.format("load eova module routes error:%s", e.getMessage()));
+            LoggerFactory.getLogger(EovaConfig.class).error(String.format("load eova module routes error:%s", e.getMessage()));
         }
     }
 

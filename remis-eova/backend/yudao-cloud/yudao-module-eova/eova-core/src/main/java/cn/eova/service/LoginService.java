@@ -19,7 +19,7 @@ import cn.eova.config.EovaConst;
 import cn.eova.model.Session;
 import cn.eova.model.User;
 import cn.eova.compat.jfinal.kit.LegacyJsonKit;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import cn.eova.compat.jfinal.kit.LegacyRet;
 import cn.eova.compat.jfinal.kit.LegacyStrKit;
 import cn.eova.db.EovaGateways;
@@ -37,7 +37,7 @@ import cn.eova.compat.cache.LegacyCacheKit;
  *   <li>    （CacheKit 的 put/get/remove(name,key[,value]) 与 CacheService 形状完全一致，故为薄委托）</li>
  *   <li>【已声明适配 2】com.jfinal.kit.StrKit -> LegacyStrKit（仅用 notBlank/getRandomUUID/isBlank）</li>
  *   <li>【已声明适配 3】Json.getJson().parse(str, Ret.class) -> LegacyJsonKit.parse(str, LegacyRet.class)</li>
- *   <li>【已声明适配 4】Db.use -> EovaGateways.get；Record -> EovaRecord；LogKit -> LegacyLogKit；Ret -> LegacyRet</li>
+ *   <li>【已声明适配 4】Db.use -> EovaGateways.get；Record -> EovaRecord；LogKit -> 行内 SLF4J（U2/r333）；Ret -> LegacyRet</li>
  *   <li>会话缓存名 BaseCache.LOGIN 与 TTL 属契约（ehcache.xml 逐字节 port 已固定）</li>
  * </ol>
  */
@@ -109,7 +109,7 @@ public class LoginService {
                 String str = HttpUtils.cs().post(loginServer, params);
                 ret = LegacyJsonKit.parse(str, LegacyRet.class);
             } catch (Exception e) {
-                LegacyLogKit.error("服务请求异常:" + loginServer, e);
+                LoggerFactory.getLogger(LoginService.class).error("服务请求异常:" + loginServer, e);
                 throw new Exception("服务请求异常，请联系客服解决！");
             }
 
@@ -145,7 +145,7 @@ public class LoginService {
                 }
 
                 if (user == null) {
-                    LegacyLogKit.error("未找到本地关联用户:%s=%s", serverUid, val);
+                    LoggerFactory.getLogger(LoginService.class).error("未找到本地关联用户:%s=%s", serverUid, val);
                     throw new Exception("登录成功，您暂未获得本系统授权，请联系您企业的管理员为您分配角色！");
                 }
 
@@ -462,7 +462,7 @@ public class LoginService {
             }
         }
         if (x.isEmpty(auths)) {
-            LegacyLogKit.error("用户角色没有任何授权,请联系管理员授权");
+            LoggerFactory.getLogger(LoginService.class).error("用户角色没有任何授权,请联系管理员授权");
         }
         user.put("auths", auths);
     }

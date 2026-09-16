@@ -8,7 +8,7 @@ package cn.eova.core.api;
 import cn.eova.compat.jfinal.aop.LegacyInterceptor;
 import cn.eova.compat.jfinal.aop.LegacyInvocation;
 import cn.eova.compat.jfinal.core.LegacyController;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 
 /**
  * <p>ported from: cn.eova.core.api.ApiInterceptor
@@ -17,7 +17,7 @@ import cn.eova.compat.jfinal.kit.LegacyLogKit;
  * <br><b>刻意保留的既有语义：</b>
  * <ol>
  *   <li>API 拦截器（34 行）：implements Interceptor</li>
- *   <li>【已声明适配】Interceptor -> LegacyInterceptor；Invocation -> LegacyInvocation；Controller -> LegacyController；LogKit -> LegacyLogKit</li>
+ *   <li>【已声明适配】Interceptor -> LegacyInterceptor；Invocation -> LegacyInvocation；Controller -> LegacyController；LogKit -> 行内 SLF4J（U2/r333）</li>
  * </ol>
  */
 /**
@@ -35,7 +35,7 @@ public class ApiInterceptor implements LegacyInterceptor {
         try {
             inv.invoke();
         } catch (Exception e) {
-            LegacyLogKit.error(e.getMessage(), e);
+            LoggerFactory.getLogger(ApiInterceptor.class).error(e.getMessage(), e);
             // 统一返回格式
             ctrl.renderJson(ApiResponse.NO("服务内部错误"));
         }

@@ -11,7 +11,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import cn.eova.compat.jfinal.kit.LegacyProp;
 import cn.eova.compat.jfinal.kit.LegacyPropKit;
 
@@ -112,7 +112,7 @@ public final class LegacyConfigProfile {
         if (spec == null) {
             LegacyProp prop = LegacyPropKit.useFirstFound(LEGACY_PROFILES.toArray(new String[0]));
             active = prop.getFileName();
-            LegacyLogKit.info("配置档已装载：" + prop.getFileName() + "（来源=未指定 ⇒ 旧五档首存在者）");
+            LoggerFactory.getLogger(LegacyConfigProfile.class).info("配置档已装载：" + prop.getFileName() + "（来源=未指定 ⇒ 旧五档首存在者）");
             return prop;
         }
         if (!LEGAL_NAME.matcher(spec).matches()) {
@@ -125,7 +125,7 @@ public final class LegacyConfigProfile {
         }
         LegacyProp prop = LegacyPropKit.use(spec, "UTF-8");
         active = prop.getFileName();
-        LegacyLogKit.info("配置档已装载：" + prop.getFileName() + "（来源=宿主指定 " + PROP_KEY + "）");
+        LoggerFactory.getLogger(LegacyConfigProfile.class).info("配置档已装载：" + prop.getFileName() + "（来源=宿主指定 " + PROP_KEY + "）");
         return prop;
     }
 

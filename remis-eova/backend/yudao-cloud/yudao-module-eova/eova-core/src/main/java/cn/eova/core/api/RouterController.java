@@ -12,7 +12,7 @@ import cn.eova.common.utils.EncryptUtil;
 import cn.eova.common.utils.web.WebUtil;
 import cn.eova.compat.jfinal.aop.LegacyClear;
 import cn.eova.compat.jfinal.core.LegacyAction;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 
 /**
  * <p>ported from: cn.eova.core.api.RouterController
@@ -23,7 +23,7 @@ import cn.eova.compat.jfinal.kit.LegacyLogKit;
  *   <li>API 网关入口（107 行）：live 心跳 / initApp 读 eova.api.apps / index 签名校验并派发 / signCheck</li>
  *   <li>【已声明适配 1】com.jfinal.aop.Clear -> cn.eova.compat.jfinal.aop.LegacyClear（类级 @Clear 无参 = 清空全部拦截器；接缝 value() 有 default {} 正是为此）</li>
  *   <li>【已声明适配 2】com.jfinal.core.Action -> cn.eova.compat.jfinal.core.LegacyAction（仅 mapping 字段与 index 内的 action.getMethod()）</li>
- *   <li>【已声明适配 3】com.jfinal.kit.LogKit -> cn.eova.compat.jfinal.kit.LegacyLogKit</li>
+ *   <li>【已声明适配 3】com.jfinal.kit.LogKit -> 行内 SLF4J（U2/r333；R37 的 LegacyLogKit 接缝已退役）</li>
  *   <li>getJson() 不是 jfinal Controller 的方法（jfinal 5.2.6 只有 getRawData/getBean）：它来自 EOVA 的 BaseController.getJson() -> com.alibaba.fastjson.JSON，故 (JSONObject) getJson() 这行在旧栈同样由 BaseController 提供，不需新接缝</li>
  *   <li>【既有缺陷，原样保留 1】index() 的派发循环是【不可达的死逻辑】：Object target = null 之后直接 action.getMethod().invoke(target, args) —— 对实例方法传 null target 必 NPE；且 mapping 全树无人 put（routes 字段同样无人用），循环体从不执行。不得顺手修好</li>
  *   <li>【既有缺陷，原样保留 2】args 是 new Object[100]（100 个 null 实参）—— 同上属死逻辑的一部分</li>
@@ -51,7 +51,7 @@ public class RouterController extends BaseController {
 
         String appsConfig = x.conf.get("eova.api.apps");
         if (x.isEmpty(appsConfig)) {
-            LegacyLogKit.debug("eova.api.apps 为空, 可能无法使用API");
+            LoggerFactory.getLogger(RouterController.class).debug("eova.api.apps 为空, 可能无法使用API");
             return;
         }
         String[] apps = appsConfig.split(";");

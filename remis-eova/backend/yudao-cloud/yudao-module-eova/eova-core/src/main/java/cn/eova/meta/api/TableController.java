@@ -35,7 +35,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.TypeReference;
 import cn.eova.compat.jfinal.core.LegacyController;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import cn.eova.compat.jfinal.kit.LegacyRet;
 import cn.eova.db.EovaGateways;
 import cn.eova.compat.jfinal.plugin.activerecord.LegacyIAtom;
@@ -196,7 +196,7 @@ public class TableController extends BaseController {
                 }
             }
         } catch (Exception e) {
-            LegacyLogKit.error("导出计算总量异常:" + e.getMessage());
+            LoggerFactory.getLogger(TableController.class).error("导出计算总量异常:" + e.getMessage());
         }
 
         List<EovaRecord> data = EovaGateways.get(object.getDs()).find("select * " + sql, parmList.toArray());
@@ -230,7 +230,7 @@ public class TableController extends BaseController {
                 renderText("仅支持导出xls和csv");
             }
         } catch (Exception e) {
-            LegacyLogKit.error("导出异常:" + e.getMessage());
+            LoggerFactory.getLogger(TableController.class).error("导出异常:" + e.getMessage());
             renderText("导出失败，如果数据过多，请联系管理员导出数据！");
         }
     }

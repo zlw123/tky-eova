@@ -11,7 +11,7 @@ import cn.eova.compat.jfinal.aop.LegacyInterceptor;
 import cn.eova.compat.jfinal.aop.LegacyInvocation;
 import cn.eova.compat.jfinal.core.LegacyActionException;
 import cn.eova.compat.jfinal.core.LegacyController;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import cn.eova.db.EovaGateways;
 import cn.eova.db.EovaRecord;
 
@@ -44,7 +44,7 @@ public class ExceptionInterceptor implements LegacyInterceptor {
                 }
             }
 
-            LegacyLogKit.error(e.getMessage(), e);
+            LoggerFactory.getLogger(ExceptionInterceptor.class).error(e.getMessage(), e);
 
             String uri = ctrl.getRequest().getRequestURI();
             String paras = ctrl.getRequest().getQueryString();

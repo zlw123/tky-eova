@@ -13,7 +13,7 @@ import java.util.List;
 
 import cn.eova.common.utils.excel.ExceUtil;
 import cn.eova.model.MetaField;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import cn.eova.db.EovaRecord;
 import cn.eova.compat.render.LegacyRender;
 import cn.eova.compat.render.LegacyRenderException;
@@ -25,7 +25,7 @@ import cn.eova.compat.render.LegacyRenderException;
  * <br><b>刻意保留的既有语义：</b>
  * <ol>
  *   <li>XLSX 下载渲染：Content-disposition 附件名 + ExceUtil.export</li>
- *   <li>【已声明适配】LogKit -> LegacyLogKit；Record -> EovaRecord；com.jfinal.render.{Render,RenderException} -> 接缝</li>
+ *   <li>【已声明适配】LogKit -> 行内 SLF4J（U2/r333）；Record -> EovaRecord；com.jfinal.render.{Render,RenderException} -> 接缝</li>
  * </ol>
  */
 public class XlsxRender extends LegacyRender {
@@ -63,7 +63,7 @@ public class XlsxRender extends LegacyRender {
                     os.close();
                 }
             } catch (IOException e) {
-                LegacyLogKit.error(e.getMessage(), e);
+                LoggerFactory.getLogger(XlsxRender.class).error(e.getMessage(), e);
             }
 
         }

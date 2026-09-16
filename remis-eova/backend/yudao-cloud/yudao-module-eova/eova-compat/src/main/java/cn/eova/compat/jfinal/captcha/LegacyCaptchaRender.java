@@ -13,7 +13,7 @@ import java.awt.image.BufferedImage;
 import java.util.concurrent.ThreadLocalRandom;
 
 import cn.eova.compat.jfinal.core.LegacyController;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import cn.eova.compat.jfinal.kit.LegacyStrKit;
 import cn.eova.compat.render.LegacyRender;
 import cn.eova.compat.render.LegacyRenderException;
@@ -122,12 +122,12 @@ public class LegacyCaptchaRender extends LegacyRender {
             ImageIO.write(image, "jpeg", os);
         } catch (java.io.IOException e) {
             // 旧字节码：LogKit.logNothing(t)；devMode 时抛 RenderException
-            LegacyLogKit.logNothing(e);
+            // 旧实现 LogKit.logNothing(e)：空体 = 有意吞掉异常（r62 语义，原样保留意图）
             if (getDevMode()) {
                 throw new LegacyRenderException(e);
             }
         } catch (Exception e) {
-            LegacyLogKit.logNothing(e);
+            // 旧实现 LogKit.logNothing(e)：空体 = 有意吞掉异常（r62 语义，原样保留意图）
             if (getDevMode()) {
                 throw new LegacyRenderException(e);
             }
@@ -136,7 +136,7 @@ public class LegacyCaptchaRender extends LegacyRender {
                 try {
                     os.close();
                 } catch (Exception e) {
-                    LegacyLogKit.logNothing(e);
+                    // 旧实现 LogKit.logNothing(e)：空体 = 有意吞掉异常（r62 语义，原样保留意图）
                 }
             }
         }

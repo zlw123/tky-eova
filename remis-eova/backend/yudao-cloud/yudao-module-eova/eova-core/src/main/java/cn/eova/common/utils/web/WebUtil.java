@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
 
 import cn.eova.tools.x;
 import cn.eova.compat.jfinal.core.paragetter.LegacyJsonRequest;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 
 /**
  * <p>ported from: cn.eova.common.utils.web.WebUtil
@@ -27,7 +27,7 @@ import cn.eova.compat.jfinal.kit.LegacyLogKit;
  *   <li>【已声明适配 1】javax.servlet.http.HttpServletRequest -> jakarta.servlet.http.HttpServletRequest</li>
  *   <li>【已声明适配 2】com.jfinal.core.paragetter.JsonRequest -> LegacyJsonRequest</li>
  *   <li>    （isAjax 里的 request instanceof JsonRequest 判定）</li>
- *   <li>【已声明适配 3】com.jfinal.kit.LogKit -> LegacyLogKit（R37）</li>
+ *   <li>【已声明适配 3】com.jfinal.kit.LogKit -> 行内 SLF4J（U2/r333；R37 的 LegacyLogKit 接缝已退役）</li>
  *   <li>readData 的字符集与读取分支属既有语义</li>
  * </ol>
  */
@@ -117,7 +117,7 @@ public class WebUtil {
                 try {
                     in.close();
                 } catch (IOException e) {
-                    LegacyLogKit.error(e.getMessage(), e);
+                    LoggerFactory.getLogger(WebUtil.class).error(e.getMessage(), e);
                 }
             }
         }

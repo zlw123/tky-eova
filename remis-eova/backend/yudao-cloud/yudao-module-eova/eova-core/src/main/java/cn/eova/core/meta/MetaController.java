@@ -36,7 +36,7 @@ import cn.eova.compat.jfinal.aop.LegacyBefore;
 import cn.eova.compat.jfinal.core.LegacyNotAction;
 import cn.eova.compat.jfinal.kit.LegacyJsonKit;
 import cn.eova.compat.jfinal.kit.LegacyKv;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import cn.eova.db.EovaGateways;
 import cn.eova.db.EovaRecord;
 import cn.eova.compat.jfinal.plugin.activerecord.LegacyTx;
@@ -359,7 +359,7 @@ public class MetaController extends BaseController {
             // 导入元数据
             String msg = importMeta(ds, type, table, name, code, "id");
             if (!x.isEmpty(msg)) {
-                LegacyLogKit.error(msg);
+                LoggerFactory.getLogger(MetaController.class).error(msg);
             }
         }
 
@@ -646,7 +646,7 @@ public class MetaController extends BaseController {
             String sql = "update eova_field set type = '下拉框', exp = ? where object_code = ? and en = ?";
             EovaGateways.get(Ds.EOVA).update(sql, expCode, objectCode, fieldName);
 
-            LegacyLogKit.info("自动绑定字典成功");
+            LoggerFactory.getLogger(MetaController.class).info("自动绑定字典成功");
         }
     }
 
@@ -717,7 +717,7 @@ public class MetaController extends BaseController {
                     }
                 }
             }
-            LegacyLogKit.info("元数据刷新成功：" + o.getCode());
+            LoggerFactory.getLogger(MetaController.class).info("元数据刷新成功：" + o.getCode());
         }
 
         renderJson(new Easy());

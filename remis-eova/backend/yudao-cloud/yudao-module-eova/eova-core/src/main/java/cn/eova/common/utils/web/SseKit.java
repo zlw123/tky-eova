@@ -18,7 +18,7 @@ import cn.eova.compat.jfinal.core.LegacyConst;
 import cn.eova.compat.jfinal.core.LegacyController;
 import cn.eova.compat.jfinal.kit.LegacyJsonKit;
 import cn.eova.compat.jfinal.kit.LegacyKv;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 
 /**
  * <p>ported from: cn.eova.common.utils.web.SseKit
@@ -27,7 +27,7 @@ import cn.eova.compat.jfinal.kit.LegacyLogKit;
  * <br><b>刻意保留的既有语义：</b>
  * <ol>
  *   <li>SSE 工具（221 行）：按用户维护 AsyncContext、推送 JSON 事件</li>
- *   <li>【已声明适配】Const -> LegacyConst；Controller -> LegacyController；JsonKit -> LegacyJsonKit；Kv -> LegacyKv；LogKit -> LegacyLogKit</li>
+ *   <li>【已声明适配】Const -> LegacyConst；Controller -> LegacyController；JsonKit -> LegacyJsonKit；Kv -> LegacyKv；LogKit -> 行内 SLF4J（U2/r333）</li>
  *   <li>AsyncContext/AsyncEvent/AsyncListener 为 jakarta.servlet（决策 1）</li>
  * </ol>
  */
@@ -214,7 +214,7 @@ public class SseKit {
             writer.flush();
             return !writer.checkError();
         } catch (IOException | IllegalStateException e) {
-            LegacyLogKit.error(e.getMessage());
+            LoggerFactory.getLogger(SseKit.class).error(e.getMessage());
             return false;
         }
     }

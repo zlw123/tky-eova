@@ -26,7 +26,7 @@ import cn.eova.model.MetaObject;
 import cn.eova.tools.x;
 import com.alibaba.fastjson.JSONObject;
 import cn.eova.compat.jfinal.kit.LegacyJsonKit;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import cn.eova.compat.jfinal.kit.LegacyRet;
 import cn.eova.db.EovaGateways;
 import cn.eova.db.EovaPage;
@@ -181,7 +181,7 @@ public class WidgetCtrl extends BaseController {
             renderJson(String.format(ui, page.getTotalRow(), LegacyJsonKit.toJson(page.getList())));
         } catch (Exception e) {
             String msg = exp + " : 查找框查询数据异常:" + e.getMessage();
-            LegacyLogKit.error(msg, e);
+            LoggerFactory.getLogger(WidgetCtrl.class).error(msg, e);
             renderJson(Easy.fail(msg));
         }
     }
@@ -257,7 +257,7 @@ public class WidgetCtrl extends BaseController {
             renderJson(list);
         } catch (Exception e) {
             String msg = exp + " : 下拉框查询数据异常:" + e.getMessage();
-            LegacyLogKit.error(msg, e);
+            LoggerFactory.getLogger(WidgetCtrl.class).error(msg, e);
             renderJson(Easy.fail(msg));
         }
     }
@@ -388,7 +388,7 @@ public class WidgetCtrl extends BaseController {
             renderJson(list);
         } catch (Exception e) {
             String msg = exp + " : 下拉树查询数据异常:" + e.getMessage();
-            LegacyLogKit.error(msg, e);
+            LoggerFactory.getLogger(WidgetCtrl.class).error(msg, e);
             renderJson(Easy.fail(msg));
         }
     }
@@ -485,7 +485,7 @@ public class WidgetCtrl extends BaseController {
 
         } catch (Exception e) {
             String msg = "EovaOption数据获取异常:" + e.getMessage();
-            LegacyLogKit.error(msg, e);
+            LoggerFactory.getLogger(WidgetCtrl.class).error(msg, e);
 
             NO(msg);
         }
@@ -591,7 +591,7 @@ public class WidgetCtrl extends BaseController {
             renderJson(String.format(ui, page.getTotalRow(), LegacyJsonKit.toJson(page.getList())));
         } catch (Exception e) {
             String msg = "查找框查询数据异常:" + e.getMessage();
-            LegacyLogKit.error(msg, e);
+            LoggerFactory.getLogger(WidgetCtrl.class).error(msg, e);
             renderJson(Easy.fail(msg));
         }
     }

@@ -11,7 +11,7 @@ import cn.eova.db.EovaGateways;
 import com.alibaba.fastjson.JSONObject;
 import cn.eova.common.Ds;
 import cn.eova.config.EovaDataSource;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import cn.eova.db.EovaRecord;
 
 /**
@@ -136,7 +136,7 @@ public class ColumnMeta {
                 // 如果没有=号 说明是其它描述eg. 原价:大于等于0
                 if (ss1.contains("=")) {
 
-                    LegacyLogKit.info(String.format("自动生成字典[%s - %s]", this.table, this.name));
+                    LoggerFactory.getLogger(ColumnMeta.class).info(String.format("自动生成字典[%s - %s]", this.table, this.name));
 
                     String[] dicts = ss1.split(",|，");
 
@@ -166,7 +166,7 @@ public class ColumnMeta {
                 }
             }
         } catch (Exception e) {
-            LegacyLogKit.error("元字段备注预处理异常:" + remarks, e);
+            LoggerFactory.getLogger(ColumnMeta.class).error("元字段备注预处理异常:" + remarks, e);
         }
     }
 }

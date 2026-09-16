@@ -19,7 +19,7 @@ import cn.eova.model.MetaField;
 import cn.eova.model.MetaFieldConfig;
 import cn.eova.tools.x;
 import cn.hutool.core.util.RandomUtil;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import cn.eova.compat.jfinal.kit.LegacyRet;
 import cn.eova.db.EovaGateways;
 import cn.eova.db.EovaRecord;
@@ -36,7 +36,7 @@ import cn.eova.compat.jfinal.upload.LegacyUploadFile;
  *   <li>【已声明适配 2】Controller.getFile(name,dir)/getFiles(dir) -> LegacyController 同形方法（新栈由 Spring 解析 multipart；落盘语义在 LegacyMultipartRequest：最终目录 = baseUploadPath + uploadDir、COS 重名策略、jsp/jspx 的 _unsafe 防护、54 项扩展名白名单）</li>
  *   <li>【已声明适配 3】com.jfinal.plugin.activerecord.Record -> cn.eova.db.EovaRecord</li>
  *   <li>【已声明适配 4】Db.use(Ds.EOVA).findById/save -> EovaGateways.get(Ds.EOVA).findById/save</li>
- *   <li>【已声明适配 5】com.jfinal.kit.Ret -> cn.eova.compat.jfinal.kit.LegacyRet；com.jfinal.kit.LogKit -> cn.eova.compat.jfinal.kit.LegacyLogKit</li>
+ *   <li>【已声明适配 5】com.jfinal.kit.Ret -> cn.eova.compat.jfinal.kit.LegacyRet；com.jfinal.kit.LogKit -> 行内 SLF4J（U2/r333；R37 的 LegacyLogKit 接缝已退役）</li>
  *   <li>【既有缺陷，原样保留 1】finally 块 `FileUtil.delete(file.getFile())` 在『提前 return』路径上会 NPE——旧实现如此，不补判空</li>
  *   <li>【既有缺陷，原样保留 2】catch 块用 e.printStackTrace() 而非日志框架（旧实现如此）</li>
  *   <li>【既有缺陷，原样保留 3】isOriginal 只决定 finally 是否回收临时文件；『保留原文件, 无需改名』那段已注释代码不得恢复</li>
@@ -176,7 +176,7 @@ public class UploadUtil {
 
             // 文件另存为
             FileUtil.rename(file.getFile().getPath(), path);
-            LegacyLogKit.info(file.getFile().getPath() + " -> " + newFileName);
+            LoggerFactory.getLogger(UploadUtil.class).info(file.getFile().getPath() + " -> " + newFileName);
 
             // 保留原文件, 无需改名
 //            if (!isOriginal) {
@@ -190,7 +190,7 @@ public class UploadUtil {
 //                }
 //
 //                FileUtil.rename(file.getFile().getPath(), path);
-//                LegacyLogKit.info(file.getFile().getPath() + " -> " + newFileName);
+//                LoggerFactory.getLogger(UploadUtil.class).info(file.getFile().getPath() + " -> " + newFileName);
 //            }
 
 

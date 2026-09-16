@@ -12,7 +12,7 @@ import java.util.Set;
 import cn.eova.tools.x;
 import cn.eova.common.Ds;
 import cn.eova.config.EovaConst;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import cn.eova.compat.jfinal.plugin.LegacyPlugin;
 import cn.eova.db.EovaGateways;
 import cn.eova.db.EovaRecord;
@@ -25,7 +25,7 @@ import cn.eova.db.EovaRecord;
  * <ol>
  *   <li>EOVA 数据库配置装载插件（78 行）：启动时读 eova_config 表填充前端可用配置</li>
  *   <li>【已声明适配 1】com.jfinal.plugin.IPlugin -> cn.eova.compat.jfinal.plugin.LegacyPlugin</li>
- *   <li>【已声明适配 2】Db.use(Ds.EOVA) -> EovaGateways.get(Ds.EOVA)；Record -> EovaRecord；LogKit -> LegacyLogKit</li>
+ *   <li>【已声明适配 2】Db.use(Ds.EOVA) -> EovaGateways.get(Ds.EOVA)；Record -> EovaRecord；LogKit -> 行内 SLF4J（U2/r333）</li>
  *   <li>UI_CONF_KEYS 为 public static final Set，属对外契约（BaseSharedMethod 直接 import 它）</li>
  *   <li>配置装载规则（非 PRD 环境优先取 test 值）属既有语义，不得改写</li>
  * </ol>
@@ -71,7 +71,7 @@ public class EovaConfigPlugin implements LegacyPlugin {
             // 读取DB配置后进行配置初始化(动态更新某些静态变量)
             initConfig();
         } catch (Exception e) {
-            LegacyLogKit.warn("读取eova_config异常:" + e.getMessage());
+            LoggerFactory.getLogger(EovaConfigPlugin.class).warn("读取eova_config异常:" + e.getMessage());
         }
         return true;
     }

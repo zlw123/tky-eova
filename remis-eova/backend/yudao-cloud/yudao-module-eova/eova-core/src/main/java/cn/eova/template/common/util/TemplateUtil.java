@@ -12,7 +12,7 @@ import cn.eova.common.utils.xx;
 import cn.eova.config.EovaConfig;
 import cn.eova.model.Button;
 import cn.eova.model.MetaField;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 
 /**
  * <p>ported from: cn.eova.template.common.util.TemplateUtil
@@ -21,7 +21,7 @@ import cn.eova.compat.jfinal.kit.LegacyLogKit;
  * <br><b>刻意保留的既有语义：</b>
  * <ol>
  *   <li>模板公共工具（93 行）：初始化元对象业务拦截器（含默认拦截器回落）</li>
- *   <li>【已声明适配 1】com.jfinal.kit.LogKit -> LegacyLogKit</li>
+ *   <li>【已声明适配 1】com.jfinal.kit.LogKit -> 行内 SLF4J（U2/r333）</li>
  *   <li>依赖 EovaConfig.getDefaultMetaObjectIntercept()（已按旧源码逐字补入 stub）</li>
  * </ol>
  */
@@ -68,7 +68,7 @@ public class TemplateUtil {
      * @return
      */
     public static String buildException(Exception e) {
-        LegacyLogKit.error("Eova common operation exception:" + e.getMessage(), e);
+        LoggerFactory.getLogger(TemplateUtil.class).error("Eova common operation exception:" + e.getMessage(), e);
 
         String type = e.getClass().getName();
         type = type.equals("java.lang.Exception") ? e.getMessage() : type;

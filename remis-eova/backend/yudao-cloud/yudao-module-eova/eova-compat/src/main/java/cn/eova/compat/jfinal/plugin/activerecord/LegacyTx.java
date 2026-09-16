@@ -7,7 +7,7 @@ package cn.eova.compat.jfinal.plugin.activerecord;
 
 import cn.eova.compat.jfinal.aop.LegacyInterceptor;
 import cn.eova.compat.jfinal.aop.LegacyInvocation;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import cn.eova.db.EovaActiveRecordException;
 import cn.eova.db.EovaDbGateway;
 import cn.eova.db.EovaGateways;
@@ -116,7 +116,7 @@ public class LegacyTx implements LegacyInterceptor {
             RuntimeException mapped = mapThrowable(w.original, outermost);
             if (mapped == null) {
                 // 最外层遇到"静默回滚"信号：回滚已由网关完成，此处不抛（旧实现 LogKit.logNothing）
-                LegacyLogKit.logNothing(w.original);
+                // 旧实现 LogKit.logNothing(w.original)：空体 = 有意吞掉异常（r62 语义，原样保留意图）
                 return;
             }
             throw mapped;

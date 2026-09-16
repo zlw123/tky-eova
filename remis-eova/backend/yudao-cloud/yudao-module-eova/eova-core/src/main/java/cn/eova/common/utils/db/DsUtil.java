@@ -22,7 +22,7 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import cn.eova.common.utils.xx;
 import cn.eova.config.EovaDataSource;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import cn.eova.db.EovaDbGateway;
 import cn.eova.db.EovaGateways;
 import cn.eova.db.EovaRecord;
@@ -40,7 +40,7 @@ import cn.eova.db.EovaRecord;
  *   <li>    表结构自省将读错库。见 DES-DB-OWNERSHIP-R2 §5。</li>
  *   <li>【已声明适配 2】错误串【逐字保留】ds + " datasrouce can not get config"</li>
  *   <li>    （含旧实现原文拼写 datasrouce，属对外可见错误串，不得修正）</li>
- *   <li>【已声明适配 3】Db.use(ds) -> EovaGateways.get(ds)；Record -> EovaRecord；LogKit -> LegacyLogKit</li>
+ *   <li>【已声明适配 3】Db.use(ds) -> EovaGateways.get(ds)；Record -> EovaRecord；LogKit -> 行内 SLF4J（U2/r333）</li>
  *   <li>【既有语义保留】public static Connection conn 为静态共享连接（单例防漏），原样保留</li>
  * </ol>
  */
@@ -388,7 +388,7 @@ public class DsUtil {
                 comments = EovaGateways.get(ds).find(sql, tableNamePattern);
             }
         } catch (Exception e) {
-            LegacyLogKit.error("尝试读取Oracle字段注释发生异常", e);
+            LoggerFactory.getLogger(DsUtil.class).error("尝试读取Oracle字段注释发生异常", e);
         }
         return comments;
     }

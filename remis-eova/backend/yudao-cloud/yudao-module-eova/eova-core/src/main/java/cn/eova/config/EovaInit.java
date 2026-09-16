@@ -7,7 +7,7 @@ package cn.eova.config;
 
 import cn.eova.tools.x;
 import cn.eova.core.api.ApiRouterHandler;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 
 /**
  * <p>ported from: cn.eova.config.EovaInit
@@ -16,7 +16,7 @@ import cn.eova.compat.jfinal.kit.LegacyLogKit;
  * <br><b>刻意保留的既有语义：</b>
  * <ol>
  *   <li>启动初始化（34 行）：注册 ApiRouterHandler 等</li>
- *   <li>【已声明适配 1】com.jfinal.kit.LogKit -> LegacyLogKit</li>
+ *   <li>【已声明适配 1】com.jfinal.kit.LogKit -> 行内 SLF4J（U2/r333）</li>
  * </ol>
  */
 public class EovaInit {
@@ -30,7 +30,7 @@ public class EovaInit {
 
         String appsConfig = x.conf.get("eova.api.apps");
         if (x.isEmpty(appsConfig)) {
-            LegacyLogKit.debug("eova.api.apps 为空, 可能无法使用API");
+            LoggerFactory.getLogger(EovaInit.class).debug("eova.api.apps 为空, 可能无法使用API");
             return;
         }
         String[] apps = appsConfig.split(";");

@@ -34,7 +34,7 @@ import java.util.Map.Entry;
 
 import cn.eova.tools.x;
 import cn.eova.common.utils.io.FileUtil;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 
 /**
  * <p>ported from: cn.eova.common.utils.HttpUtils
@@ -44,7 +44,7 @@ import cn.eova.compat.jfinal.kit.LegacyLogKit;
  * <ol>
  *   <li>HTTP 客户端工具：GET/POST/文件上传/SOAP，含 X509 信任全部证书的既有实现</li>
  *   <li>【已声明适配 1】javax.servlet.http.HttpServletRequest -> jakarta.servlet.http.HttpServletRequest</li>
- *   <li>【已声明适配 2】com.jfinal.kit.LogKit -> cn.eova.compat.jfinal.kit.LegacyLogKit（R37）</li>
+ *   <li>【已声明适配 2】com.jfinal.kit.LogKit -> 行内 SLF4J（U2/r333；R37 的 LegacyLogKit 接缝已退役）</li>
  *   <li>readData(request) 读取请求体，依赖 getReader/getInputStream 的既有分支</li>
  * </ol>
  */
@@ -256,7 +256,7 @@ public class HttpUtils {
                 try {
                     inputStream.close();
                 } catch (IOException e) {
-                    LegacyLogKit.error(e.getMessage(), e);
+                    LoggerFactory.getLogger(HttpUtils.class).error(e.getMessage(), e);
                 }
             }
         }
@@ -279,7 +279,7 @@ public class HttpUtils {
                 try {
                     br.close();
                 } catch (IOException e) {
-                    LegacyLogKit.error(e.getMessage(), e);
+                    LoggerFactory.getLogger(HttpUtils.class).error(e.getMessage(), e);
                 }
         }
     }

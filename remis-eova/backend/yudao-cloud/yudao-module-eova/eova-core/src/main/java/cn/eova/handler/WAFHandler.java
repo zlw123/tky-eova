@@ -13,7 +13,7 @@ import cn.eova.common.utils.web.RequestUtil;
 import cn.eova.tools.x;
 import cn.eova.compat.jfinal.handler.LegacyHandler;
 import cn.eova.compat.jfinal.kit.LegacyHandlerKit;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import cn.eova.compat.jfinal.kit.LegacyStrKit;
 import cn.eova.compat.cache.LegacyCacheKit;
 
@@ -25,7 +25,7 @@ import cn.eova.compat.cache.LegacyCacheKit;
  * <ol>
  *   <li>WAF 处理器（71 行）：extends Handler，按缓存计数拦截异常请求</li>
  *   <li>【已声明适配】Handler -> LegacyHandler；HandlerKit -> LegacyHandlerKit；</li>
- *   <li>    CacheKit -> LegacyCacheKit；StrKit -> LegacyStrKit；LogKit -> LegacyLogKit</li>
+ *   <li>    CacheKit -> LegacyCacheKit；StrKit -> LegacyStrKit；LogKit -> 行内 SLF4J（U2/r333）</li>
  *   <li>缓存名 BaseCache.WAF_404/WAF_BAN 与计数阈值属契约</li>
  * </ol>
  */
@@ -66,7 +66,7 @@ public class WAFHandler extends LegacyHandler {
         if (next >= LIMIT) {
             LegacyCacheKit.put(BaseCache.WAF_BAN, ip, Boolean.TRUE);
             LegacyCacheKit.remove(BaseCache.WAF_404, ip);
-            LegacyLogKit.warn("WAF softban ip=" + ip);
+            LoggerFactory.getLogger(WAFHandler.class).warn("WAF softban ip=" + ip);
         }
     }
 
@@ -77,7 +77,7 @@ public class WAFHandler extends LegacyHandler {
         LegacyCacheKit.put(BaseCache.WAF_404, ip, next);
 
         if (next % LOG_EVERY == 0) {
-            LegacyLogKit.warn("WAF 404 scan ip=" + ip + ", scan num=" + next);
+            LoggerFactory.getLogger(WAFHandler.class).warn("WAF 404 scan ip=" + ip + ", scan num=" + next);
         }
     }
 }

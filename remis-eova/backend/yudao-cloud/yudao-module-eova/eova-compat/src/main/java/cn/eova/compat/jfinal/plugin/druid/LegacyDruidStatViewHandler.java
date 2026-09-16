@@ -6,7 +6,7 @@
 package cn.eova.compat.jfinal.plugin.druid;
 
 import cn.eova.compat.jfinal.handler.LegacyHandler;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -121,7 +121,7 @@ public class LegacyDruidStatViewHandler extends LegacyHandler {
         Object servlet = servlet();
         if (servlet == null) {
             // jakarta 版 StatViewServlet 不可装载（druid 缺席）⇒ 记日志并放行（不伪造页面）
-            LegacyLogKit.warn("Druid 监控页不可用（jakarta 版 StatViewServlet 不可装载，druid 是否在 classpath？）："
+            LoggerFactory.getLogger(LegacyDruidStatViewHandler.class).warn("Druid 监控页不可用（jakarta 版 StatViewServlet 不可装载，druid 是否在 classpath？）："
                     + statViewPath);
             return;
         }

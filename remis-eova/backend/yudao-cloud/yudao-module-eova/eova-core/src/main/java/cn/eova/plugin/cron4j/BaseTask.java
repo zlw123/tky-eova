@@ -4,7 +4,7 @@ import java.util.Calendar;
 
 import cn.eova.tools.x;
 import cn.eova.compat.jfinal.kit.LegacyKv;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import it.sauronsoftware.cron4j.Task;
 import it.sauronsoftware.cron4j.TaskExecutionContext;
 
@@ -15,7 +15,7 @@ import it.sauronsoftware.cron4j.TaskExecutionContext;
  * <br><b>刻意保留的既有语义：</b>
  * <ol>
  *   <li>定时任务基类；cron4j 与旧工程同版本（2.2.5）</li>
- *   <li>Kv->LegacyKv、LogKit->LegacyLogKit</li>
+ *   <li>Kv->LegacyKv、LogKit->行内 SLF4J（U2/r333）</li>
  * </ol>
  */
 public abstract class BaseTask extends Task {
@@ -69,7 +69,7 @@ public abstract class BaseTask extends Task {
 
         boolean flag = start <= hour && hour <= end;
         if (flag) {
-            LegacyLogKit.info(String.format("Sleeping[%s-%s]: Now Hour=%s", start, end, hour));
+            LoggerFactory.getLogger(BaseTask.class).info(String.format("Sleeping[%s-%s]: Now Hour=%s", start, end, hour));
         }
         return flag;
     }

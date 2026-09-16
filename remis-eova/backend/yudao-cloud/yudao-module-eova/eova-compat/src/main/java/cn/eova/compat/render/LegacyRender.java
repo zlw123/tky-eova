@@ -5,7 +5,7 @@
  */
 package cn.eova.compat.render;
 
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -33,8 +33,8 @@ import jakarta.servlet.http.HttpServletResponse;
  *   <li>{@code javax.servlet.http.*} → {@code jakarta.servlet.http.*}
  *       （Spring Boot 3 强制 jakarta，{@code javax.servlet} 不在新栈 classpath 上；
  *        Servlet 5→6 该次迁移主要是命名空间，API 形状不变）</li>
- *   <li>{@code com.jfinal.log.Log} → {@code cn.eova.compat.jfinal.kit.LegacyLogKit}
- *       （R37：jfinal 的日志门面不在 enjoy 制品中）</li>
+ *   <li>{@code com.jfinal.log.Log} → 行内 SLF4J（U2/r333：{@code LoggerFactory.getLogger(本类.class)}；
+ *       R37 的 {@code cn.eova.compat.jfinal.kit.LegacyLogKit} 接缝已退役）</li>
  * </ul>
  *
  * <p><b>静态状态说明：</b>旧实现里 {@code encoding} / {@code devMode} 由
@@ -149,8 +149,8 @@ public abstract class LegacyRender {
             try {
                 c.close();
             } catch (Exception e) {
-                // 旧实现用 Log.getLog(getClass()) 记录；新栈走 LegacyLogKit（R37）
-                LegacyLogKit.error(e.getMessage(), e);
+                // 旧实现用 Log.getLog(getClass()) 记录；新栈走行内 SLF4J（U2/r333；R37 的 LegacyLogKit 已退役）
+                LoggerFactory.getLogger(LegacyRender.class).error(e.getMessage(), e);
             }
         }
     }

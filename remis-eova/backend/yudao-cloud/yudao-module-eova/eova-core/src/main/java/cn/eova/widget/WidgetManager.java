@@ -49,7 +49,7 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import cn.eova.compat.jfinal.core.LegacyController;
 import cn.eova.compat.jfinal.kit.LegacyKv;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import cn.eova.db.EovaGateways;
 import cn.eova.db.EovaRecord;
 
@@ -599,7 +599,7 @@ public class WidgetManager {
             String txt = r.getStr(textField);
             if (txt == null) {
                 txt = val;
-                LegacyLogKit.error(String.format("根据表达式结果集翻译文本发现文本为Null, textField=%s, %s=%s", textField, valueField, val));
+                LoggerFactory.getLogger(WidgetManager.class).error(String.format("根据表达式结果集翻译文本发现文本为Null, textField=%s, %s=%s", textField, valueField, val));
                 // throw new RuntimeException(String.format("根据表达式结果集翻译文本发现文本为Null, textField=%s, %s=%s", textField, valueField, val));
             }
             // 命中文案

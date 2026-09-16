@@ -4,7 +4,7 @@ import cn.eova.tools.x;
 import cn.eova.aop.AopContext;
 import cn.eova.common.Ds;
 import cn.eova.hook.EovaMetaHook;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 import cn.eova.db.EovaGateways;
 import cn.eova.db.EovaRecord;
 
@@ -55,14 +55,14 @@ public class MetaConfigHook implements EovaMetaHook {
         // 测试值 || 默认值
         String val = e.get("test", e.getStr("value"));
 
-        LegacyLogKit.info("更新配置文件[%s=%s]", key, val);
+        LoggerFactory.getLogger(MetaConfigHook.class).info("更新配置文件[%s=%s]", key, val);
         x.conf.addConfig(key, val);
 
 //        // 页面模版常量 动态更新配置
 //        EovaConst.getPageConst().forEach((k, v) -> {
 //            if (v.equalsIgnoreCase(key)) {
 //                EovaConfig.putSharedVar(k, val);
-//                LegacyLogKit.info("页面模版常量[%s=%s]更新", k, key);
+//                LoggerFactory.getLogger(MetaConfigHook.class).info("页面模版常量[%s=%s]更新", k, key);
 //            }
 //        });
 

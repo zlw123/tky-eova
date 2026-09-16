@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 import cn.eova.tools.x;
 import com.alibaba.druid.util.JdbcUtils;
 import cn.eova.config.EovaConfig;
-import cn.eova.compat.jfinal.kit.LegacyLogKit;
+import org.slf4j.LoggerFactory;
 
 /**
  * <p>ported from: cn.eova.common.utils.xx
@@ -26,7 +26,7 @@ import cn.eova.compat.jfinal.kit.LegacyLogKit;
  * <br><b>刻意保留的既有语义：</b>
  * <ol>
  *   <li>通用工具门面（582 行）：字符串/集合/时间/数值/路径与方言判断</li>
- *   <li>【已声明适配】com.jfinal.kit.LogKit -> cn.eova.compat.jfinal.kit.LegacyLogKit（R37）</li>
+ *   <li>【已声明适配】com.jfinal.kit.LogKit -> 行内 SLF4J（U2/r333；R37 的 LegacyLogKit 接缝已退役）</li>
  *   <li>【已声明依赖 stub】4 处方言判断读 cn.eova.config.EovaConfig.EOVA_DBTYPE（292/304/317/332）。EovaConfig 当前为【已声明 compile-stub】，其 EOVA_DBTYPE 声明与旧源码逐字一致（public static DbType EOVA_DBTYPE = DbType.mysql），故这 4 个分支的取值语义正确；但 EovaConfig 完整 port 前，本单元不得标记 verified（见账本 blockedBy）。</li>
  * </ol>
  */
@@ -47,7 +47,7 @@ public class xx {
     public static final String DS_EOVA = "eova";
 
     public static void debug(String s, Object... args) {
-        LegacyLogKit.debug(String.format(s, args));
+        LoggerFactory.getLogger(xx.class).debug(String.format(s, args));
     }
 
     /**
@@ -84,7 +84,7 @@ public class xx {
     }
 
     public static void info(String s, Object... args) {
-        LegacyLogKit.info(s, args);
+        LoggerFactory.getLogger(xx.class).info(s, args);
     }
 
     /**
