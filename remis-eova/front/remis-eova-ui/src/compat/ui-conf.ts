@@ -87,6 +87,35 @@ export function applyUiConf(
 }
 
 /**
+ * **同源基址兜底**（DES-012 P4-(d)，r332 实测缺口）。
+ *
+ * <p>制品自带的配置存储（`eovaui.js` 内 `Wt`/`dl`，即 `me.conf`）**默认值是
+ * `{web_file:"http://127.0.0.1:9090"}`**（旧栈地址）；而 EvUpload 的预览/下载基址取
+ * `prop.file_down || conf.get("web_cdn") || conf.get("web_file")`
+ * ⇒ 前后分离后若不干预，新栈前端在**附件预览/下载**时会请求**旧栈 9090**（实测确认，非死配置）。</p>
+ *
+ * <p>本函数在启动期把 `web_file` 覆盖为**同源**（`window.location.origin`）—— 与旧栈"基址=自己"
+ * 的语义等价；调用点必须在真正的 conf 来源**之前**（来源方案见 DES-003），这样真 CDN 值仍可覆盖。</p>
+ *
+ * @param options 注入点（`me` / `origin` 可注入，便于判据）
+ * @returns 是否写入成功
+ */
+export function seedSameOriginBase(options: { me?: unknown; origin?: string } = {}): boolean {
+  const me = (options.me ?? getEovaMe()) as { conf?: EovaConf } | undefined
+  const conf = me?.conf
+  if (!conf || typeof conf.putAll !== 'function') {
+    return false
+  }
+  const origin = options.origin ?? (typeof window !== 'undefined' ? window.location.origin : '')
+  // 只接受正常的 http(s) 源（jsdom/`file:` 场景不写，避免把 `null` 之类塞进 conf）
+  if (!origin || !/^https?:\/\//.test(origin)) {
+    return false
+  }
+  conf.putAll(JSON.stringify({ web_file: origin }))
+  return true
+}
+
+/**
  * 启动期装配 `me.conf`（幂等；失败只告警不抛错）。
  *
  * @param options 注入点

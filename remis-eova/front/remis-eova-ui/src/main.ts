@@ -8,7 +8,7 @@ import { loadLegacyRuntime } from './compat/legacy-runtime'
 import { installAuthGuard } from './router/auth-guard'
 import { getEovaUI } from './compat/eova-runtime'
 import { installWindowUrls } from './compat/ui-urls'
-import { loadUiConf } from './compat/ui-conf'
+import { loadUiConf, seedSameOriginBase } from './compat/ui-conf'
 import { createBootstrapFetcher, setDefaultBootstrapFetcher } from './compat/page-bootstrap-fetcher'
 import { consumeEmbedEntry } from './compat/embed-entry'
 
@@ -36,6 +36,9 @@ async function bootstrap(): Promise<void> {
 
   await loadLegacyRuntime()
   installWindowUrls()
+  // ③a ★ P4-(d)：先兜底"同源基址"（制品 me.conf 默认 web_file=旧栈 9090 ⇒ 附件预览/下载会打错服务），
+  //     再装配真正的 conf 来源（真值可覆盖兜底值）。
+  seedSameOriginBase()
   await loadUiConf()
 
   // 页面引导数据的默认来源（DES-004 §3.1：POST /api/page/bootstrap）。

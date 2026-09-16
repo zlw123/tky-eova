@@ -7,13 +7,11 @@ package cn.eova.web;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -340,33 +338,4 @@ public class LegacyStaticAssets {
         return type != null ? type : "application/octet-stream";
     }
 
-    /**
-     * 供给静态资源：命中则写响应并返回 true；未命中返回 false（调用方继续走动作路由）。
-     *
-     * <p><b>★ r332（DES-012 P1-U1）起本方法【不在请求路径上】</b>：请求期的静态供给已改由
-     * {@link StaticResourceHandlerMapping} + Spring {@code ResourceHttpRequestHandler} 承担
-     * （响应头/条件请求/字节写出都是 Spring 的机制），{@code LegacyDispatcher} 不再调用本方法。</p>
-     *
-     * <p><b>为什么还留着</b>：既有单元判据 {@code LegacyStaticAssetsTest#servesExistingFileInsideStaticSpace}
-     * 直接钉它（红线 R1：既有判据一行不改仍全绿）⇒ 本方法当前是"判据用的参考实现"。
-     * 退役它需要改判据，属"重新设计"范畴 ⇒ 留待 P4 收口时由拿哥单独裁定，**不在此单元内动**。</p>
-     *
-     * @param path     请求路径
-     * @param response 响应
-     * @return 是否已直出
-     * @throws IOException 写响应失败
-     */
-    public boolean serve(String path, HttpServletResponse response) throws IOException {
-        File f = resolve(path);
-        if (f == null) {
-            return false;
-        }
-        byte[] bytes = Files.readAllBytes(f.toPath());
-        response.setStatus(HttpServletResponse.SC_OK);
-        response.setContentType(contentType(path));
-        response.setContentLength(bytes.length);
-        response.setDateHeader("Last-Modified", f.lastModified());
-        response.getOutputStream().write(bytes);
-        return true;
-    }
 }

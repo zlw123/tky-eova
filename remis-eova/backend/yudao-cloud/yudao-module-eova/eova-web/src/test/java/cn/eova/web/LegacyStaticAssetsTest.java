@@ -48,20 +48,40 @@ class LegacyStaticAssetsTest {
     }
 
     @Test
-    @DisplayName("命中：静态空间内的真实文件可解析，且 serve 出的字节与 Content-Type 正确")
-    void servesExistingFileInsideStaticSpace(@TempDir Path dir) throws Exception {
+    @DisplayName("★ 命中：静态空间内的真实文件可解析（**内容供给**由真容器判据覆盖，本处只钉解析政策）")
+    void resolvesExistingFileInsideStaticSpace(@TempDir Path dir) throws Exception {
         LegacyStaticAssets assets = new LegacyStaticAssets(fixture(dir));
 
         File f = assets.resolve("/eova/lib/x.css");
         assertNotNull(f, "静态空间内的真实文件必须命中");
         assertEquals("x.css", f.getName());
+        assertEquals("text/css", assets.contentType("/eova/lib/x.css"), "旧栈实测 .css ⇒ text/css");
+        assertArrayEquals("body{color:red}".getBytes(StandardCharsets.UTF_8),
+                Files.readAllBytes(f.toPath()), "命中的文件字节必须与夹具一致");
 
-        MockHttpServletResponse resp = new MockHttpServletResponse();
-        assertTrue(assets.serve("/eova/lib/x.css", resp), "serve 应直出并返回 true");
-        assertEquals(200, resp.getStatus());
-        assertEquals("text/css", resp.getContentType(), "旧栈实测 .css ⇒ text/css");
-        assertArrayEquals("body{color:red}".getBytes(StandardCharsets.UTF_8), resp.getContentAsByteArray(),
-                "直出字节必须与文件逐字节一致");
+        // ★★ r332（经拿哥授权的一次性判据演进）：原此处断言的是 `assets.serve(path, resp)` 直出
+        //   （200 + Content-Type + 字节）。U1 之后**该方法已不在请求路径上**，故本轮删除它，
+        //   可观测面按下方"覆盖转移"改由两条判据承担 —— 不是放宽：
+        //     ① `LegacyStaticAssetContractTest`（真容器 + 冻结 sha256）：三条运行时制品 + 两个样式的
+        //        **200 + 字节金标 + Content-Type** 逐字节核对；
+        //     ② `StaticResourceHandlerMappingTest`：命中 ⇒ 交出 Spring `ResourceHttpRequestHandler`，
+        //        并**真实驱动 `handleRequest`** 断言状态码 / Content-Type / 字节；
+        //     ③ 本类新增**反向结构断言**（下方 serveIsGone）：旧机制不得回归。
+    }
+
+    /**
+     * **反向结构判据**（演进后替代原"serve 直出"断言）：`LegacyStaticAssets` 不得再有 `serve` 方法。
+     *
+     * <p>理由：该方法在 U1 后已离开请求路径，保留它等于留着"第二条供给路径"；判据断言其**不存在**，
+     * 比断言"它写下 200"更能防回归 —— 覆盖由①真容器字节金标 ②Spring 供给器行为判据承担。</p>
+     */
+    @Test
+    @DisplayName("★ 反向：`LegacyStaticAssets` 不得再声明 `serve`（旧机制不得回归）")
+    void serveIsGone() {
+        boolean present = java.util.Arrays.stream(LegacyStaticAssets.class.getDeclaredMethods())
+                .anyMatch(m -> m.getName().equals("serve"));
+        assertFalse(present, "★ 静态供给已由 StaticResourceHandlerMapping + Spring ResourceHttpRequestHandler 承担；"
+                + "LegacyStaticAssets#serve 不得回归（判据 ①LegacyStaticAssetContractTest ②StaticResourceHandlerMappingTest 承担覆盖）");
     }
 
     @Test

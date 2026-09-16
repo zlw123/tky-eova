@@ -40,6 +40,13 @@ class TimeUtilsGoldenTest {
     /** 当前时间类方法的容差（毫秒）—— 覆盖测试执行期间的时钟推进 */
     private static final long NOW_TOLERANCE_MS = 5_000L;
 
+    /** ★ 单位级容差的**上界**（物理漂移最多 1 个单位；放宽它等于掩盖真实差异 ⇒ 有判据钉住） */
+    private static final long UNIT_TOLERANCE_UNITS = 1L;
+
+    /** 内部读系统时钟的"按单位差"方法（截断计数 ⇒ 两次调用跨边界时最多差 1 个单位） */
+    private static final java.util.Set<String> UNIT_TOLERANT = java.util.Set.of(
+            "differDayByNow", "differHoursByNow", "differMinByNow", "differSecByNow");
+
     private static ClassLoader isolated;
 
     /** 固定基准时刻，避免用例随运行日期漂移 */
@@ -251,27 +258,44 @@ class TimeUtilsGoldenTest {
                 "getNowWeek 应等于 WEEK_OF_YEAR");
         assertTrue(week >= 1 && week <= 53, "第几周应在 1..53，实际=" + week);
 
-        // 与显式时间戳的参数化方法：严格比对
-        Timestamp past = new Timestamp(System.currentTimeMillis() - 3_600_000L);
-        Timestamp future = new Timestamp(System.currentTimeMillis() + 3_600_000L);
+        // 与显式时间戳的参数化方法：比对（见下方"单位级容差"的说明）
+        // ★ r332（经拿哥授权的一次性判据演进）：**单一时间快照** —— 原来 past/future 各调一次
+        //   `System.currentTimeMillis()`，两次取值本身就可能跨边界。
+        long base = System.currentTimeMillis();
+        Timestamp past = new Timestamp(base - 3_600_000L);
+        Timestamp future = new Timestamp(base + 3_600_000L);
         for (String m : new String[]{"differDayByNow", "differHoursByNow", "differMinByNow",
                 "differSecByNow", "differMsByNow", "isOutTime"}) {
             Class<?>[] types = {Timestamp.class};
             // 逐一单侧比对（毫秒级方法会随时间漂移，故比对形状/类型而非精确值）
             String o1 = render(callOld("TimestampUtil", m, types, past));
             String n1 = render(callNew("TimestampUtil", m, types, past));
+            // ★ r332（经拿哥授权的一次性判据演进）：`differ*ByNow` 家族**内部读系统时钟**，
+            //   而本判据把"旧实现"与"新实现"两次调用**先后**执行 —— 两次之间跨越秒/分/时/天边界时，
+            //   截断后的计数会相差 1（这就是本轮实测到的偶发抖动：全量跑偶发红 1 次、单跑两次全绿）。
+            //   ⇒ 对它们断言"**单位级容差 ±1**"（物理漂移的上界），而不是逐字相等；
+            //     `isOutTime` 是布尔语义，仍**严格相等**；`differMsByNow` 用毫秒容差。
+            //   这是把"依赖两次取时钟的巧合"换成"有界且可解释的断言"，属**确定性加强**而非放宽契约。
             if (m.equals("differMsByNow")) {
                 assertTrue(Math.abs(Long.parseLong(o1) - Long.parseLong(n1)) < NOW_TOLERANCE_MS,
-                        m + " 应在容差内（旧=" + o1 + " 新=" + n1 + "）");
-            } else {
-                if (!o1.equals(n1)) {
-                    diffs.append("  ").append(m).append("(past) 旧=").append(o1).append(" 新=").append(n1).append('\n');
-                }
+                        m + " 应在毫秒容差内（旧=" + o1 + " 新=" + n1 + "）");
+            } else if (UNIT_TOLERANT.contains(m)) {
+                assertTrue(UNIT_TOLERANCE_UNITS <= 1,
+                        "★ 单位级容差上界只能是 1（物理漂移上界）；放宽它等于掩盖真实差异，实际=" + UNIT_TOLERANCE_UNITS);
+                assertTrue(Math.abs(Long.parseLong(o1) - Long.parseLong(n1)) <= UNIT_TOLERANCE_UNITS,
+                        m + "(past) 只允许 ±" + UNIT_TOLERANCE_UNITS + " 单位（两次调用跨边界）：旧=" + o1 + " 新=" + n1);
+            } else if (!o1.equals(n1)) {
+                diffs.append("  ").append(m).append("(past) 旧=").append(o1).append(" 新=").append(n1).append('\n');
             }
             String o2 = render(callOld("TimestampUtil", m, types, future));
             String n2 = render(callNew("TimestampUtil", m, types, future));
             if (m.equals("differMsByNow")) {
                 assertTrue(Math.abs(Long.parseLong(o2) - Long.parseLong(n2)) < NOW_TOLERANCE_MS, m);
+            } else if (UNIT_TOLERANT.contains(m)) {
+                assertTrue(UNIT_TOLERANCE_UNITS <= 1,
+                        "★ 单位级容差上界只能是 1（物理漂移上界）；放宽它等于掩盖真实差异，实际=" + UNIT_TOLERANCE_UNITS);
+                assertTrue(Math.abs(Long.parseLong(o2) - Long.parseLong(n2)) <= UNIT_TOLERANCE_UNITS,
+                        m + "(future) 只允许 ±" + UNIT_TOLERANCE_UNITS + " 单位：旧=" + o2 + " 新=" + n2);
             } else if (!o2.equals(n2)) {
                 diffs.append("  ").append(m).append("(future) 旧=").append(o2).append(" 新=").append(n2).append('\n');
             }
